@@ -1,7 +1,10 @@
+import { LogList } from "@/components/features/log-list/log-list";
+import { mockLogs } from "@/lib/mock-logs";
+
 export default function Home() {
   return (
     <main>
-      <h1>Anchor</h1>
+      <LogList lines={mockLogs} />
     </main>
   );
 }

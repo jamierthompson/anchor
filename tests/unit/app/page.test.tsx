@@ -1,32 +1,20 @@
-import { render, screen } from "@testing-library/react";
-import { describe, it, expect } from "vitest";
+import { render } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
 
 import Home from "@/app/page";
+import { mockLogs } from "@/lib/mock-logs";
 
-/*
- * Sanity test for the home page.
+/**
+ * Smoke test for the home page.
  *
- * This is the first test in the project and serves a dual purpose:
- * it confirms the home page renders the expected heading, AND it
- * exercises the entire test setup end-to-end:
- *
- *   - The @/* path alias resolves (via Vite's native tsconfigPaths)
- *   - JSX/TSX is transformed (via @vitejs/plugin-react)
- *   - render() works in jsdom
- *   - jest-dom matchers are wired up (toBeInTheDocument)
- *
- * If this test passes, the test framework is fully functional and
- * future tests can focus on real behavior.
+ * The home page is wired to render the full mock log fixture through
+ * the LogList component, so this test asserts the wiring without
+ * duplicating the granular tests on LogList and LogLine — it just
+ * confirms the page mounts and produces one <li> per fixture line.
  */
 describe("Home page", () => {
-  it("should render the Anchor heading", () => {
-    render(<Home />);
-
-    const heading = screen.getByRole("heading", {
-      level: 1,
-      name: /anchor/i,
-    });
-
-    expect(heading).toBeInTheDocument();
+  it("renders the LogList with every mock fixture line", () => {
+    const { container } = render(<Home />);
+    expect(container.querySelectorAll("li")).toHaveLength(mockLogs.length);
   });
 });
