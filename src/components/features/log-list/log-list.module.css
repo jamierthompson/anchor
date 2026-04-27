@@ -1,0 +1,19 @@
+/*
+ * Container for the sequence of log lines.
+ *
+ * Resets the default unordered-list styling — log lines convey
+ * sequence and identity, but we don't want bullet markers or list
+ * indentation. The Radix Scroll Area wrapper that the spec calls
+ * for arrives in a later task; for now this is a plain block.
+ */
+
+.list {
+  margin: 0;
+  padding: var(--space-2) 0;
+  list-style: none;
+  background: var(--color-bg);
+}
+
+.item {
+  margin: 0;
+}
