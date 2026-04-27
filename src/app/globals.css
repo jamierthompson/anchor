@@ -1,4 +1,111 @@
-/* Minimal global reset. Design tokens land in :root in the next commit. */
+/*
+ * Design token foundation.
+ *
+ * All tokens live as CSS custom properties on :root so they're
+ * available everywhere — including inside CSS Module files, which
+ * reference them via `var(--token-name)`. CSS Modules scope class
+ * names but cannot scope custom properties; defining tokens here
+ * keeps the design system globally available without polluting the
+ * class namespace.
+ *
+ * Theme strategy: dark is the default at :root. Light mode is
+ * applied by setting `data-theme="light"` on the <html> element.
+ * Using an explicit attribute (rather than @media prefers-color-scheme)
+ * gives JS direct control over which theme is active so a manual
+ * toggle can override the user's OS preference.
+ *
+ * Token values below are placeholders. They'll be refined when the
+ * reference palette is sampled in a later pass.
+ */
+
+:root {
+  /* ---------- Color: dark theme (default) ---------- */
+  --color-bg:           #0a0a0a;
+  --color-bg-elevated:  #131313; /* filter bar, toolbar, popovers */
+  --color-fg:           #ededed;
+  --color-fg-muted:     #999999; /* timestamps, secondary text */
+  --color-fg-subtle:    #666666; /* DEBUG level, deeply de-emphasized */
+  --color-border:       #2a2a2a;
+
+  --color-accent:       #4a9eff; /* selected line left-border, focus ring */
+  --color-warn:         #f5a623; /* WARN level prefix */
+  --color-error:        #f04438; /* ERROR level prefix */
+
+  /*
+   * Dimmed-text opacity. Per the unified rule, any line revealed by
+   * View Context (but not matching the active filter) is dimmed.
+   * Defining this as a token keeps body text, instance pills, and
+   * level badges in lockstep when the value is tuned.
+   */
+  --opacity-dimmed: 0.4;
+
+  /* ---------- Spacing: 8px base scale ---------- */
+  /* Names mirror the multiplier of the 4px half-step, so usage
+     reads at-a-glance: --space-2 = 2 × 4px = 8px. */
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+
+  /* ---------- Typography ---------- */
+  /*
+   * --font-mono falls back to the system mono stack until JetBrains
+   * Mono is wired up via next/font in the next commit. At that point
+   * next/font injects --font-jetbrains-mono onto the <html> element
+   * and the var() chain below picks it up automatically.
+   */
+  --font-mono:
+    var(--font-jetbrains-mono),
+    ui-monospace,
+    "SF Mono",
+    Menlo,
+    Consolas,
+    monospace;
+
+  --font-weight-regular:  400;
+  --font-weight-medium:   500;
+  --font-weight-semibold: 600;
+
+  /* ---------- Motion ---------- */
+  /*
+   * A single easing curve is used across the prototype for
+   * consistency (per the spec's choreography section). Durations
+   * map to the three transition kinds:
+   *   fast (~120ms) — dim/undim opacity changes
+   *   base (~150ms) — text opacity on context expand/collapse
+   *   slow (~200ms) — height transitions on context expand/collapse
+   * These will be tuned by feel during the animation pass.
+   */
+  --ease-standard: cubic-bezier(0.32, 0.72, 0, 1);
+  --duration-fast: 120ms;
+  --duration-base: 150ms;
+  --duration-slow: 200ms;
+}
+
+/* Light theme overrides. Activated via <html data-theme="light">. */
+[data-theme="light"] {
+  --color-bg:           #ffffff;
+  --color-bg-elevated:  #f7f7f7;
+  --color-fg:           #171717;
+  --color-fg-muted:     #6b6b6b;
+  --color-fg-subtle:    #999999;
+  --color-border:       #e4e4e4;
+  /* Accent / WARN / ERROR / level colors carry over from :root for now. */
+}
+
+html {
+  /* Hint to the browser so form controls, scrollbars, etc. honor
+     the active theme. */
+  color-scheme: dark;
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+}
+
+/* ---------- Reset ---------- */
 
 *,
 *::before,
@@ -14,6 +121,10 @@ body {
 }
 
 body {
+  background: var(--color-bg);
+  color: var(--color-fg);
+  font-family: var(--font-mono);
+  font-weight: var(--font-weight-regular);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
