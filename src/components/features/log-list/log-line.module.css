@@ -1,0 +1,95 @@
+/*
+ * Visual styling for a single log line.
+ *
+ * The component renders two distinct shapes:
+ *   - regular lines: a three-column grid (time / instance / message)
+ *   - deploy boundaries: a horizontal rule with inline text
+ *
+ * No interactive states are wired yet — selection, focus, dimming, and
+ * hover affordances arrive in later tasks. The `data-level` attribute
+ * on the root is set so future styling (e.g. dimmed level badges) can
+ * key off it without changing the component's render.
+ */
+
+.line {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  align-items: baseline;
+  gap: var(--space-3);
+  padding: var(--space-1) var(--space-4);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.time {
+  color: var(--color-fg-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.instance {
+  display: inline-block;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  background: var(--color-bg-elevated);
+  color: var(--color-fg);
+  font-size: 12px;
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+}
+
+.message {
+  color: var(--color-fg);
+  word-break: break-word;
+}
+
+/* DEBUG lines render at the subtle text color across the whole message. */
+.messageMuted {
+  color: var(--color-fg-subtle);
+  word-break: break-word;
+}
+
+.levelWARN {
+  color: var(--color-warn);
+  font-weight: var(--font-weight-medium);
+}
+
+.levelERROR {
+  color: var(--color-error);
+  font-weight: var(--font-weight-medium);
+}
+
+.requestId {
+  display: inline-block;
+  margin-left: var(--space-2);
+  padding: 0 var(--space-1);
+  border: 1px solid var(--color-border);
+  border-radius: 3px;
+  background: var(--color-bg-elevated);
+  color: var(--color-fg-muted);
+  font-size: 11px;
+}
+
+/* Deploy boundary: horizontal divider with the deploy event text inline. */
+.deployBoundary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  font-family: var(--font-mono);
+}
+
+.deployRule {
+  flex: 1;
+  height: 1px;
+  background: var(--color-border);
+}
+
+.deployText {
+  color: var(--color-fg-muted);
+  font-size: 13px;
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+}
