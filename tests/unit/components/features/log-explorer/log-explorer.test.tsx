@@ -187,11 +187,12 @@ describe("LogExplorer — View Context toggle", () => {
     expect(liFor(/row four info/).getAttribute("data-visible")).toBe("false");
   });
 
-  it("clears the open context (and accent) when a filter change excludes the selected line", () => {
-    // Diverges from spec §5's "preserve" rule — see the inline rationale
-    // in LogExplorer's dispatchFilter. The test pins the chosen UX:
-    // stale accent on a hidden line is more confusing than dropping the
-    // saved state.
+  it("hides the accent when a filter change excludes the selected line, restores it when the filter loosens (spec §5)", () => {
+    // The saved selection persists in state behind the scenes — only
+    // the visual accent is gated on (filter active AND selected line
+    // still matches). Re-adding a filter that re-includes the line
+    // brings the accent (and the surrounding context window) back in
+    // place without the user re-opening it.
     render(<LogExplorer lines={fixture} />);
     applyErrorFilter();
 
@@ -208,19 +209,25 @@ describe("LogExplorer — View Context toggle", () => {
       screen.getByRole("button", { name: "Remove filter: level: error" }),
     );
 
-    // Accent gone; state cleared. Re-adding the ERROR filter does NOT
-    // restore the old context — the user re-opens it explicitly if they
-    // want it back.
+    // Accent suppressed — gate fails because l1 no longer matches.
     expect(liFor(/row one error/).getAttribute("data-selected")).toBe("false");
+
+    // Re-add ERROR — l1 matches again, gate passes, accent returns.
     fireEvent.click(
       screen.getAllByRole("button", { name: /Filter by level ERROR/ })[0],
     );
-    expect(liFor(/row one error/).getAttribute("data-selected")).toBe("false");
+    expect(liFor(/row one error/).getAttribute("data-selected")).toBe("true");
+    // Surrounding context lines come back dimmed too — the window is
+    // active again because the saved state was preserved.
+    expect(liFor(/row zero info/).getAttribute("data-visible")).toBe("true");
+    expect(liFor(/row zero info/).getAttribute("data-dimmed")).toBe("true");
   });
 
-  it("clears the open context when all filters are removed", () => {
-    // Spec §3 hides the View Context affordance entirely when no filter
-    // is active; an open context shouldn't survive reaching that state.
+  it("hides the accent when all filters are removed, restores it when a matching filter is re-added", () => {
+    // Spec §3 gates the View Context affordance on at least one filter
+    // being active. With no filter active the accent shouldn't render,
+    // but the saved selection stays in state so re-applying any filter
+    // that the line matches brings the selection back in place.
     render(<LogExplorer lines={fixture} />);
     applyErrorFilter();
 
@@ -234,7 +241,13 @@ describe("LogExplorer — View Context toggle", () => {
       screen.getByRole("button", { name: "Remove filter: level: error" }),
     );
 
-    // Every line is trivially matched, but the saved context is gone.
+    // Accent suppressed — gate fails because no filter is active.
     expect(liFor(/row one error/).getAttribute("data-selected")).toBe("false");
+
+    // Re-apply ERROR — saved selection re-emerges.
+    fireEvent.click(
+      screen.getAllByRole("button", { name: /Filter by level ERROR/ })[0],
+    );
+    expect(liFor(/row one error/).getAttribute("data-selected")).toBe("true");
   });
 });

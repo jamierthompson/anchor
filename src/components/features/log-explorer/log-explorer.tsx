@@ -33,10 +33,20 @@ import styles from "./log-explorer.module.css";
 
 /**
  * How long the per-frame compensation loop runs after a state change.
- * Tracks the longest line transition: 200ms height + 100ms delay = 300ms.
- * Buffer to 350ms so the loop covers any rounding and Motion's settle.
+ *
+ * Longest line transition is the collapse path: 150ms opacity + 150ms
+ * delay + 200ms height = 350ms. Motion clears its inline `style` props
+ * a frame or two AFTER the animation completes, and that settle pass
+ * shifts surrounding heights by a sub-pixel amount. If the loop ends
+ * on the same frame the animation does, those final shifts go
+ * uncompensated and the anchor leaks a few pixels each toggle —
+ * accumulating into visible upward drift across repeated toggles.
+ *
+ * 600ms gives ~250ms of grace past the longest transition, which has
+ * empirically held the anchor steady through repeated open/close
+ * cycles on the same line.
  */
-const COMPENSATION_DURATION_MS = 350;
+const COMPENSATION_DURATION_MS = 600;
 
 type AnchorSnapshot = { id: string; top: number };
 
@@ -214,57 +224,38 @@ export function LogExplorer({ lines }: { lines: readonly LogLine[] }) {
   }, []);
 
   /**
-   * Filter dispatch wrapper that owns three coupled responsibilities:
+   * Filter dispatch wrapper that owns two coupled responsibilities:
    *
-   *   1. Predict the next filter state and decide whether the open
-   *      context survives. Spec §3 hides the View Context affordance
-   *      when no filter is active and spec §5 gates context activation
-   *      on the selected line matching the filter — mirror that gate
-   *      here so the saved state matches what's reachable.
-   *   2. Anchor the user's view. Capture the topmost-currently-
+   *   1. Anchor the user's view. Capture the topmost-currently-
    *      visible line that will still be visible after the change,
    *      then run a per-frame scrollTop compensation so that line
    *      stays put visually while surrounding lines reflow.
-   *   3. Apply the actual state changes (filter dispatch + optional
-   *      openContext clear).
+   *   2. Apply the filter state change.
    *
-   * Doing the cleanup and the anchor selection together keeps both
-   * tied to the action that triggered them — no post-render reactive
-   * effects.
+   * Open context state is *not* mutated here — per spec §5, when a
+   * filter change excludes the selected line we preserve the
+   * `selectedLineId` so that loosening the filter later brings the
+   * context back in place. The visibility half of that rule is
+   * already handled by `deriveLines` (windowed reveals collapse to
+   * hidden when the selected line stops matching). The visual
+   * selected-accent is suppressed via `effectiveSelectedLineId`
+   * below — the saved state is real, the blue edge just doesn't
+   * render until the gate is satisfied again.
    */
   const dispatchFilter = useCallback(
     (action: FilterAction) => {
       const nextFilter = filterReducer(filterState, action);
 
-      // Decide whether openContext survives the next filter state.
-      let nextOpenContext: OpenContext | null = openContext;
-      if (openContext) {
-        const selected = lines.find(
-          (l) => l.id === openContext.selectedLineId,
-        );
-        const stillActivatable =
-          !!selected &&
-          hasAnyFilter(nextFilter) &&
-          lineMatchesFilter(selected, nextFilter);
-        if (!stillActivatable) {
-          nextOpenContext = null;
-        }
-      }
-
-      const anchorId = findStableViewportAnchor(nextFilter, nextOpenContext);
+      const anchorId = findStableViewportAnchor(nextFilter, openContext);
       const anchor = anchorId ? captureAnchor(anchorId) : null;
 
       rawDispatch(action);
-      if (nextOpenContext !== openContext) {
-        setOpenContext(nextOpenContext);
-      }
 
       if (anchor) startCompensation(anchor);
     },
     [
       filterState,
       openContext,
-      lines,
       captureAnchor,
       findStableViewportAnchor,
       startCompensation,
@@ -275,6 +266,27 @@ export function LogExplorer({ lines }: { lines: readonly LogLine[] }) {
     () => deriveLines(lines, filterState, openContext ? [openContext] : []),
     [lines, filterState, openContext],
   );
+
+  /**
+   * The id passed down for the selected-accent visual.
+   *
+   * `openContext` is preserved across filter changes (spec §5) so that
+   * loosening a filter restores the saved selection in place. But the
+   * blue accent should only render while the selection is *meaningful* —
+   * at least one filter active AND the selected line still matches. When
+   * either part of the gate fails, the saved state stays put behind the
+   * scenes but the accent disappears, avoiding the prior reading where a
+   * stale blue edge sat on a hidden line.
+   */
+  const effectiveSelectedLineId = useMemo(() => {
+    if (!openContext) return undefined;
+    if (!hasAnyFilter(filterState)) return undefined;
+    const selected = lines.find((l) => l.id === openContext.selectedLineId);
+    if (!selected) return undefined;
+    return lineMatchesFilter(selected, filterState)
+      ? openContext.selectedLineId
+      : undefined;
+  }, [openContext, filterState, lines]);
 
   const handleFilterToggle = useCallback(
     (target: FilterToggleTarget) =>
@@ -328,7 +340,7 @@ export function LogExplorer({ lines }: { lines: readonly LogLine[] }) {
           viewportRef={viewportRef}
           onFilterToggle={handleFilterToggle}
           onToggleContext={handleToggleContext}
-          selectedLineId={openContext?.selectedLineId}
+          selectedLineId={effectiveSelectedLineId}
         />
       </div>
     </MotionConfig>
