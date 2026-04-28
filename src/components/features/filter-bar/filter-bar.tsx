@@ -1,6 +1,7 @@
 "use client";
 
 import * as Popover from "@radix-ui/react-popover";
+import { Check, Plus, X } from "lucide-react";
 import {
   type Dispatch,
   type MouseEvent as ReactMouseEvent,
@@ -86,9 +87,7 @@ function AddFilterPopover({ state, dispatch }: FilterBarProps) {
     <Popover.Root>
       <Popover.Trigger asChild>
         <button type="button" className={styles.addTrigger}>
-          <span aria-hidden="true" className={styles.addPlus}>
-            +
-          </span>
+          <Plus aria-hidden="true" size={14} className={styles.addPlus} />
           Add filter
         </button>
       </Popover.Trigger>
@@ -176,7 +175,7 @@ function ToggleRow({
       onClick={onClick}
     >
       <span className={styles.toggleCheck} aria-hidden="true">
-        {isActive ? "✓" : ""}
+        {isActive ? <Check size={12} /> : null}
       </span>
       <span className={styles.toggleLabel}>{label}</span>
     </button>
@@ -224,7 +223,7 @@ function Chip({
         onClick={handleRemoveClick}
         aria-label={`Remove filter: ${label}`}
       >
-        <span aria-hidden="true">×</span>
+        <X aria-hidden="true" size={12} />
       </button>
     </span>
   );
