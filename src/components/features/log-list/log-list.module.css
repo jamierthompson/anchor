@@ -17,3 +17,19 @@
 .item {
   margin: 0;
 }
+
+/*
+ * Visibility and dim state are driven by data attributes on the <li>.
+ * `display: none` is the task #2 stand-in — task #4 swaps it for height
+ * and opacity transitions so the array can stay stable through the
+ * animation. The dimmed opacity uses the design token so any tuning of
+ * the dim weight propagates to instance pills and level badges via
+ * inheritance.
+ */
+.item[data-visible="false"] {
+  display: none;
+}
+
+.item[data-dimmed="true"] {
+  opacity: var(--opacity-dimmed);
+}

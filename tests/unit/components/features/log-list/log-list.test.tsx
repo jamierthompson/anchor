@@ -2,31 +2,41 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { LogList } from "@/components/features/log-list/log-list";
-import type { LogLine } from "@/types/log";
+import type { DerivedLogLine, LogLine } from "@/types/log";
 
-const sampleLines: LogLine[] = [
-  {
+/** Helper — promotes a raw line to a derived one with explicit visibility. */
+const derive = (
+  line: LogLine,
+  flags: { isVisible?: boolean; isDimmed?: boolean } = {},
+): DerivedLogLine => ({
+  ...line,
+  isVisible: flags.isVisible ?? true,
+  isDimmed: flags.isDimmed ?? false,
+});
+
+const sampleLines: DerivedLogLine[] = [
+  derive({
     id: "log_0001",
     timestamp: Date.UTC(2026, 3, 27, 14, 0, 0),
     instance: "7tbsm",
     level: "INFO",
     message: "Server listening on port 3000",
-  },
-  {
+  }),
+  derive({
     id: "log_0002",
     timestamp: Date.UTC(2026, 3, 27, 14, 0, 5),
     instance: "a3kx2",
     level: "WARN",
     message: "Cache miss rate elevated",
-  },
-  {
+  }),
+  derive({
     id: "log_0003",
     timestamp: Date.UTC(2026, 3, 27, 14, 0, 10),
     instance: "7tbsm",
     level: "INFO",
     message: "🎉 Deploy live · srv-7tbsm@a3f2c1",
     isDeployBoundary: true,
-  },
+  }),
 ];
 
 describe("LogList", () => {
@@ -59,5 +69,31 @@ describe("LogList", () => {
     expect(container.querySelectorAll("li")).toHaveLength(0);
     // The container element itself should still exist.
     expect(container.querySelector("ul")).not.toBeNull();
+  });
+
+  it("keeps every line in the DOM regardless of visibility — hiding is CSS-driven", () => {
+    // The fixed-array commitment: filtering must not unmount lines, so a
+    // hidden line still renders as an <li>; only `data-visible="false"`
+    // changes. Stable identity is what unlocks the animation in task #4.
+    const lines: DerivedLogLine[] = sampleLines.map((line, index) =>
+      derive(line, { isVisible: index !== 1 }),
+    );
+    const { container } = render(<LogList lines={lines} />);
+    const items = Array.from(container.querySelectorAll("li"));
+    expect(items).toHaveLength(3);
+    expect(items[0].getAttribute("data-visible")).toBe("true");
+    expect(items[1].getAttribute("data-visible")).toBe("false");
+    expect(items[2].getAttribute("data-visible")).toBe("true");
+  });
+
+  it("marks dimmed lines via data-dimmed for opacity styling", () => {
+    const lines: DerivedLogLine[] = [
+      derive(sampleLines[0], { isDimmed: true }),
+      derive(sampleLines[1]),
+    ];
+    const { container } = render(<LogList lines={lines} />);
+    const items = Array.from(container.querySelectorAll("li"));
+    expect(items[0].getAttribute("data-dimmed")).toBe("true");
+    expect(items[1].getAttribute("data-dimmed")).toBe("false");
   });
 });

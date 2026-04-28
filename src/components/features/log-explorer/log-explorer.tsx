@@ -1,9 +1,10 @@
 "use client";
 
-import { useReducer } from "react";
+import { useMemo, useReducer } from "react";
 
 import { FilterBar } from "@/components/features/filter-bar/filter-bar";
 import { LogList } from "@/components/features/log-list/log-list";
+import { deriveLines } from "@/lib/derive-lines";
 import {
   filterReducer,
   initialFilterState,
@@ -20,10 +21,10 @@ import styles from "./log-explorer.module.css";
  * mock data in as a prop, which keeps the data import on the server
  * side of the boundary.
  *
- * In this commit, the FilterBar is wired to real state but the
- * LogList still receives raw lines — chips will render and toggle,
- * but the list won't yet hide or dim anything. Wiring the list to
- * derived lines is the next commit on this branch.
+ * Filter state changes are folded into the rendered list via
+ * deriveLines, memoized so the recompute only fires when either the
+ * input array or the filter state changes. Open context windows will
+ * become a third dependency in task #3.
  */
 export function LogExplorer({ lines }: { lines: readonly LogLine[] }) {
   const [filterState, dispatch] = useReducer(
@@ -31,10 +32,15 @@ export function LogExplorer({ lines }: { lines: readonly LogLine[] }) {
     initialFilterState,
   );
 
+  const derivedLines = useMemo(
+    () => deriveLines(lines, filterState),
+    [lines, filterState],
+  );
+
   return (
     <div className={styles.explorer}>
       <FilterBar state={filterState} dispatch={dispatch} />
-      <LogList lines={lines} />
+      <LogList lines={derivedLines} />
     </div>
   );
 }
