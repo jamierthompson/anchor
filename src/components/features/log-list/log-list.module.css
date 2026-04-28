@@ -22,10 +22,17 @@
    *
    * overflow: hidden is what makes the height: 0 collapse actually
    * clip the line content during the expand/collapse animation.
+   *
+   * border-left-color transitions on selected-state changes so the
+   * accent fades in on context-open and out on context-close (spec §6
+   * "Selected line's left border fades out"). Motion owns the inline
+   * height + opacity styles — this transition only targets the border
+   * color, so the two don't fight.
    */
   margin: 0;
   border-left: 4px solid transparent;
   overflow: hidden;
+  transition: border-left-color var(--duration-base) var(--ease-standard);
 }
 
 /*

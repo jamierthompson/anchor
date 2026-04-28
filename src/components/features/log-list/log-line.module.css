@@ -61,8 +61,15 @@
  *   visible + dimmed   → 1 × 0.4 = 0.4
  *   hidden  + dimmed   → 0 × 0.4 = 0   (mid-collapse it stacks too)
  *
- * Dim-transition timing arrives in the next commit on this branch.
+ * The dim/undim transition is the spec's "fast" duration (~120ms) —
+ * just an opacity tween, no choreography. Targets opacity on this
+ * element only; the parent <li>'s opacity is owned by Motion and
+ * isn't affected by this CSS rule.
  */
+.line {
+  transition: opacity var(--duration-fast) var(--ease-standard);
+}
+
 .line[data-dimmed="true"] {
   opacity: var(--opacity-dimmed);
 }
