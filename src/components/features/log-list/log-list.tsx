@@ -36,15 +36,44 @@ import styles from "./log-list.module.css";
 // points directly rather than a CSS string.
 const EASE = [0.32, 0.72, 0, 1] as const;
 
-const EXPAND_TRANSITION: Transition = {
+/**
+ * Two transition modes:
+ *
+ *   - "instant" (filter dispatches): the height jumps to/from 0 with
+ *     no transition. Opacity still fades over 150ms so there's
+ *     visible "something is changing" feedback. Pairs with the live-
+ *     tail stick-to-bottom in LogExplorer — the document size
+ *     resolves immediately, the viewport follows. The list reads as
+ *     "snappy" because the structural change happens at once.
+ *
+ *   - "slow" (context toggles): height eases over 200ms because the
+ *     spatial expansion/contraction IS the point — the user opened a
+ *     context window to see lines fluidly appear around their anchor.
+ *     Heights ease the choreography of "this region is opening up."
+ *
+ * LogExplorer flips the mode per dispatch type. Filter dispatches set
+ * "instant"; `handleToggleContext` sets "slow" for the duration of
+ * the slow animation, then resets.
+ */
+
+const INSTANT_EXPAND: Transition = {
+  height: { duration: 0 },
+  opacity: { duration: 0 },
+};
+
+const INSTANT_COLLAPSE: Transition = {
+  opacity: { duration: 0 },
+  height: { duration: 0 },
+};
+
+const SLOW_EXPAND: Transition = {
   height: { duration: 0.2, ease: EASE },
   opacity: { duration: 0.15, delay: 0.075, ease: EASE },
 };
 
-const COLLAPSE_TRANSITION: Transition = {
+const SLOW_COLLAPSE: Transition = {
   opacity: { duration: 0.15, ease: EASE },
-  // Test: delay = opacity duration so heights only start collapsing
-  // after items have fully faded out (no overlap).
+  // Height eases over 200ms after opacity finishes (no overlap).
   height: { duration: 0.2, delay: 0.15, ease: EASE },
 };
 
@@ -54,6 +83,7 @@ export function LogList({
   onFilterToggle,
   onToggleContext,
   selectedLineId,
+  transitionMode = "instant",
 }: {
   lines: readonly DerivedLogLine[];
   /**
@@ -64,11 +94,22 @@ export function LogList({
    * its own ref through.
    */
   viewportRef?: Ref<HTMLDivElement>;
-  onFilterToggle?: (target: FilterToggleTarget) => void;
+  onFilterToggle?: (target: FilterToggleTarget, sourceLineId: string) => void;
   onToggleContext?: (lineId: string) => void;
   /** Id of the line currently anchoring an open context — drives the left-border accent. */
   selectedLineId?: string;
+  /**
+   * Animation mode for line height changes:
+   *   - "instant" (default): height jumps to/from 0; opacity still fades.
+   *     Used for filter dispatches — list resolves snappily.
+   *   - "slow": height eases over 200ms. Used for context toggles
+   *     where the spatial expansion IS the point.
+   */
+  transitionMode?: "instant" | "slow";
 }) {
+  const expand = transitionMode === "slow" ? SLOW_EXPAND : INSTANT_EXPAND;
+  const collapse =
+    transitionMode === "slow" ? SLOW_COLLAPSE : INSTANT_COLLAPSE;
   return (
     <ScrollArea.Root className={styles.scrollRoot} type="hover">
       <ScrollArea.Viewport
@@ -93,9 +134,7 @@ export function LogList({
                 height: line.isVisible ? "auto" : 0,
                 opacity: line.isVisible ? 1 : 0,
               }}
-              transition={
-                line.isVisible ? EXPAND_TRANSITION : COLLAPSE_TRANSITION
-              }
+              transition={line.isVisible ? expand : collapse}
             >
               <LogLine
                 line={line}

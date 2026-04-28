@@ -4,6 +4,7 @@ import { MotionConfig } from "motion/react";
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useReducer,
   useRef,
@@ -24,7 +25,6 @@ import {
   initialFilterState,
   lineMatchesFilter,
   type FilterAction,
-  type FilterState,
   type FilterToggleTarget,
 } from "@/lib/filter-state";
 import type { LogLine } from "@/types/log";
@@ -34,19 +34,29 @@ import styles from "./log-explorer.module.css";
 /**
  * How long the per-frame compensation loop runs after a state change.
  *
- * Longest line transition is the collapse path: 150ms opacity + 150ms
- * delay + 200ms height = 350ms. Motion clears its inline `style` props
- * a frame or two AFTER the animation completes, and that settle pass
- * shifts surrounding heights by a sub-pixel amount. If the loop ends
- * on the same frame the animation does, those final shifts go
- * uncompensated and the anchor leaks a few pixels each toggle —
- * accumulating into visible upward drift across repeated toggles.
- *
- * 600ms gives ~250ms of grace past the longest transition, which has
- * empirically held the anchor steady through repeated open/close
- * cycles on the same line.
+ * Longest single-line transition is the collapse path: 150ms opacity
+ * + 150ms delay + 200ms height = 350ms. Motion clears its inline
+ * `style` props a frame or two after the animation completes, and
+ * that settle pass shifts surrounding heights by a sub-pixel amount.
+ * 600ms gives ~250ms of grace past the longest transition — covers
+ * the settle without leaking uncompensated drift across repeated
+ * toggles.
  */
 const COMPENSATION_DURATION_MS = 600;
+
+/**
+ * Tolerance for "the user is at the bottom of the list."
+ *
+ * Live-tail UIs (Slack, Console.app, kubectl logs --follow) treat
+ * "at the bottom" as a sticky state — once you're there, new content
+ * auto-scrolls into view. Once you scroll up to investigate, the
+ * stream freezes for you.
+ *
+ * 50px is loose enough to count "I just scrolled up by a hair while
+ * the tail kept moving" as still-at-bottom, tight enough that
+ * actively scrolling away clearly disengages the stick.
+ */
+const AT_BOTTOM_TOLERANCE_PX = 50;
 
 type AnchorSnapshot = { id: string; top: number };
 
@@ -74,6 +84,23 @@ export function LogExplorer({ lines }: { lines: readonly LogLine[] }) {
   // a one-line change when that lands.
   const [openContext, setOpenContext] = useState<OpenContext | null>(null);
 
+  // Single spatial anchor for the per-frame scroll compensation.
+  // Resolved per dispatch with this priority:
+  //   1. The line the user clicked from (pill click, context toggle).
+  //   2. The previously-set anchor if it's still in viewport — keeps
+  //      the spatial story coherent across follow-up dispatches.
+  //   3. The line nearest the viewport's vertical center (fallback).
+  const [anchorLineId, setAnchorLineId] = useState<string | null>(null);
+
+  // Animation mode for line height transitions in LogList. "slow"
+  // during context toggles (heights ease as part of the choreography);
+  // "instant" otherwise (filters resolve snappily). Set by
+  // handleToggleContext, auto-clears after the slow animation ends.
+  const [transitionMode, setTransitionMode] = useState<"instant" | "slow">(
+    "instant",
+  );
+  const slowModeTimeoutRef = useRef<number | null>(null);
+
   // Ref to the Radix Scroll Area viewport. The anchor mechanics below
   // read getBoundingClientRect on a target `<li>` and write scrollTop
   // on this viewport — manual compensation rather than relying on
@@ -99,73 +126,117 @@ export function LogExplorer({ lines }: { lines: readonly LogLine[] }) {
   );
 
   /**
-   * Pick the topmost line currently in the viewport that will still be
-   * visible after a state change. Used by filter dispatches as the
-   * anchor target so the user's view stays put even when state changes
-   * happen above their visible window or remove the selected line.
-   *
-   * Iterates only through in-viewport elements (early break once we're
-   * past the bottom). Predicts visibility under (nextFilter,
-   * nextOpenContext) using the same rule deriveLines applies.
+   * Whether the line with the given id is currently visible in the
+   * viewport. Used to decide whether a previously-set anchor (e.g.
+   * from a context expansion) is still a meaningful reference for the
+   * current dispatch — if it's scrolled out of view, the spatial
+   * story has moved on and we should pick a fresh anchor.
    */
-  const findStableViewportAnchor = useCallback(
-    (
-      nextFilter: FilterState,
-      nextOpenContext: OpenContext | null,
-    ): string | null => {
-      if (!viewportRef.current) return null;
-      const viewportRect = viewportRef.current.getBoundingClientRect();
+  const isInViewport = useCallback((lineId: string): boolean => {
+    if (!viewportRef.current) return false;
+    const viewport = viewportRef.current;
+    const el = viewport.querySelector<HTMLElement>(
+      `[data-line-id="${lineId}"]`,
+    );
+    if (!el) return false;
+    const viewportRect = viewport.getBoundingClientRect();
+    const elRect = el.getBoundingClientRect();
+    return (
+      elRect.bottom >= viewportRect.top && elRect.top <= viewportRect.bottom
+    );
+  }, []);
 
-      const indexById = new Map<string, number>();
-      for (let i = 0; i < lines.length; i++) {
-        indexById.set(lines[i].id, i);
+  /**
+   * Pick the line whose vertical center is closest to the viewport's
+   * vertical center. Fallback anchor when no source line is provided
+   * and no previous anchor remains in viewport. Pure spatial — doesn't
+   * predict survival, doesn't care about derive.
+   */
+  const findMiddleVisibleLine = useCallback((): string | null => {
+    if (!viewportRef.current) return null;
+    const viewport = viewportRef.current;
+    const viewportRect = viewport.getBoundingClientRect();
+    const middleY = viewportRect.top + viewportRect.height / 2;
+    const items = viewport.querySelectorAll<HTMLElement>("[data-line-id]");
+
+    let bestId: string | null = null;
+    let bestDistance = Infinity;
+    for (const item of items) {
+      const rect = item.getBoundingClientRect();
+      if (rect.bottom < viewportRect.top) continue;
+      if (rect.top > viewportRect.bottom) break;
+      const itemMiddle = rect.top + rect.height / 2;
+      const dist = Math.abs(itemMiddle - middleY);
+      if (dist < bestDistance) {
+        bestDistance = dist;
+        bestId = item.getAttribute("data-line-id");
       }
+    }
+    return bestId;
+  }, []);
 
-      // Resolve the next context's window once — predicted visibility
-      // for surrounding lines depends on it.
-      let windowStart: number | null = null;
-      let windowEnd: number | null = null;
-      if (nextOpenContext) {
-        const selectedIdx = indexById.get(nextOpenContext.selectedLineId);
-        if (selectedIdx !== undefined) {
-          const selected = lines[selectedIdx];
-          if (lineMatchesFilter(selected, nextFilter)) {
-            windowStart = selectedIdx - nextOpenContext.range;
-            windowEnd = selectedIdx + nextOpenContext.range;
-          }
-        }
-      }
-
-      const willBeVisible = (line: LogLine, idx: number): boolean => {
-        if (line.isDeployBoundary) return true;
-        if (lineMatchesFilter(line, nextFilter)) return true;
-        if (windowStart === null || windowEnd === null) return false;
-        return idx >= windowStart && idx <= windowEnd;
-      };
-
-      const items =
-        viewportRef.current.querySelectorAll<HTMLElement>("[data-line-id]");
-      for (const item of items) {
-        const rect = item.getBoundingClientRect();
-        // Skip rows that are above the visible area.
-        if (rect.bottom < viewportRect.top) continue;
-        // Stop once we're past the bottom — list is in document order.
-        if (rect.top > viewportRect.bottom) break;
-
-        const id = item.getAttribute("data-line-id");
-        if (!id) continue;
-        const idx = indexById.get(id);
-        if (idx === undefined) continue;
-
-        if (willBeVisible(lines[idx], idx)) {
-          return id;
-        }
-      }
-
-      return null;
+  /**
+   * Resolve the anchor for a dispatch under the priority rules:
+   *   1. Caller-supplied source line (pill click, context toggle).
+   *   2. Existing anchor if still in viewport.
+   *   3. Middle-of-viewport fallback.
+   * Returns the chosen id (or null if the viewport is empty).
+   */
+  const resolveAnchor = useCallback(
+    (sourceLineId?: string): string | null => {
+      if (sourceLineId) return sourceLineId;
+      if (anchorLineId && isInViewport(anchorLineId)) return anchorLineId;
+      return findMiddleVisibleLine();
     },
-    [lines],
+    [anchorLineId, isInViewport, findMiddleVisibleLine],
   );
+
+  /**
+   * Whether the user is currently at (or within tolerance of) the
+   * bottom of the list. Drives the live-tail "stick" behavior — at-
+   * bottom users get auto-scrolled to follow content as the document
+   * shrinks; scrolled-up users get pinned to their visible content
+   * via anchor compensation instead.
+   */
+  const isAtBottom = useCallback((): boolean => {
+    if (!viewportRef.current) return false;
+    const v = viewportRef.current;
+    const maxScroll = v.scrollHeight - v.clientHeight;
+    return v.scrollTop >= maxScroll - AT_BOTTOM_TOLERANCE_PX;
+  }, []);
+
+  /**
+   * Per-frame loop that pins scrollTop to the bottom of the list.
+   * Used after a dispatch when the user was at-bottom. As Motion
+   * animates hiding lines toward height: 0 the document `scrollHeight`
+   * shrinks smoothly; setting `scrollTop` to the new max each frame
+   * keeps the user glued to the bottom for the duration. Reads as a
+   * smooth scroll-toward-bottom rather than a snap, because the
+   * scrollHeight change itself is gradual.
+   */
+  const startStickToBottom = useCallback(() => {
+    if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+    const deadline = performance.now() + COMPENSATION_DURATION_MS;
+
+    const tick = () => {
+      const v = viewportRef.current;
+      if (!v) {
+        rafRef.current = null;
+        return;
+      }
+      const target = Math.max(0, v.scrollHeight - v.clientHeight);
+      if (Math.abs(target - v.scrollTop) > 0.5) {
+        v.scrollTop = target;
+      }
+      if (performance.now() < deadline) {
+        rafRef.current = requestAnimationFrame(tick);
+      } else {
+        rafRef.current = null;
+      }
+    };
+
+    rafRef.current = requestAnimationFrame(tick);
+  }, []);
 
   /**
    * Per-frame compensation loop. After a state change, layout is going
@@ -213,24 +284,49 @@ export function LogExplorer({ lines }: { lines: readonly LogLine[] }) {
     rafRef.current = requestAnimationFrame(tick);
   }, []);
 
-  // Cancel any in-flight compensation when the explorer unmounts so
-  // the rAF loop doesn't try to read a torn-down DOM.
+  // Cancel any in-flight rAF / timeout when the explorer unmounts so
+  // they don't try to touch a torn-down DOM.
   useEffect(() => {
     return () => {
-      if (rafRef.current !== null) {
-        cancelAnimationFrame(rafRef.current);
-      }
+      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+      if (slowModeTimeoutRef.current !== null)
+        clearTimeout(slowModeTimeoutRef.current);
     };
   }, []);
 
+  // Live-tail convention: open at the bottom of the list. useLayoutEffect
+  // runs after hydration commit but BEFORE the browser's next paint,
+  // so the post-hydration paint shows the bottom — no flash of "wrong
+  // scroll position" from this effect.
+  //
+  // BUT — Next.js SSRs the LogExplorer's first render. The initial
+  // HTML lands in the browser at scrollTop=0 and PAINTS before JS
+  // hydrates. To prevent that pre-hydration flash, the viewport is
+  // hidden via CSS until we set `data-scroll-ready` here. The user
+  // sees a brief blank during JS load, then the bottom of the list —
+  // never the top with mid-list deploy boundaries flashing through.
+  useLayoutEffect(() => {
+    const v = viewportRef.current;
+    if (!v) return;
+    v.scrollTop = v.scrollHeight - v.clientHeight;
+    v.setAttribute("data-scroll-ready", "true");
+  }, []);
+
   /**
-   * Filter dispatch wrapper that owns two coupled responsibilities:
+   * Filter dispatch wrapper.
    *
-   *   1. Anchor the user's view. Capture the topmost-currently-
-   *      visible line that will still be visible after the change,
-   *      then run a per-frame scrollTop compensation so that line
-   *      stays put visually while surrounding lines reflow.
-   *   2. Apply the filter state change.
+   * Two scroll behaviors after the dispatch, branched on whether the
+   * user is at the bottom of the list (live-tail convention):
+   *
+   *   - At-bottom: stick to the bottom. As Motion shrinks hiding
+   *     lines, `startStickToBottom` follows the new max scrollTop
+   *     each frame. The user's view smoothly trails the bottom of
+   *     content. Matches Slack/Console.app/`logs --follow` behavior.
+   *
+   *   - Scrolled-up: pin a visible line via anchor compensation. The
+   *     anchor is resolved by priority — `sourceLineId` (pill click)
+   *     wins, else the previous anchor if still in viewport, else
+   *     middle-of-viewport. Their reading position stays put.
    *
    * Open context state is *not* mutated here — per spec §5, when a
    * filter change excludes the selected line we preserve the
@@ -243,21 +339,43 @@ export function LogExplorer({ lines }: { lines: readonly LogLine[] }) {
    * render until the gate is satisfied again.
    */
   const dispatchFilter = useCallback(
-    (action: FilterAction) => {
-      const nextFilter = filterReducer(filterState, action);
+    (action: FilterAction, sourceLineId?: string) => {
+      const wasAtBottom = isAtBottom();
 
-      const anchorId = findStableViewportAnchor(nextFilter, openContext);
-      const anchor = anchorId ? captureAnchor(anchorId) : null;
+      // Filter dispatches override any in-flight slow mode left over
+      // from a recent context toggle — the filter's snappy resolution
+      // is the dominant interaction.
+      if (slowModeTimeoutRef.current !== null) {
+        clearTimeout(slowModeTimeoutRef.current);
+        slowModeTimeoutRef.current = null;
+      }
+      if (transitionMode !== "instant") setTransitionMode("instant");
+
+      // Resolve anchor for the not-at-bottom branch. Cheap to compute
+      // even if we end up sticking-to-bottom — we still update
+      // anchorLineId so later dispatches have continuity.
+      const nextAnchorId = resolveAnchor(sourceLineId);
+      const anchor =
+        !wasAtBottom && nextAnchorId ? captureAnchor(nextAnchorId) : null;
+      if (nextAnchorId && nextAnchorId !== anchorLineId) {
+        setAnchorLineId(nextAnchorId);
+      }
 
       rawDispatch(action);
 
-      if (anchor) startCompensation(anchor);
+      if (wasAtBottom) {
+        startStickToBottom();
+      } else if (anchor) {
+        startCompensation(anchor);
+      }
     },
     [
-      filterState,
-      openContext,
+      anchorLineId,
+      transitionMode,
       captureAnchor,
-      findStableViewportAnchor,
+      resolveAnchor,
+      isAtBottom,
+      startStickToBottom,
       startCompensation,
     ],
   );
@@ -289,8 +407,8 @@ export function LogExplorer({ lines }: { lines: readonly LogLine[] }) {
   }, [openContext, filterState, lines]);
 
   const handleFilterToggle = useCallback(
-    (target: FilterToggleTarget) =>
-      dispatchFilter(actionForTarget(target)),
+    (target: FilterToggleTarget, sourceLineId: string) =>
+      dispatchFilter(actionForTarget(target), sourceLineId),
     [dispatchFilter],
   );
 
@@ -317,6 +435,22 @@ export function LogExplorer({ lines }: { lines: readonly LogLine[] }) {
 
       const anchor = captureAnchor(lineId);
 
+      // The toggled line is the spatial anchor — scroll compensation
+      // pins it while context lines fluidly expand/collapse.
+      if (lineId !== anchorLineId) setAnchorLineId(lineId);
+
+      // Switch into slow mode for the duration of the slow animation.
+      // The longest path is collapse: 150ms opacity + 150ms delay +
+      // 200ms height = 500ms total, with a small Motion settle
+      // buffer.
+      setTransitionMode("slow");
+      if (slowModeTimeoutRef.current !== null)
+        clearTimeout(slowModeTimeoutRef.current);
+      slowModeTimeoutRef.current = window.setTimeout(() => {
+        setTransitionMode("instant");
+        slowModeTimeoutRef.current = null;
+      }, 600);
+
       setOpenContext((current) =>
         current?.selectedLineId === lineId
           ? null
@@ -325,7 +459,13 @@ export function LogExplorer({ lines }: { lines: readonly LogLine[] }) {
 
       if (anchor) startCompensation(anchor);
     },
-    [filterState, derivedLines, captureAnchor, startCompensation],
+    [
+      filterState,
+      derivedLines,
+      anchorLineId,
+      captureAnchor,
+      startCompensation,
+    ],
   );
 
   return (
@@ -341,6 +481,7 @@ export function LogExplorer({ lines }: { lines: readonly LogLine[] }) {
           onFilterToggle={handleFilterToggle}
           onToggleContext={handleToggleContext}
           selectedLineId={effectiveSelectedLineId}
+          transitionMode={transitionMode}
         />
       </div>
     </MotionConfig>
