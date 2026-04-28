@@ -1,0 +1,13 @@
+/*
+ * Log explorer layout — vertical stack of the filter bar, future
+ * toolbar slots, and the log list. The bar's bottom border serves
+ * as the visual separator, so this container only handles flow.
+ */
+
+.explorer {
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg);
+  color: var(--color-fg);
+  min-height: 100vh;
+}

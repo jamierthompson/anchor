@@ -1,5 +1,5 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 
 import { LogLine } from "@/components/features/log-list/log-line";
 import type { LogLine as LogLineType } from "@/types/log";
@@ -85,6 +85,77 @@ describe("LogLine — regular lines", () => {
   it("does not render a request id element when none is set", () => {
     render(<LogLine line={baseLine} />);
     expect(screen.queryByText(/^req_/)).not.toBeInTheDocument();
+  });
+});
+
+describe("LogLine — click-to-filter", () => {
+  it("renders the instance pill as a button when onFilterToggle is supplied", () => {
+    render(<LogLine line={baseLine} onFilterToggle={() => {}} />);
+    expect(
+      screen.getByRole("button", { name: /Filter by instance 7tbsm/ }),
+    ).toBeInTheDocument();
+  });
+
+  it("renders the instance as a plain span when no callback is supplied", () => {
+    render(<LogLine line={baseLine} />);
+    expect(
+      screen.queryByRole("button", { name: /Filter by instance/ }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText("7tbsm").tagName).toBe("SPAN");
+  });
+
+  it("fires an instance toggle when the pill is clicked", () => {
+    const onFilterToggle = vi.fn();
+    render(<LogLine line={baseLine} onFilterToggle={onFilterToggle} />);
+    fireEvent.click(
+      screen.getByRole("button", { name: /Filter by instance 7tbsm/ }),
+    );
+    expect(onFilterToggle).toHaveBeenCalledWith({
+      facet: "instance",
+      value: "7tbsm",
+    });
+  });
+
+  it("fires a level toggle when an ERROR badge is clicked", () => {
+    const onFilterToggle = vi.fn();
+    render(
+      <LogLine
+        line={{ ...baseLine, level: "ERROR", message: "db refused" }}
+        onFilterToggle={onFilterToggle}
+      />,
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: /Filter by level ERROR/ }),
+    );
+    expect(onFilterToggle).toHaveBeenCalledWith({
+      facet: "level",
+      value: "ERROR",
+    });
+  });
+
+  it("does not render a level button for INFO lines (no badge)", () => {
+    const onFilterToggle = vi.fn();
+    render(<LogLine line={baseLine} onFilterToggle={onFilterToggle} />);
+    expect(
+      screen.queryByRole("button", { name: /Filter by level/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("fires a request-id toggle when the request-id badge is clicked", () => {
+    const onFilterToggle = vi.fn();
+    render(
+      <LogLine
+        line={{ ...baseLine, requestId: "req_a3f9c2" }}
+        onFilterToggle={onFilterToggle}
+      />,
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: /Filter by request id req_a3f9c2/ }),
+    );
+    expect(onFilterToggle).toHaveBeenCalledWith({
+      facet: "requestId",
+      value: "req_a3f9c2",
+    });
   });
 });
 

@@ -1,10 +1,10 @@
-import { LogList } from "@/components/features/log-list/log-list";
+import { LogExplorer } from "@/components/features/log-explorer/log-explorer";
 import { mockLogs } from "@/lib/mock-logs";
 
 export default function Home() {
   return (
     <main>
-      <LogList lines={mockLogs} />
+      <LogExplorer lines={mockLogs} />
     </main>
   );
 }

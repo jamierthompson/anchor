@@ -1,3 +1,4 @@
+import type { FilterToggleTarget } from "@/lib/filter-state";
 import type { LogLine as LogLineType, Level } from "@/types/log";
 
 import styles from "./log-line.module.css";
@@ -8,17 +9,25 @@ import styles from "./log-line.module.css";
  * Two render shapes:
  *   - Deploy-boundary lines render as a centered horizontal rule with
  *     the deploy text inline. They have no time / instance / message
- *     columns and stay visible regardless of filter once that logic
- *     comes online.
+ *     columns and stay visible regardless of filter.
  *   - Regular lines render as a three-column grid: time, instance pill,
  *     message. WARN and ERROR levels are prefixed with a colored level
  *     word; DEBUG dims the entire message; INFO uses the default text
  *     color. Request IDs append as a small badge at the end of the
  *     message column.
  *
- * No interactive state is wired yet (no click handlers, no selection,
- * no hover affordances). Those arrive in later tasks.
+ * Click-to-filter (spec §8): when an `onFilterToggle` callback is
+ * supplied, the instance pill, the WARN/ERROR level badge, and the
+ * request-id badge each become buttons that announce a filter target
+ * to the parent. With no callback, those elements render as plain
+ * spans — the static-render path stays usable for tests, snapshots,
+ * and any future read-only context.
  */
+
+type LogLineProps = {
+  line: LogLineType;
+  onFilterToggle?: (target: FilterToggleTarget) => void;
+};
 
 const LEVEL_PREFIX: Record<Level, string | null> = {
   INFO: null,
@@ -43,7 +52,7 @@ function formatTime(timestamp: number): string {
   )}`;
 }
 
-export function LogLine({ line }: { line: LogLineType }) {
+export function LogLine({ line, onFilterToggle }: LogLineProps) {
   if (line.isDeployBoundary) {
     return (
       <div className={styles.deployBoundary} role="separator">
@@ -66,21 +75,66 @@ export function LogLine({ line }: { line: LogLineType }) {
       >
         {formatTime(line.timestamp)}
       </time>
-      <span className={styles.instance}>{line.instance}</span>
+      {onFilterToggle ? (
+        <button
+          type="button"
+          className={`${styles.filterTrigger} ${styles.instance}`}
+          onClick={() =>
+            onFilterToggle({ facet: "instance", value: line.instance })
+          }
+          aria-label={`Filter by instance ${line.instance}`}
+        >
+          {line.instance}
+        </button>
+      ) : (
+        <span className={styles.instance}>{line.instance}</span>
+      )}
       <span className={messageClass}>
-        {prefix && (
-          <span
-            className={
-              LEVEL_PREFIX_CLASS[line.level as "WARN" | "ERROR"]
-            }
-          >
-            {prefix}
-          </span>
-        )}
+        {prefix &&
+          (onFilterToggle ? (
+            <button
+              type="button"
+              className={`${styles.filterTrigger} ${
+                LEVEL_PREFIX_CLASS[line.level as "WARN" | "ERROR"]
+              }`}
+              onClick={() =>
+                onFilterToggle({
+                  facet: "level",
+                  value: line.level,
+                })
+              }
+              aria-label={`Filter by level ${prefix}`}
+            >
+              {prefix}
+            </button>
+          ) : (
+            <span
+              className={
+                LEVEL_PREFIX_CLASS[line.level as "WARN" | "ERROR"]
+              }
+            >
+              {prefix}
+            </span>
+          ))}
         {prefix ? ` ${line.message}` : line.message}
-        {line.requestId && (
-          <span className={styles.requestId}>{line.requestId}</span>
-        )}
+        {line.requestId &&
+          (onFilterToggle ? (
+            <button
+              type="button"
+              className={`${styles.filterTrigger} ${styles.requestId}`}
+              onClick={() =>
+                onFilterToggle({
+                  facet: "requestId",
+                  value: line.requestId as string,
+                })
+              }
+              aria-label={`Filter by request id ${line.requestId}`}
+            >
+              {line.requestId}
+            </button>
+          ) : (
+            <span className={styles.requestId}>{line.requestId}</span>
+          ))}
       </span>
     </div>
   );
