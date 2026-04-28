@@ -186,4 +186,55 @@ describe("LogExplorer — View Context toggle", () => {
     expect(liFor(/row zero info/).getAttribute("data-visible")).toBe("false");
     expect(liFor(/row four info/).getAttribute("data-visible")).toBe("false");
   });
+
+  it("clears the open context (and accent) when a filter change excludes the selected line", () => {
+    // Diverges from spec §5's "preserve" rule — see the inline rationale
+    // in LogExplorer's dispatchFilter. The test pins the chosen UX:
+    // stale accent on a hidden line is more confusing than dropping the
+    // saved state.
+    render(<LogExplorer lines={fixture} />);
+    applyErrorFilter();
+
+    fireEvent.click(liFor(/row one error/).querySelector("[data-level]")!, {
+      metaKey: true,
+    });
+    expect(liFor(/row one error/).getAttribute("data-selected")).toBe("true");
+
+    // Switch the filter so l1 (ERROR) no longer matches.
+    fireEvent.click(
+      screen.getByRole("button", { name: /Filter by level WARN/ }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Remove filter: level: error" }),
+    );
+
+    // Accent gone; state cleared. Re-adding the ERROR filter does NOT
+    // restore the old context — the user re-opens it explicitly if they
+    // want it back.
+    expect(liFor(/row one error/).getAttribute("data-selected")).toBe("false");
+    fireEvent.click(
+      screen.getAllByRole("button", { name: /Filter by level ERROR/ })[0],
+    );
+    expect(liFor(/row one error/).getAttribute("data-selected")).toBe("false");
+  });
+
+  it("clears the open context when all filters are removed", () => {
+    // Spec §3 hides the View Context affordance entirely when no filter
+    // is active; an open context shouldn't survive reaching that state.
+    render(<LogExplorer lines={fixture} />);
+    applyErrorFilter();
+
+    fireEvent.click(liFor(/row one error/).querySelector("[data-level]")!, {
+      metaKey: true,
+    });
+    expect(liFor(/row one error/).getAttribute("data-selected")).toBe("true");
+
+    // Remove the only filter chip — filter state is now empty.
+    fireEvent.click(
+      screen.getByRole("button", { name: "Remove filter: level: error" }),
+    );
+
+    // Every line is trivially matched, but the saved context is gone.
+    expect(liFor(/row one error/).getAttribute("data-selected")).toBe("false");
+  });
 });

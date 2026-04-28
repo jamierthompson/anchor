@@ -22,7 +22,7 @@
  * is by definition present, which is correct.
  */
 
-import type { Level } from "@/types/log";
+import type { Level, LogLine } from "@/types/log";
 
 export type Facet = "instances" | "requestIds" | "levels";
 
@@ -100,4 +100,34 @@ export function hasAnyFilter(state: FilterState): boolean {
     state.requestIds.length > 0 ||
     state.levels.length > 0
   );
+}
+
+/**
+ * Whether a line passes the active filter (AND across facets, OR within).
+ * With no facets active, every line trivially matches.
+ *
+ * Public so consumers like LogExplorer can predict whether a single line
+ * would be visible under a candidate filter state without re-running the
+ * full deriveLines pipeline.
+ */
+export function lineMatchesFilter(
+  line: LogLine,
+  filter: FilterState,
+): boolean {
+  if (!hasAnyFilter(filter)) return true;
+  if (
+    filter.instances.length > 0 &&
+    !filter.instances.includes(line.instance)
+  ) {
+    return false;
+  }
+  if (filter.requestIds.length > 0) {
+    if (!line.requestId || !filter.requestIds.includes(line.requestId)) {
+      return false;
+    }
+  }
+  if (filter.levels.length > 0 && !filter.levels.includes(line.level)) {
+    return false;
+  }
+  return true;
 }

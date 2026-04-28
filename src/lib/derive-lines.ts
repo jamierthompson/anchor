@@ -30,15 +30,13 @@
 import type { DerivedLogLine, LogLine } from "@/types/log";
 
 import type { OpenContext } from "./context-state";
-import { hasAnyFilter, type FilterState } from "./filter-state";
+import { lineMatchesFilter, type FilterState } from "./filter-state";
 
 export function deriveLines(
   lines: readonly LogLine[],
   filter: FilterState,
   openContexts: readonly OpenContext[] = [],
 ): DerivedLogLine[] {
-  const noFilter = !hasAnyFilter(filter);
-
   // Resolve each open context to a (selectedIndex, range) pair, and drop
   // any whose selected line doesn't match the active filter — those go
   // dormant per the auto-collapse rule above.
@@ -51,10 +49,7 @@ export function deriveLines(
   for (const ctx of openContexts) {
     const idx = indexById.get(ctx.selectedLineId);
     if (idx === undefined) continue;
-    const selected = lines[idx];
-    const selectedMatchesFilter =
-      noFilter || matchesAllActiveFacets(selected, filter);
-    if (!selectedMatchesFilter) continue;
+    if (!lineMatchesFilter(lines[idx], filter)) continue;
     activeWindows.push({ selectedIndex: idx, range: ctx.range });
   }
 
@@ -63,7 +58,7 @@ export function deriveLines(
       return { ...line, isVisible: true, isDimmed: false };
     }
 
-    const matchesFilter = noFilter || matchesAllActiveFacets(line, filter);
+    const matchesFilter = lineMatchesFilter(line, filter);
 
     const inAnyContextWindow = activeWindows.some(
       (w) => Math.abs(index - w.selectedIndex) <= w.range,
@@ -74,34 +69,4 @@ export function deriveLines(
 
     return { ...line, isVisible, isDimmed };
   });
-}
-
-/**
- * Active facets combine with AND. Within a facet, values combine with OR
- * (handled by `Array.includes` against the line's single value).
- *
- * An empty facet contributes nothing — a line passes a facet either by
- * having no values to filter against, or by matching at least one of
- * the values that are filtered against.
- */
-function matchesAllActiveFacets(line: LogLine, filter: FilterState): boolean {
-  if (
-    filter.instances.length > 0 &&
-    !filter.instances.includes(line.instance)
-  ) {
-    return false;
-  }
-
-  if (filter.requestIds.length > 0) {
-    // A line with no requestId can never match an active request-id filter.
-    if (!line.requestId || !filter.requestIds.includes(line.requestId)) {
-      return false;
-    }
-  }
-
-  if (filter.levels.length > 0 && !filter.levels.includes(line.level)) {
-    return false;
-  }
-
-  return true;
 }
