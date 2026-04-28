@@ -1,7 +1,7 @@
 "use client";
 
 import { MotionConfig } from "motion/react";
-import { useCallback, useMemo, useReducer, useState } from "react";
+import { useCallback, useMemo, useReducer, useRef, useState } from "react";
 
 import { FilterBar } from "@/components/features/filter-bar/filter-bar";
 import { LogList } from "@/components/features/log-list/log-list";
@@ -46,6 +46,12 @@ export function LogExplorer({ lines }: { lines: readonly LogLine[] }) {
   // unified rule already handles multiple windows, so widening here is
   // a one-line change when that lands.
   const [openContext, setOpenContext] = useState<OpenContext | null>(null);
+
+  // Ref to the Radix Scroll Area viewport. The anchor mechanics
+  // (next commit on this branch) read getBoundingClientRect on a
+  // selected `<li>` and write scrollTop on this viewport — manual
+  // compensation rather than relying on overflow-anchor, per spec §6.
+  const viewportRef = useRef<HTMLDivElement>(null);
 
   /**
    * Filter dispatch wrapper that also clears the open context when the
@@ -133,6 +139,7 @@ export function LogExplorer({ lines }: { lines: readonly LogLine[] }) {
         <FilterBar state={filterState} dispatch={dispatchFilter} />
         <LogList
           lines={derivedLines}
+          viewportRef={viewportRef}
           onFilterToggle={handleFilterToggle}
           onToggleContext={handleToggleContext}
           selectedLineId={openContext?.selectedLineId}

@@ -87,6 +87,17 @@ describe("LogList", () => {
     expect(items[2].getAttribute("data-visible")).toBe("true");
   });
 
+  it("tags every line with data-line-id matching its id (queryable for the scroll anchor)", () => {
+    // Anchor mechanics in LogExplorer query the viewport for
+    // `[data-line-id="${id}"]` to read the selected line's bounding
+    // rect — the attribute presence is a load-bearing invariant.
+    const { container } = render(<LogList lines={sampleLines} />);
+    const items = Array.from(container.querySelectorAll("li"));
+    sampleLines.forEach((line, index) => {
+      expect(items[index].getAttribute("data-line-id")).toBe(line.id);
+    });
+  });
+
   it("marks dimmed lines via data-dimmed for opacity styling", () => {
     const lines: DerivedLogLine[] = [
       derive(sampleLines[0], { isDimmed: true }),

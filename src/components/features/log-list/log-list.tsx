@@ -1,6 +1,8 @@
 "use client";
 
+import * as ScrollArea from "@radix-ui/react-scroll-area";
 import { motion, type Transition } from "motion/react";
+import type { Ref } from "react";
 
 import type { FilterToggleTarget } from "@/lib/filter-state";
 import type { DerivedLogLine } from "@/types/log";
@@ -46,45 +48,70 @@ const COLLAPSE_TRANSITION: Transition = {
 
 export function LogList({
   lines,
+  viewportRef,
   onFilterToggle,
   onToggleContext,
   selectedLineId,
 }: {
   lines: readonly DerivedLogLine[];
+  /**
+   * Ref to the Radix Scroll Area viewport. LogExplorer reads/writes
+   * scrollTop on this ref for the anchor-mechanics compensation —
+   * exposing it here keeps the viewport ownership inside LogList where
+   * the JSX lives, and the parent gets read/write access by passing
+   * its own ref through.
+   */
+  viewportRef?: Ref<HTMLDivElement>;
   onFilterToggle?: (target: FilterToggleTarget) => void;
   onToggleContext?: (lineId: string) => void;
   /** Id of the line currently anchoring an open context — drives the left-border accent. */
   selectedLineId?: string;
 }) {
   return (
-    <ul className={styles.list}>
-      {lines.map((line) => (
-        <motion.li
-          key={line.id}
-          className={styles.item}
-          data-visible={line.isVisible}
-          data-dimmed={line.isDimmed}
-          data-selected={line.id === selectedLineId}
-          // initial={false} so the page load doesn't animate every line
-          // expanding from 0 — the first render uses the target values
-          // directly. All subsequent isVisible toggles animate.
-          initial={false}
-          animate={{
-            height: line.isVisible ? "auto" : 0,
-            opacity: line.isVisible ? 1 : 0,
-          }}
-          transition={
-            line.isVisible ? EXPAND_TRANSITION : COLLAPSE_TRANSITION
-          }
-        >
-          <LogLine
-            line={line}
-            isDimmed={line.isDimmed}
-            onFilterToggle={onFilterToggle}
-            onToggleContext={onToggleContext}
-          />
-        </motion.li>
-      ))}
-    </ul>
+    <ScrollArea.Root className={styles.scrollRoot} type="hover">
+      <ScrollArea.Viewport
+        ref={viewportRef}
+        className={styles.scrollViewport}
+      >
+        <ul className={styles.list}>
+          {lines.map((line) => (
+            <motion.li
+              key={line.id}
+              data-line-id={line.id}
+              className={styles.item}
+              data-visible={line.isVisible}
+              data-dimmed={line.isDimmed}
+              data-selected={line.id === selectedLineId}
+              // initial={false} so the page load doesn't animate every
+              // line expanding from 0 — the first render uses the target
+              // values directly. All subsequent isVisible toggles
+              // animate.
+              initial={false}
+              animate={{
+                height: line.isVisible ? "auto" : 0,
+                opacity: line.isVisible ? 1 : 0,
+              }}
+              transition={
+                line.isVisible ? EXPAND_TRANSITION : COLLAPSE_TRANSITION
+              }
+            >
+              <LogLine
+                line={line}
+                isDimmed={line.isDimmed}
+                onFilterToggle={onFilterToggle}
+                onToggleContext={onToggleContext}
+              />
+            </motion.li>
+          ))}
+        </ul>
+      </ScrollArea.Viewport>
+      <ScrollArea.Scrollbar
+        orientation="vertical"
+        className={styles.scrollbar}
+      >
+        <ScrollArea.Thumb className={styles.scrollbarThumb} />
+      </ScrollArea.Scrollbar>
+      <ScrollArea.Corner className={styles.scrollCorner} />
+    </ScrollArea.Root>
   );
 }
