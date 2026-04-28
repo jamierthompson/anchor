@@ -53,6 +53,20 @@
   line-height: 1.5;
 }
 
+/*
+ * Dim opacity lives on the inner element (this .line div) so it
+ * composes with Motion's visibility opacity on the parent <li>:
+ *
+ *   visible + undimmed → 1 × 1   = 1
+ *   visible + dimmed   → 1 × 0.4 = 0.4
+ *   hidden  + dimmed   → 0 × 0.4 = 0   (mid-collapse it stacks too)
+ *
+ * Dim-transition timing arrives in the next commit on this branch.
+ */
+.line[data-dimmed="true"] {
+  opacity: var(--opacity-dimmed);
+}
+
 .time {
   color: var(--color-fg-muted);
   font-variant-numeric: tabular-nums;

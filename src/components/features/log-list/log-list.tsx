@@ -1,3 +1,7 @@
+"use client";
+
+import { motion, type Transition } from "motion/react";
+
 import type { FilterToggleTarget } from "@/lib/filter-state";
 import type { DerivedLogLine } from "@/types/log";
 
@@ -9,17 +13,37 @@ import styles from "./log-list.module.css";
  *
  * Uses <ul>/<li> to convey the sequence-and-identity semantics of a
  * log feed. The list is always the full fixed array — filtering and
- * View Context don't add or remove children, they toggle the visibility
- * flags on each line. The <li> wrapper carries those flags as data
- * attributes so CSS owns the hide/dim behavior:
+ * View Context don't add or remove children. The <li> animates between
+ * height: 0 + opacity: 0 (hidden) and height: auto + opacity: 1
+ * (visible), so DOM identity stays stable across visibility changes.
  *
- *   data-visible="false" → display: none (will become height + opacity
- *     transitions in task #4 — the array stays stable so the animation
- *     can target stable identities).
- *   data-dimmed="true"   → opacity: var(--opacity-dimmed). Only set on
- *     lines that are visible but didn't match the active filter (i.e.
- *     revealed by a context window, once contexts arrive in task #3).
+ * Choreography per spec §6:
+ *   Expand:   height grows first (~200ms), then text fades in (~150ms,
+ *             with ~75ms delay). The line "makes room," then text
+ *             materializes.
+ *   Collapse: text fades out first (~150ms), then height collapses
+ *             (~200ms, with ~100ms delay). Text dissolves, then the
+ *             gap closes.
+ *
+ * The data attributes are still emitted so CSS can drive the dim and
+ * selected-line accent states — those are CSS transitions, not Motion.
  */
+
+// Spec §6 single easing curve. Mirrors --ease-standard in globals.css;
+// duplicated here as a tuple because Motion takes the bezier control
+// points directly rather than a CSS string.
+const EASE = [0.32, 0.72, 0, 1] as const;
+
+const EXPAND_TRANSITION: Transition = {
+  height: { duration: 0.2, ease: EASE },
+  opacity: { duration: 0.15, delay: 0.075, ease: EASE },
+};
+
+const COLLAPSE_TRANSITION: Transition = {
+  opacity: { duration: 0.15, ease: EASE },
+  height: { duration: 0.2, delay: 0.1, ease: EASE },
+};
+
 export function LogList({
   lines,
   onFilterToggle,
@@ -35,19 +59,31 @@ export function LogList({
   return (
     <ul className={styles.list}>
       {lines.map((line) => (
-        <li
+        <motion.li
           key={line.id}
           className={styles.item}
           data-visible={line.isVisible}
           data-dimmed={line.isDimmed}
           data-selected={line.id === selectedLineId}
+          // initial={false} so the page load doesn't animate every line
+          // expanding from 0 — the first render uses the target values
+          // directly. All subsequent isVisible toggles animate.
+          initial={false}
+          animate={{
+            height: line.isVisible ? "auto" : 0,
+            opacity: line.isVisible ? 1 : 0,
+          }}
+          transition={
+            line.isVisible ? EXPAND_TRANSITION : COLLAPSE_TRANSITION
+          }
         >
           <LogLine
             line={line}
+            isDimmed={line.isDimmed}
             onFilterToggle={onFilterToggle}
             onToggleContext={onToggleContext}
           />
-        </li>
+        </motion.li>
       ))}
     </ul>
   );

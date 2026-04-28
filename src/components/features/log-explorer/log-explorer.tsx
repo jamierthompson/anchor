@@ -1,5 +1,6 @@
 "use client";
 
+import { MotionConfig } from "motion/react";
 import { useCallback, useMemo, useReducer, useState } from "react";
 
 import { FilterBar } from "@/components/features/filter-bar/filter-bar";
@@ -80,14 +81,19 @@ export function LogExplorer({ lines }: { lines: readonly LogLine[] }) {
   );
 
   return (
-    <div className={styles.explorer}>
-      <FilterBar state={filterState} dispatch={dispatch} />
-      <LogList
-        lines={derivedLines}
-        onFilterToggle={handleFilterToggle}
-        onToggleContext={handleToggleContext}
-        selectedLineId={openContext?.selectedLineId}
-      />
-    </div>
+    // reducedMotion="user" honors the OS-level prefers-reduced-motion
+    // setting — Motion drops durations to ~0 so the line transitions
+    // don't run, but the final state still resolves correctly.
+    <MotionConfig reducedMotion="user">
+      <div className={styles.explorer}>
+        <FilterBar state={filterState} dispatch={dispatch} />
+        <LogList
+          lines={derivedLines}
+          onFilterToggle={handleFilterToggle}
+          onToggleContext={handleToggleContext}
+          selectedLineId={openContext?.selectedLineId}
+        />
+      </div>
+    </MotionConfig>
   );
 }

@@ -19,26 +19,28 @@
    * 4px transparent border on every line so opening a context only
    * recolors the border — no horizontal layout shift between selected
    * and unselected lines.
+   *
+   * overflow: hidden is what makes the height: 0 collapse actually
+   * clip the line content during the expand/collapse animation.
    */
   margin: 0;
   border-left: 4px solid transparent;
+  overflow: hidden;
 }
 
 /*
- * Visibility and dim state are driven by data attributes on the <li>.
- * `display: none` is the task #2 stand-in — task #4 swaps it for height
- * and opacity transitions so the array can stay stable through the
- * animation. The dimmed opacity uses the design token so any tuning of
- * the dim weight propagates to instance pills and level badges via
- * inheritance.
+ * Visibility is driven by Motion (height + opacity inline styles per
+ * spec §6 choreography). data-visible stays on the <li> for tests and
+ * CSS hooks that may key off the eventual final state, but the actual
+ * hide/show transition is now in the JSX, not CSS.
+ *
+ * Dim is driven by the inner LogLine element via its own data-dimmed
+ * attribute. Keeping motion's inline opacity (0/1 for visibility) on
+ * the <li> separate from the dim opacity on the inner element lets
+ * the two compose via the natural opacity stacking rule — visible-
+ * dimmed renders as 1 × dimmed-opacity, hidden composes to 0
+ * regardless of dim state.
  */
-.item[data-visible="false"] {
-  display: none;
-}
-
-.item[data-dimmed="true"] {
-  opacity: var(--opacity-dimmed);
-}
 
 /*
  * The selected line — the anchor of an open View Context window —
