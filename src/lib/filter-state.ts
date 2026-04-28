@@ -44,6 +44,31 @@ export type FilterAction =
   | { type: "toggleLevel"; value: Level }
   | { type: "clearFacet"; facet: Facet };
 
+/**
+ * Target shape for click-to-filter from inside a log line.
+ *
+ * The log-line renderer doesn't know about the reducer — it just
+ * announces "the user clicked an instance pill / level badge / request
+ * id badge." Callers translate the target into a `FilterAction`. Keeps
+ * the renderer decoupled from how filter state is stored.
+ */
+export type FilterToggleTarget =
+  | { facet: "instance"; value: string }
+  | { facet: "requestId"; value: string }
+  | { facet: "level"; value: Level };
+
+/** Convenience translator from a click target to its matching reducer action. */
+export function actionForTarget(target: FilterToggleTarget): FilterAction {
+  switch (target.facet) {
+    case "instance":
+      return { type: "toggleInstance", value: target.value };
+    case "requestId":
+      return { type: "toggleRequestId", value: target.value };
+    case "level":
+      return { type: "toggleLevel", value: target.value };
+  }
+}
+
 /** Add `value` if absent, remove it if present. Returns the same array reference when no-op-equivalent isn't possible — we always return a new array on change so React sees the update. */
 function toggle<T>(values: readonly T[], value: T): readonly T[] {
   return values.includes(value)

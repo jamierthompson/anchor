@@ -1,3 +1,4 @@
+import type { FilterToggleTarget } from "@/lib/filter-state";
 import type { DerivedLogLine } from "@/types/log";
 
 import { LogLine } from "./log-line";
@@ -19,7 +20,13 @@ import styles from "./log-list.module.css";
  *     lines that are visible but didn't match the active filter (i.e.
  *     revealed by a context window, once contexts arrive in task #3).
  */
-export function LogList({ lines }: { lines: readonly DerivedLogLine[] }) {
+export function LogList({
+  lines,
+  onFilterToggle,
+}: {
+  lines: readonly DerivedLogLine[];
+  onFilterToggle?: (target: FilterToggleTarget) => void;
+}) {
   return (
     <ul className={styles.list}>
       {lines.map((line) => (
@@ -29,7 +36,7 @@ export function LogList({ lines }: { lines: readonly DerivedLogLine[] }) {
           data-visible={line.isVisible}
           data-dimmed={line.isDimmed}
         >
-          <LogLine line={line} />
+          <LogLine line={line} onFilterToggle={onFilterToggle} />
         </li>
       ))}
     </ul>

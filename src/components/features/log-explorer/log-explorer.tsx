@@ -1,13 +1,15 @@
 "use client";
 
-import { useMemo, useReducer } from "react";
+import { useCallback, useMemo, useReducer } from "react";
 
 import { FilterBar } from "@/components/features/filter-bar/filter-bar";
 import { LogList } from "@/components/features/log-list/log-list";
 import { deriveLines } from "@/lib/derive-lines";
 import {
+  actionForTarget,
   filterReducer,
   initialFilterState,
+  type FilterToggleTarget,
 } from "@/lib/filter-state";
 import type { LogLine } from "@/types/log";
 
@@ -37,10 +39,17 @@ export function LogExplorer({ lines }: { lines: readonly LogLine[] }) {
     [lines, filterState],
   );
 
+  // Stable identity so LogLine doesn't need to re-render every time
+  // filterState changes; dispatch is itself stable from useReducer.
+  const handleFilterToggle = useCallback(
+    (target: FilterToggleTarget) => dispatch(actionForTarget(target)),
+    [],
+  );
+
   return (
     <div className={styles.explorer}>
       <FilterBar state={filterState} dispatch={dispatch} />
-      <LogList lines={derivedLines} />
+      <LogList lines={derivedLines} onFilterToggle={handleFilterToggle} />
     </div>
   );
 }
