@@ -1,13 +1,18 @@
 "use client";
 
-import { useCallback, useMemo, useReducer } from "react";
+import { useCallback, useMemo, useReducer, useState } from "react";
 
 import { FilterBar } from "@/components/features/filter-bar/filter-bar";
 import { LogList } from "@/components/features/log-list/log-list";
+import {
+  DEFAULT_CONTEXT_RANGE,
+  type OpenContext,
+} from "@/lib/context-state";
 import { deriveLines } from "@/lib/derive-lines";
 import {
   actionForTarget,
   filterReducer,
+  hasAnyFilter,
   initialFilterState,
   type FilterToggleTarget,
 } from "@/lib/filter-state";
@@ -34,22 +39,55 @@ export function LogExplorer({ lines }: { lines: readonly LogLine[] }) {
     initialFilterState,
   );
 
+  // Single open context for task #3. Task #6 makes this an array; the
+  // unified rule already handles multiple windows, so widening here is
+  // a one-line change when that lands.
+  const [openContext, setOpenContext] = useState<OpenContext | null>(null);
+
   const derivedLines = useMemo(
-    () => deriveLines(lines, filterState),
-    [lines, filterState],
+    () => deriveLines(lines, filterState, openContext ? [openContext] : []),
+    [lines, filterState, openContext],
   );
 
-  // Stable identity so LogLine doesn't need to re-render every time
-  // filterState changes; dispatch is itself stable from useReducer.
   const handleFilterToggle = useCallback(
     (target: FilterToggleTarget) => dispatch(actionForTarget(target)),
     [],
   );
 
+  /**
+   * Toggle a View Context window on the given line.
+   *
+   * Spec §3 gates: only available on filter-matched (non-context-only)
+   * lines, and only when at least one filter is active. The first guard
+   * checks the dimmed flag of the derived line — a dimmed line is
+   * visible only because some other context revealed it, so opening a
+   * nested context on it is disallowed.
+   *
+   * Toggling on the currently selected line closes the context.
+   */
+  const handleToggleContext = useCallback(
+    (lineId: string) => {
+      if (!hasAnyFilter(filterState)) return;
+      const target = derivedLines.find((l) => l.id === lineId);
+      if (!target || target.isDimmed) return;
+      setOpenContext((current) =>
+        current?.selectedLineId === lineId
+          ? null
+          : { selectedLineId: lineId, range: DEFAULT_CONTEXT_RANGE },
+      );
+    },
+    [filterState, derivedLines],
+  );
+
   return (
     <div className={styles.explorer}>
       <FilterBar state={filterState} dispatch={dispatch} />
-      <LogList lines={derivedLines} onFilterToggle={handleFilterToggle} />
+      <LogList
+        lines={derivedLines}
+        onFilterToggle={handleFilterToggle}
+        onToggleContext={handleToggleContext}
+        selectedLineId={openContext?.selectedLineId}
+      />
     </div>
   );
 }
