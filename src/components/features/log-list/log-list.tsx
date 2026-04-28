@@ -43,7 +43,9 @@ const EXPAND_TRANSITION: Transition = {
 
 const COLLAPSE_TRANSITION: Transition = {
   opacity: { duration: 0.15, ease: EASE },
-  height: { duration: 0.2, delay: 0.1, ease: EASE },
+  // Test: delay = opacity duration so heights only start collapsing
+  // after items have fully faded out (no overlap).
+  height: { duration: 0.2, delay: 0.15, ease: EASE },
 };
 
 export function LogList({
