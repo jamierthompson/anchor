@@ -1,9 +1,14 @@
 "use client";
 
 import * as Popover from "@radix-ui/react-popover";
-import { type Dispatch, type ReactNode } from "react";
+import {
+  type Dispatch,
+  type MouseEvent as ReactMouseEvent,
+  type ReactNode,
+} from "react";
 
 import {
+  type Facet,
   type FilterAction,
   type FilterState,
 } from "@/lib/filter-state";
@@ -42,6 +47,9 @@ type FilterBarProps = {
 };
 
 export function FilterBar({ state, dispatch }: FilterBarProps) {
+  const clearFacet = (facet: Facet) =>
+    dispatch({ type: "clearFacet", facet });
+
   return (
     <div className={styles.bar} role="toolbar" aria-label="Log filters">
       <AddFilterPopover state={state} dispatch={dispatch} />
@@ -50,6 +58,7 @@ export function FilterBar({ state, dispatch }: FilterBarProps) {
           key={`instance-${value}`}
           label={`instance: ${value}`}
           onRemove={() => dispatch({ type: "toggleInstance", value })}
+          onClearFacet={() => clearFacet("instances")}
         />
       ))}
       {state.requestIds.map((value) => (
@@ -57,6 +66,7 @@ export function FilterBar({ state, dispatch }: FilterBarProps) {
           key={`request-${value}`}
           label={value}
           onRemove={() => dispatch({ type: "toggleRequestId", value })}
+          onClearFacet={() => clearFacet("requestIds")}
         />
       ))}
       {state.levels.map((value) => (
@@ -64,6 +74,7 @@ export function FilterBar({ state, dispatch }: FilterBarProps) {
           key={`level-${value}`}
           label={`level: ${value.toLowerCase()}`}
           onRemove={() => dispatch({ type: "toggleLevel", value })}
+          onClearFacet={() => clearFacet("levels")}
         />
       ))}
     </div>
@@ -172,20 +183,45 @@ function ToggleRow({
   );
 }
 
+/**
+ * Chip behavior:
+ *   - Click × button → remove this single value.
+ *   - cmd/ctrl + click anywhere on the chip body → clear every value
+ *     of this facet (spec §7 modifier shortcut). Plain click on the
+ *     chip body is a no-op so the chip stays unsurprising for users
+ *     who don't know the shortcut.
+ *
+ * The × button's onClick stops propagation so a cmd + click directly
+ * on × doesn't fire both the single-remove and the clear-facet paths.
+ */
 function Chip({
   label,
   onRemove,
+  onClearFacet,
 }: {
   label: string;
   onRemove: () => void;
+  onClearFacet: () => void;
 }) {
+  const handleChipClick = (event: ReactMouseEvent<HTMLSpanElement>) => {
+    if (event.metaKey || event.ctrlKey) {
+      event.preventDefault();
+      onClearFacet();
+    }
+  };
+
+  const handleRemoveClick = (event: ReactMouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    onRemove();
+  };
+
   return (
-    <span className={styles.chip}>
+    <span className={styles.chip} onClick={handleChipClick}>
       <span className={styles.chipLabel}>{label}</span>
       <button
         type="button"
         className={styles.chipRemove}
-        onClick={onRemove}
+        onClick={handleRemoveClick}
         aria-label={`Remove filter: ${label}`}
       >
         <span aria-hidden="true">×</span>
