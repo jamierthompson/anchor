@@ -9,43 +9,70 @@
  *   isVisible = matchesFilter || inAnyContextWindow
  *   isDimmed  = isVisible && !matchesFilter
  *
- * Task #2 (this commit) ships the filter half only. Open context windows
- * arrive in task #3, at which point this function gains a third argument
- * and the `isDimmed` line below stops being a stub.
- *
  * Deploy boundaries are global section markers — they bypass the rule
  * entirely and are always visible, never dimmed (spec §5).
  *
+ * Selected-line-filtered-out auto-collapse (spec §5): if the line that
+ * an open context is anchored on no longer matches the active filter,
+ * the context goes dormant for the visibility computation — its
+ * windowed lines collapse back to hidden rather than staying visible-
+ * dimmed. The open-context state itself is preserved by the caller, so
+ * loosening the filter brings the context back. The scrollTop-
+ * preservation half of that edge case lands with the anchor mechanics
+ * in task #5.
+ *
  * Pure function on purpose: the visibility rule is the most testable
- * piece of the prototype, and keeping it free of React/state lets the
- * unit tests in commit #2 cover all seven filter combos directly.
+ * piece of the prototype, and keeping it free of React/state means
+ * the unit tests can exercise filter combos and context windows
+ * directly.
  */
 
 import type { DerivedLogLine, LogLine } from "@/types/log";
 
+import type { OpenContext } from "./context-state";
 import { hasAnyFilter, type FilterState } from "./filter-state";
 
 export function deriveLines(
   lines: readonly LogLine[],
   filter: FilterState,
+  openContexts: readonly OpenContext[] = [],
 ): DerivedLogLine[] {
   const noFilter = !hasAnyFilter(filter);
 
-  return lines.map((line) => {
+  // Resolve each open context to a (selectedIndex, range) pair, and drop
+  // any whose selected line doesn't match the active filter — those go
+  // dormant per the auto-collapse rule above.
+  const indexById = new Map<string, number>();
+  for (let i = 0; i < lines.length; i++) {
+    indexById.set(lines[i].id, i);
+  }
+
+  const activeWindows: { selectedIndex: number; range: number }[] = [];
+  for (const ctx of openContexts) {
+    const idx = indexById.get(ctx.selectedLineId);
+    if (idx === undefined) continue;
+    const selected = lines[idx];
+    const selectedMatchesFilter =
+      noFilter || matchesAllActiveFacets(selected, filter);
+    if (!selectedMatchesFilter) continue;
+    activeWindows.push({ selectedIndex: idx, range: ctx.range });
+  }
+
+  return lines.map((line, index) => {
     if (line.isDeployBoundary) {
       return { ...line, isVisible: true, isDimmed: false };
     }
 
     const matchesFilter = noFilter || matchesAllActiveFacets(line, filter);
 
-    return {
-      ...line,
-      isVisible: matchesFilter,
-      // Stub until task #3: dimming requires a context window covering an
-      // unmatched line. With no contexts, every visible line is matched,
-      // so isDimmed is always false here.
-      isDimmed: false,
-    };
+    const inAnyContextWindow = activeWindows.some(
+      (w) => Math.abs(index - w.selectedIndex) <= w.range,
+    );
+
+    const isVisible = matchesFilter || inAnyContextWindow;
+    const isDimmed = isVisible && !matchesFilter;
+
+    return { ...line, isVisible, isDimmed };
   });
 }
 

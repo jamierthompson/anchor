@@ -15,7 +15,13 @@
 }
 
 .item {
+  /*
+   * 4px transparent border on every line so opening a context only
+   * recolors the border — no horizontal layout shift between selected
+   * and unselected lines.
+   */
   margin: 0;
+  border-left: 4px solid transparent;
 }
 
 /*
@@ -32,4 +38,13 @@
 
 .item[data-dimmed="true"] {
   opacity: var(--opacity-dimmed);
+}
+
+/*
+ * The selected line — the anchor of an open View Context window —
+ * carries an accent-colored left border (spec §4). Distinct visually
+ * from the focused-line outline (which is its own thing, task #7).
+ */
+.item[data-selected="true"] {
+  border-left-color: var(--color-accent);
 }

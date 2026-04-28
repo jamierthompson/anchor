@@ -23,9 +23,14 @@ import styles from "./log-list.module.css";
 export function LogList({
   lines,
   onFilterToggle,
+  onToggleContext,
+  selectedLineId,
 }: {
   lines: readonly DerivedLogLine[];
   onFilterToggle?: (target: FilterToggleTarget) => void;
+  onToggleContext?: (lineId: string) => void;
+  /** Id of the line currently anchoring an open context — drives the left-border accent. */
+  selectedLineId?: string;
 }) {
   return (
     <ul className={styles.list}>
@@ -35,8 +40,13 @@ export function LogList({
           className={styles.item}
           data-visible={line.isVisible}
           data-dimmed={line.isDimmed}
+          data-selected={line.id === selectedLineId}
         >
-          <LogLine line={line} onFilterToggle={onFilterToggle} />
+          <LogLine
+            line={line}
+            onFilterToggle={onFilterToggle}
+            onToggleContext={onToggleContext}
+          />
         </li>
       ))}
     </ul>

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import type { OpenContext } from "@/lib/context-state";
 import { deriveLines } from "@/lib/derive-lines";
 import { initialFilterState, type FilterState } from "@/lib/filter-state";
 import type { Level, LogLine } from "@/types/log";
@@ -63,9 +64,20 @@ const withFilter = (overrides: Partial<FilterState>): FilterState => ({
   ...overrides,
 });
 
-const visibleIds = (filter: FilterState): string[] =>
-  deriveLines(FIXTURE, filter)
+const visibleIds = (
+  filter: FilterState,
+  openContexts: readonly OpenContext[] = [],
+): string[] =>
+  deriveLines(FIXTURE, filter, openContexts)
     .filter((l) => l.isVisible)
+    .map((l) => l.id);
+
+const dimmedIds = (
+  filter: FilterState,
+  openContexts: readonly OpenContext[] = [],
+): string[] =>
+  deriveLines(FIXTURE, filter, openContexts)
+    .filter((l) => l.isDimmed)
     .map((l) => l.id);
 
 describe("deriveLines — the seven filtered states (spec §3)", () => {
@@ -197,7 +209,10 @@ describe("deriveLines — edge cases", () => {
     ).toEqual(["DB"]);
   });
 
-  it("isDimmed is always false until context windows arrive in task #3", () => {
+  it("with no open contexts, no visible line is ever dimmed", () => {
+    // Dimming requires a line revealed by a context window but not matched
+    // by the filter. With no open contexts there's no reveal mechanism, so
+    // every visible line is matched and therefore undimmed.
     const derived = deriveLines(
       FIXTURE,
       withFilter({ instances: ["i1"], levels: ["ERROR"] }),
@@ -209,5 +224,108 @@ describe("deriveLines — edge cases", () => {
     const before = JSON.stringify(FIXTURE);
     deriveLines(FIXTURE, withFilter({ instances: ["i1"] }));
     expect(JSON.stringify(FIXTURE)).toBe(before);
+  });
+});
+
+describe("deriveLines — context windows", () => {
+  it("reveals lines within ±range of the selected line, dimmed if they don't match the filter", () => {
+    // Filter to ERROR (matches L2, L4, L6). Open context on L4 with range
+    // 1 — window covers indices 2, 3, 4 → L3, L4, L5.
+    const filter = withFilter({ levels: ["ERROR"] });
+    const contexts: OpenContext[] = [
+      { selectedLineId: "L4", range: 1 },
+    ];
+    expect(visibleIds(filter, contexts)).toEqual([
+      "L2",
+      "L3",
+      "L4",
+      "L5",
+      "L6",
+      "DB",
+    ]);
+    expect(dimmedIds(filter, contexts)).toEqual(["L3", "L5"]);
+  });
+
+  it("a line that matches the filter stays undimmed even when also covered by a context window", () => {
+    // Filter ERROR, context on L4 range 2 — window covers L2..L6. L2 and
+    // L6 match the filter and must stay undimmed despite being in-window.
+    const filter = withFilter({ levels: ["ERROR"] });
+    const contexts: OpenContext[] = [
+      { selectedLineId: "L4", range: 2 },
+    ];
+    const dimmed = dimmedIds(filter, contexts);
+    expect(dimmed).not.toContain("L2");
+    expect(dimmed).not.toContain("L6");
+    expect(dimmed).toEqual(["L3", "L5"]);
+  });
+
+  it("collapses back when the selected line no longer matches the filter (spec §5)", () => {
+    // Filter WARN — L4 (ERROR) doesn't match. The open context on L4
+    // goes dormant: its surrounding lines collapse back to hidden, the
+    // selected line itself is hidden by the filter, but the context
+    // entry stays in state for the caller (we don't observe that here).
+    const filter = withFilter({ levels: ["WARN"] });
+    const contexts: OpenContext[] = [
+      { selectedLineId: "L4", range: 2 },
+    ];
+    expect(visibleIds(filter, contexts)).toEqual(["L3", "DB"]);
+    expect(dimmedIds(filter, contexts)).toEqual([]);
+  });
+
+  it("supports multiple overlapping context windows without compounding dim", () => {
+    // Two contexts: L2 ±1 covers idx 0..2; L4 ±1 covers idx 2..4. Overlap
+    // at L3 (idx 2). isDimmed is a boolean so coverage by multiple
+    // windows doesn't change the outcome — L3 is still just dimmed.
+    const filter = withFilter({ levels: ["ERROR"] });
+    const contexts: OpenContext[] = [
+      { selectedLineId: "L2", range: 1 },
+      { selectedLineId: "L4", range: 1 },
+    ];
+    expect(visibleIds(filter, contexts)).toEqual([
+      "L1",
+      "L2",
+      "L3",
+      "L4",
+      "L5",
+      "L6",
+      "DB",
+    ]);
+    expect(dimmedIds(filter, contexts)).toEqual(["L1", "L3", "L5"]);
+  });
+
+  it("deploy boundaries stay undimmed even when covered by a context window", () => {
+    // DB sits at index 7. A context on L7 (idx 6) range 1 reaches DB at
+    // idx 7. Deploy boundaries always render undimmed regardless.
+    const filter = withFilter({ levels: ["ERROR"] });
+    const contexts: OpenContext[] = [
+      { selectedLineId: "L6", range: 2 },
+    ];
+    const derived = deriveLines(FIXTURE, filter, contexts);
+    const db = derived.find((l) => l.id === "DB");
+    expect(db?.isVisible).toBe(true);
+    expect(db?.isDimmed).toBe(false);
+  });
+
+  it("ignores contexts whose selected line id is not in the input array", () => {
+    // A stale context (e.g. line removed from a future variant) shouldn't
+    // throw or affect visibility — it's silently dropped.
+    const filter = withFilter({ levels: ["ERROR"] });
+    const contexts: OpenContext[] = [
+      { selectedLineId: "does-not-exist", range: 5 },
+    ];
+    expect(visibleIds(filter, contexts)).toEqual(["L2", "L4", "L6", "DB"]);
+  });
+
+  it("openContexts defaults to empty when omitted", () => {
+    const withDefault = deriveLines(
+      FIXTURE,
+      withFilter({ levels: ["ERROR"] }),
+    );
+    const withExplicit = deriveLines(
+      FIXTURE,
+      withFilter({ levels: ["ERROR"] }),
+      [],
+    );
+    expect(withDefault).toEqual(withExplicit);
   });
 });

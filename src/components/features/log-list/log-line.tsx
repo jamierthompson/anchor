@@ -1,3 +1,5 @@
+import type { MouseEvent as ReactMouseEvent } from "react";
+
 import type { FilterToggleTarget } from "@/lib/filter-state";
 import type { LogLine as LogLineType, Level } from "@/types/log";
 
@@ -22,11 +24,21 @@ import styles from "./log-line.module.css";
  * to the parent. With no callback, those elements render as plain
  * spans — the static-render path stays usable for tests, snapshots,
  * and any future read-only context.
+ *
+ * Click-to-toggle-context (spec §7 modifiers): when an `onToggleContext`
+ * callback is supplied, cmd/ctrl + click anywhere on the line body
+ * (outside a pill or badge button) announces the line id to the parent,
+ * which decides whether to open or close a context window. The
+ * pill/badge button onClick handlers `stopPropagation` so a modifier
+ * click on those still adds a filter rather than also opening a context.
+ * Plain click on the line body is a no-op — the focus model arrives
+ * with the keyboard pass in task #7.
  */
 
 type LogLineProps = {
   line: LogLineType;
   onFilterToggle?: (target: FilterToggleTarget) => void;
+  onToggleContext?: (lineId: string) => void;
 };
 
 const LEVEL_PREFIX: Record<Level, string | null> = {
@@ -52,8 +64,14 @@ function formatTime(timestamp: number): string {
   )}`;
 }
 
-export function LogLine({ line, onFilterToggle }: LogLineProps) {
+export function LogLine({
+  line,
+  onFilterToggle,
+  onToggleContext,
+}: LogLineProps) {
   if (line.isDeployBoundary) {
+    // Deploy boundaries don't participate in View Context — they're
+    // global section markers (spec §5), not anchorable rows.
     return (
       <div className={styles.deployBoundary} role="separator">
         <span className={styles.deployRule} aria-hidden="true" />
@@ -67,8 +85,30 @@ export function LogLine({ line, onFilterToggle }: LogLineProps) {
   const messageClass =
     line.level === "DEBUG" ? styles.messageMuted : styles.message;
 
+  const handleLineClick = (event: ReactMouseEvent<HTMLDivElement>) => {
+    if (!onToggleContext) return;
+    if (event.metaKey || event.ctrlKey) {
+      event.preventDefault();
+      onToggleContext(line.id);
+    }
+  };
+
+  // Pill / badge button clicks must not bubble — without stopPropagation
+  // a cmd + click on, say, an instance pill would both add a filter and
+  // toggle a context on the same gesture.
+  const stopAndFilter =
+    (target: FilterToggleTarget) =>
+    (event: ReactMouseEvent<HTMLButtonElement>) => {
+      event.stopPropagation();
+      onFilterToggle?.(target);
+    };
+
   return (
-    <div className={styles.line} data-level={line.level}>
+    <div
+      className={styles.line}
+      data-level={line.level}
+      onClick={onToggleContext ? handleLineClick : undefined}
+    >
       <time
         className={styles.time}
         dateTime={new Date(line.timestamp).toISOString()}
@@ -79,9 +119,10 @@ export function LogLine({ line, onFilterToggle }: LogLineProps) {
         <button
           type="button"
           className={`${styles.filterTrigger} ${styles.instance}`}
-          onClick={() =>
-            onFilterToggle({ facet: "instance", value: line.instance })
-          }
+          onClick={stopAndFilter({
+            facet: "instance",
+            value: line.instance,
+          })}
           aria-label={`Filter by instance ${line.instance}`}
         >
           {line.instance}
@@ -97,12 +138,10 @@ export function LogLine({ line, onFilterToggle }: LogLineProps) {
               className={`${styles.filterTrigger} ${
                 LEVEL_PREFIX_CLASS[line.level as "WARN" | "ERROR"]
               }`}
-              onClick={() =>
-                onFilterToggle({
-                  facet: "level",
-                  value: line.level,
-                })
-              }
+              onClick={stopAndFilter({
+                facet: "level",
+                value: line.level,
+              })}
               aria-label={`Filter by level ${prefix}`}
             >
               {prefix}
@@ -122,12 +161,10 @@ export function LogLine({ line, onFilterToggle }: LogLineProps) {
             <button
               type="button"
               className={`${styles.filterTrigger} ${styles.requestId}`}
-              onClick={() =>
-                onFilterToggle({
-                  facet: "requestId",
-                  value: line.requestId as string,
-                })
-              }
+              onClick={stopAndFilter({
+                facet: "requestId",
+                value: line.requestId,
+              })}
               aria-label={`Filter by request id ${line.requestId}`}
             >
               {line.requestId}
