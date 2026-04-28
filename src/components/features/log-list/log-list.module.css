@@ -32,6 +32,22 @@
   height: 100%;
 }
 
+/*
+ * Hide the viewport until LogExplorer's mount-time useLayoutEffect
+ * sets `data-scroll-ready` after pinning scrollTop to the bottom.
+ *
+ * Without this, Next.js' SSR'd HTML paints at scrollTop=0 (top of
+ * the log list) for a frame or two before JS hydrates and the layout
+ * effect runs — the user sees a flash of the wrong scroll position
+ * (typically the early lines + a deploy boundary near the bottom of
+ * viewport) before snapping to the live-tail bottom. Hiding the
+ * viewport in CSS ensures nothing paints until the scroll position
+ * is correct.
+ */
+.scrollViewport:not([data-scroll-ready]) {
+  visibility: hidden;
+}
+
 .scrollbar {
   display: flex;
   /* Match common modern scrollbar widths; thinner reads less obtrusive. */

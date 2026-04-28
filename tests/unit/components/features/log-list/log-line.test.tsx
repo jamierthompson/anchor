@@ -143,10 +143,13 @@ describe("LogLine — click-to-filter", () => {
     fireEvent.click(
       screen.getByRole("button", { name: /Filter by instance 7tbsm/ }),
     );
-    expect(onFilterToggle).toHaveBeenCalledWith({
-      facet: "instance",
-      value: "7tbsm",
-    });
+    expect(onFilterToggle).toHaveBeenCalledWith(
+      { facet: "instance", value: "7tbsm" },
+      // Source line id is forwarded as the wave-anchor origin so the
+      // converging-wave stagger radiates from the line the user
+      // clicked on. See LogExplorer.dispatchFilter.
+      "log_0001",
+    );
   });
 
   it("fires a level toggle when an ERROR badge is clicked", () => {
@@ -160,10 +163,10 @@ describe("LogLine — click-to-filter", () => {
     fireEvent.click(
       screen.getByRole("button", { name: /Filter by level ERROR/ }),
     );
-    expect(onFilterToggle).toHaveBeenCalledWith({
-      facet: "level",
-      value: "ERROR",
-    });
+    expect(onFilterToggle).toHaveBeenCalledWith(
+      { facet: "level", value: "ERROR" },
+      "log_0001",
+    );
   });
 
   it("does not render a level button for INFO lines (no badge)", () => {
@@ -185,10 +188,10 @@ describe("LogLine — click-to-filter", () => {
     fireEvent.click(
       screen.getByRole("button", { name: /Filter by request id req_a3f9c2/ }),
     );
-    expect(onFilterToggle).toHaveBeenCalledWith({
-      facet: "requestId",
-      value: "req_a3f9c2",
-    });
+    expect(onFilterToggle).toHaveBeenCalledWith(
+      { facet: "requestId", value: "req_a3f9c2" },
+      "log_0001",
+    );
   });
 });
 

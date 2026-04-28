@@ -44,7 +44,13 @@ type LogLineProps = {
    * log-list.module.css for the composition rationale.
    */
   isDimmed?: boolean;
-  onFilterToggle?: (target: FilterToggleTarget) => void;
+  /**
+   * `sourceLineId` lets the parent know which line the click originated
+   * from — used as the converging-wave anchor so the stagger radiates
+   * from the line the user actually interacted with. Always set to
+   * `line.id` when calling from a pill button.
+   */
+  onFilterToggle?: (target: FilterToggleTarget, sourceLineId: string) => void;
   onToggleContext?: (lineId: string) => void;
 };
 
@@ -104,12 +110,13 @@ export function LogLine({
 
   // Pill / badge button clicks must not bubble — without stopPropagation
   // a cmd + click on, say, an instance pill would both add a filter and
-  // toggle a context on the same gesture.
+  // toggle a context on the same gesture. Each click also passes the
+  // host line's id as the wave-anchor source — see LogList.
   const stopAndFilter =
     (target: FilterToggleTarget) =>
     (event: ReactMouseEvent<HTMLButtonElement>) => {
       event.stopPropagation();
-      onFilterToggle?.(target);
+      onFilterToggle?.(target, line.id);
     };
 
   return (
