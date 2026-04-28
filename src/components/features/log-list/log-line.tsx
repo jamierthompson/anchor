@@ -37,6 +37,13 @@ import styles from "./log-line.module.css";
 
 type LogLineProps = {
   line: LogLineType;
+  /**
+   * Drives the dim opacity. Lives on the inner element (this component's
+   * root) so it composes cleanly with the visibility opacity that Motion
+   * applies to the parent <li> during expand/collapse — see
+   * log-list.module.css for the composition rationale.
+   */
+  isDimmed?: boolean;
   onFilterToggle?: (target: FilterToggleTarget) => void;
   onToggleContext?: (lineId: string) => void;
 };
@@ -66,12 +73,14 @@ function formatTime(timestamp: number): string {
 
 export function LogLine({
   line,
+  isDimmed,
   onFilterToggle,
   onToggleContext,
 }: LogLineProps) {
   if (line.isDeployBoundary) {
     // Deploy boundaries don't participate in View Context — they're
-    // global section markers (spec §5), not anchorable rows.
+    // global section markers (spec §5), not anchorable rows. They also
+    // never dim, so they don't carry a data-dimmed attribute.
     return (
       <div className={styles.deployBoundary} role="separator">
         <span className={styles.deployRule} aria-hidden="true" />
@@ -107,6 +116,7 @@ export function LogLine({
     <div
       className={styles.line}
       data-level={line.level}
+      data-dimmed={isDimmed ?? false}
       onClick={onToggleContext ? handleLineClick : undefined}
     >
       <time

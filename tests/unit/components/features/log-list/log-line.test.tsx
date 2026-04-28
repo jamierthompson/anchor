@@ -88,6 +88,39 @@ describe("LogLine — regular lines", () => {
   });
 });
 
+describe("LogLine — dim styling lives on the inner element", () => {
+  it("carries data-dimmed='true' on the inner line element when isDimmed is set", () => {
+    // Dim opacity composes with Motion's visibility opacity on the
+    // parent <li>. The attribute on the inner element is what the CSS
+    // rule keys off — moving it to the outer wrapper would let Motion's
+    // inline opacity override the dimmed value.
+    const { container } = render(<LogLine line={baseLine} isDimmed />);
+    const inner = container.querySelector("[data-level]");
+    expect(inner?.getAttribute("data-dimmed")).toBe("true");
+  });
+
+  it("data-dimmed defaults to 'false' when isDimmed is omitted", () => {
+    const { container } = render(<LogLine line={baseLine} />);
+    const inner = container.querySelector("[data-level]");
+    expect(inner?.getAttribute("data-dimmed")).toBe("false");
+  });
+
+  it("deploy boundaries do not carry data-dimmed (always undimmed per spec §5)", () => {
+    const { container } = render(
+      <LogLine
+        line={{
+          ...baseLine,
+          isDeployBoundary: true,
+          message: "🎉 Deploy live · srv-7tbsm@a3f2c1",
+        }}
+        isDimmed
+      />,
+    );
+    const sep = container.querySelector('[role="separator"]');
+    expect(sep?.getAttribute("data-dimmed")).toBeNull();
+  });
+});
+
 describe("LogLine — click-to-filter", () => {
   it("renders the instance pill as a button when onFilterToggle is supplied", () => {
     render(<LogLine line={baseLine} onFilterToggle={() => {}} />);

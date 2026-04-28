@@ -1,5 +1,6 @@
 "use client";
 
+import { MotionConfig } from "motion/react";
 import { useCallback, useMemo, useReducer, useState } from "react";
 
 import { FilterBar } from "@/components/features/filter-bar/filter-bar";
@@ -14,6 +15,8 @@ import {
   filterReducer,
   hasAnyFilter,
   initialFilterState,
+  lineMatchesFilter,
+  type FilterAction,
   type FilterToggleTarget,
 } from "@/lib/filter-state";
 import type { LogLine } from "@/types/log";
@@ -34,7 +37,7 @@ import styles from "./log-explorer.module.css";
  * become a third dependency in task #3.
  */
 export function LogExplorer({ lines }: { lines: readonly LogLine[] }) {
-  const [filterState, dispatch] = useReducer(
+  const [filterState, rawDispatch] = useReducer(
     filterReducer,
     initialFilterState,
   );
@@ -44,14 +47,56 @@ export function LogExplorer({ lines }: { lines: readonly LogLine[] }) {
   // a one-line change when that lands.
   const [openContext, setOpenContext] = useState<OpenContext | null>(null);
 
+  /**
+   * Filter dispatch wrapper that also clears the open context when the
+   * pending filter change would put it past its activation gate.
+   *
+   * The activation gate (used by handleToggleContext below) is: at
+   * least one filter is active AND the line matches the filter. Mirror
+   * that gate on filter changes — if either side fails after the
+   * dispatch, drop the saved context. This covers two cases:
+   *
+   *   - All filters cleared (e.g. removing the last chip) → !hasAnyFilter
+   *     → clear. Spec §3 hides the View Context affordance entirely
+   *     when no filter is active, so an open context shouldn't survive
+   *     reaching that state.
+   *   - Filter narrows past the selected line → !lineMatchesFilter →
+   *     clear. Diverges from spec §5's "preserve so loosening brings
+   *     it back" — a stale accent on a hidden line is more confusing
+   *     than the power-user nicety of context auto-restore.
+   *
+   * Doing this in the dispatch path (rather than a post-render effect)
+   * keeps the cleanup atomic with the filter change and avoids a
+   * separate render-then-cleanup round-trip.
+   */
+  const dispatchFilter = useCallback(
+    (action: FilterAction) => {
+      rawDispatch(action);
+      if (!openContext) return;
+      const nextFilter = filterReducer(filterState, action);
+      const selected = lines.find(
+        (l) => l.id === openContext.selectedLineId,
+      );
+      if (!selected) return;
+      const stillActivatable =
+        hasAnyFilter(nextFilter) &&
+        lineMatchesFilter(selected, nextFilter);
+      if (!stillActivatable) {
+        setOpenContext(null);
+      }
+    },
+    [filterState, openContext, lines],
+  );
+
   const derivedLines = useMemo(
     () => deriveLines(lines, filterState, openContext ? [openContext] : []),
     [lines, filterState, openContext],
   );
 
   const handleFilterToggle = useCallback(
-    (target: FilterToggleTarget) => dispatch(actionForTarget(target)),
-    [],
+    (target: FilterToggleTarget) =>
+      dispatchFilter(actionForTarget(target)),
+    [dispatchFilter],
   );
 
   /**
@@ -80,14 +125,19 @@ export function LogExplorer({ lines }: { lines: readonly LogLine[] }) {
   );
 
   return (
-    <div className={styles.explorer}>
-      <FilterBar state={filterState} dispatch={dispatch} />
-      <LogList
-        lines={derivedLines}
-        onFilterToggle={handleFilterToggle}
-        onToggleContext={handleToggleContext}
-        selectedLineId={openContext?.selectedLineId}
-      />
-    </div>
+    // reducedMotion="user" honors the OS-level prefers-reduced-motion
+    // setting — Motion drops durations to ~0 so the line transitions
+    // don't run, but the final state still resolves correctly.
+    <MotionConfig reducedMotion="user">
+      <div className={styles.explorer}>
+        <FilterBar state={filterState} dispatch={dispatchFilter} />
+        <LogList
+          lines={derivedLines}
+          onFilterToggle={handleFilterToggle}
+          onToggleContext={handleToggleContext}
+          selectedLineId={openContext?.selectedLineId}
+        />
+      </div>
+    </MotionConfig>
   );
 }
