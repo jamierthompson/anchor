@@ -600,37 +600,112 @@ export function LogExplorer({ lines }: { lines: readonly LogLine[] }) {
    * KeyboardEvents only when the list is focused (Tab into it, or any
    * descendant has focus and the event bubbles up).
    *
-   * j / ArrowDown — focus next visible line.
-   * k / ArrowUp   — focus previous visible line.
+   * Bindings (spec §7):
    *
-   * Both pairs are first-class: arrow keys are the discoverable
-   * default that any user expects for list nav; j/k is the power-
-   * user / Vim-style convention common in dev-tool UIs (Linear, Slack
-   * threads, Gmail, command palettes). Supporting both costs us
-   * nothing and lets people use whichever muscle memory they already
-   * have.
+   *   j / ArrowDown — focus next visible line
+   *   k / ArrowUp   — focus previous visible line
+   *   g             — focus first visible line
+   *   G (shift+g)   — focus last visible line
+   *   [             — focus previous deploy boundary
+   *   ]             — focus next deploy boundary
    *
-   * Visible lines (not the full `derivedLines` array) are the
-   * navigable set. A hidden line is functionally not there — pressing
-   * j shouldn't pause on lines the user can't see.
+   * Arrow keys and j/k are first-class equivalents — arrow keys are
+   * the discoverable default; j/k is the Vim/Linear/Slack power-user
+   * convention. g/G follows the Vim/less convention (lowercase = top,
+   * shift = bottom). [ and ] jump between deploy boundaries — global
+   * section markers in the log feed (spec §5) that are always visible
+   * regardless of filter.
    *
-   * If focus is null when navigation starts, "next" lands on the
-   * first visible line and "previous" on the last (natural start
-   * positions).
+   * Visible lines are the navigable set for j/k/g/G; deploy
+   * boundaries are their own set for [/]. A hidden line is
+   * functionally not there for navigation.
    */
   const handleKeyDown = useCallback(
     (event: React.KeyboardEvent<HTMLUListElement>) => {
-      // Ignore modified keys — cmd/ctrl + j is a browser shortcut on
-      // some platforms (downloads on Chrome), and shift+arrows
-      // typically extends a selection elsewhere. We claim only the
-      // bare keys; modified variants stay free for future bindings
-      // (e.g. shift+e for context-size cycle).
-      if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey)
-        return;
+      // Ignore browser-claimed modifier combos. cmd/ctrl + j is a
+      // downloads shortcut on Chrome; alt-prefixed keys are reserved
+      // for OS/browser bindings on most platforms.
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
 
-      const isNext = event.key === "j" || event.key === "ArrowDown";
-      const isPrev = event.key === "k" || event.key === "ArrowUp";
-      if (!isNext && !isPrev) return;
+      const { key, shiftKey } = event;
+
+      // Reject any shifted key that isn't shift+g. Single exception
+      // keeps the rule "no shift" almost universal — accepting both
+      // `key === "G"` and `key === "g"` here matches the dual check
+      // for `isLast` below.
+      if (shiftKey && key !== "G" && key !== "g") return;
+
+      const isNext = !shiftKey && (key === "j" || key === "ArrowDown");
+      const isPrev = !shiftKey && (key === "k" || key === "ArrowUp");
+      const isFirst = !shiftKey && key === "g";
+      // Accept both forms — `key: "G"` is what most browsers fire for
+      // shift+g on US keyboards, but some testing tools and non-US
+      // layouts fire `key: "g"` with shiftKey true. Handling both
+      // makes the binding robust without changing the user-facing
+      // contract.
+      const isLast = shiftKey && (key === "G" || key === "g");
+      const isPrevBoundary = !shiftKey && key === "[";
+      const isNextBoundary = !shiftKey && key === "]";
+
+      if (
+        !isNext &&
+        !isPrev &&
+        !isFirst &&
+        !isLast &&
+        !isPrevBoundary &&
+        !isNextBoundary
+      ) {
+        return;
+      }
+
+      // Boundary navigation has its own filter (deploy boundaries
+      // only) and direction logic — separate it out from the
+      // visible-lines path used by j/k/g/G.
+      if (isPrevBoundary || isNextBoundary) {
+        const boundaries = derivedLines.filter((l) => l.isDeployBoundary);
+        if (boundaries.length === 0) return;
+        event.preventDefault();
+
+        // Compare against the *full* derivedLines index, not the
+        // boundaries-filtered index — "previous boundary" means "the
+        // boundary whose array index is the largest one still less
+        // than the focused line's index."
+        const focusIdx = effectiveFocusedLineId
+          ? derivedLines.findIndex((l) => l.id === effectiveFocusedLineId)
+          : -1;
+
+        let target: string | null = null;
+        if (isNextBoundary) {
+          for (const b of boundaries) {
+            const bi = derivedLines.findIndex((l) => l.id === b.id);
+            if (bi > focusIdx) {
+              target = b.id;
+              break;
+            }
+          }
+          // From no focus (or past the last boundary), wrap to the
+          // first boundary so the binding always does something.
+          if (!target) target = boundaries[0].id;
+        } else {
+          // Walk from the end so we land on the largest-index
+          // boundary still strictly less than focusIdx.
+          for (let i = boundaries.length - 1; i >= 0; i--) {
+            const bi = derivedLines.findIndex(
+              (l) => l.id === boundaries[i].id,
+            );
+            if (focusIdx === -1 || bi < focusIdx) {
+              target = boundaries[i].id;
+              break;
+            }
+          }
+          // From no focus (or before the first boundary), fall back
+          // to the last boundary — same wrap semantics as next.
+          if (!target) target = boundaries[boundaries.length - 1].id;
+        }
+
+        if (target) setFocusedLineId(target);
+        return;
+      }
 
       const visible = derivedLines.filter((l) => l.isVisible);
       if (visible.length === 0) return;
@@ -647,7 +722,11 @@ export function LogExplorer({ lines }: { lines: readonly LogLine[] }) {
         : -1;
 
       let nextIndex: number;
-      if (currentIndex === -1) {
+      if (isFirst) {
+        nextIndex = 0;
+      } else if (isLast) {
+        nextIndex = visible.length - 1;
+      } else if (currentIndex === -1) {
         // Nothing focused yet — "next" starts at the top, "previous"
         // at the bottom.
         nextIndex = isNext ? 0 : visible.length - 1;

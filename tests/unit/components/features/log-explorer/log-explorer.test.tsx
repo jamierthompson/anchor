@@ -412,4 +412,129 @@ describe("LogExplorer — keyboard focus model (spec §7)", () => {
     // No focus moved — the handler bailed on the modifier.
     expect(listbox().getAttribute("aria-activedescendant")).toBeFalsy();
   });
+
+  it("g jumps to the first visible line", async () => {
+    const user = userEvent.setup();
+    render(<LogExplorer lines={fixture} />);
+    listbox().focus();
+    // Move down a few lines first to prove g doesn't just hold us at start.
+    await user.keyboard("{ArrowDown}{ArrowDown}{ArrowDown}");
+    expect(liFor(/row two warn/).getAttribute("data-focused")).toBe("true");
+
+    await user.keyboard("g");
+
+    expect(liFor(/row zero info/).getAttribute("data-focused")).toBe("true");
+  });
+
+  it("G (shift+g) jumps to the last visible line", async () => {
+    const user = userEvent.setup();
+    render(<LogExplorer lines={fixture} />);
+    listbox().focus();
+
+    await user.keyboard("{Shift>}g{/Shift}");
+
+    expect(liFor(/row four info/).getAttribute("data-focused")).toBe("true");
+  });
+
+  it("g/G respect the visible set (filtered lines are skipped)", async () => {
+    const user = userEvent.setup();
+    render(<LogExplorer lines={fixture} />);
+    applyErrorFilter();
+    listbox().focus();
+
+    await user.keyboard("g");
+    expect(liFor(/row one error/).getAttribute("data-focused")).toBe("true");
+
+    await user.keyboard("{Shift>}g{/Shift}");
+    expect(liFor(/row three error/).getAttribute("data-focused")).toBe("true");
+  });
+});
+
+describe("LogExplorer — deploy-boundary navigation ([ / ])", () => {
+  /**
+   * Fixture with two deploy boundaries so [ and ] have somewhere to
+   * land — the spec §5 rule is that boundaries are always visible
+   * regardless of filter, so they're the natural anchor for cross-
+   * deploy navigation.
+   */
+  const boundaryFixture: LogLine[] = [
+    { id: "b0", timestamp: T(0), instance: "i1", level: "INFO", message: "before first deploy" },
+    {
+      id: "deploy_a",
+      timestamp: T(1),
+      instance: "i1",
+      level: "INFO",
+      message: "🎉 Deploy live · srv-i1@a3f2c1",
+      isDeployBoundary: true,
+    },
+    { id: "b1", timestamp: T(2), instance: "i1", level: "INFO", message: "between deploys A" },
+    { id: "b2", timestamp: T(3), instance: "i1", level: "INFO", message: "between deploys B" },
+    {
+      id: "deploy_b",
+      timestamp: T(4),
+      instance: "i1",
+      level: "INFO",
+      message: "🎉 Deploy live · srv-i1@b9e1d7",
+      isDeployBoundary: true,
+    },
+    { id: "b3", timestamp: T(5), instance: "i1", level: "INFO", message: "after second deploy" },
+  ];
+
+  const listbox = () => screen.getByRole("listbox", { name: /log lines/i });
+
+  // [ and ] are reserved characters in user-event's keyboard
+  // descriptor syntax (they delimit special key tokens). For these
+  // tests we drive the handler directly via fireEvent.keyDown, which
+  // bypasses the descriptor parser and lets us assert against the
+  // exact `key` value our handler keys off.
+  const press = (key: string) => fireEvent.keyDown(listbox(), { key });
+
+  it("] jumps to the next deploy boundary from no-focus", () => {
+    render(<LogExplorer lines={boundaryFixture} />);
+    listbox().focus();
+
+    press("]");
+
+    expect(liFor(/srv-i1@a3f2c1/).getAttribute("data-focused")).toBe("true");
+  });
+
+  it("] advances forward through boundaries", () => {
+    render(<LogExplorer lines={boundaryFixture} />);
+    listbox().focus();
+
+    press("]");
+    press("]");
+
+    expect(liFor(/srv-i1@b9e1d7/).getAttribute("data-focused")).toBe("true");
+  });
+
+  it("[ jumps to the previous deploy boundary", () => {
+    render(<LogExplorer lines={boundaryFixture} />);
+    listbox().focus();
+    fireEvent.click(liFor(/after second deploy/));
+
+    press("[");
+
+    expect(liFor(/srv-i1@b9e1d7/).getAttribute("data-focused")).toBe("true");
+  });
+
+  it("[ from no-focus wraps to the last boundary so the binding always does something", () => {
+    render(<LogExplorer lines={boundaryFixture} />);
+    listbox().focus();
+
+    press("[");
+
+    expect(liFor(/srv-i1@b9e1d7/).getAttribute("data-focused")).toBe("true");
+  });
+
+  it("] past the last boundary wraps to the first — keeps the binding meaningful", () => {
+    render(<LogExplorer lines={boundaryFixture} />);
+    listbox().focus();
+    fireEvent.click(liFor(/after second deploy/));
+
+    press("]");
+
+    expect(liFor(/srv-i1@a3f2c1/).getAttribute("data-focused")).toBe("true");
+  });
+
 });
