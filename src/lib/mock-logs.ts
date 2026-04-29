@@ -558,3 +558,115 @@ function buildMockLogs(): readonly LogLine[] {
 }
 
 export const mockLogs: readonly LogLine[] = buildMockLogs();
+
+/**
+ * One entry in the live-tail seed. Each carries the line content
+ * plus a `delayMs` — how long to wait *after the previous seed entry*
+ * before this one streams in. Hand-curated cadence: bursts of
+ * activity, quiet stretches in between.
+ */
+export type LiveTailSeedEntry = LogLine & {
+  /** Wall-clock delay in ms after the previous seed entry. */
+  readonly delayMs: number;
+};
+
+/**
+ * Live-tail simulation seed (spec §10.2 + §9.8). Continues the story
+ * arc from where `mockLogs` ends — minutes 60+ pick up the "stable
+ * tail" theme: mostly INFO, occasional WARN, healthy traffic with
+ * request lifecycles. Timestamps continue from MOCK_START_MS so the
+ * story feels coherent if a user inspects line times mid-stream.
+ *
+ * The wall-clock cadence (`delayMs`) is intentionally variable to
+ * match the spec's "bursts of activity, quiet periods" guidance:
+ * tight clusters (~200-400ms) inside imagined request lifecycles,
+ * long pauses (~1500-2500ms) between them. Hand-curated, not random,
+ * so the streaming feels narratively shaped rather than chaotic.
+ *
+ * The seed is finite — when streaming exhausts it, the engine simply
+ * stops adding lines. No looping or procedural generation; for a
+ * portfolio prototype, demo-friendly + deterministic + memory-bounded
+ * beats infinite simulation.
+ */
+function buildLiveTailSeed(): readonly LiveTailSeedEntry[] {
+  // Continue the id sequence past where buildMockLogs stopped. The
+  // mockLogs export is already 415 entries; seed ids start at 416.
+  const startNum = mockLogs.length;
+  let nextIdNum = startNum;
+  const id = (): string => `log_${String(++nextIdNum).padStart(4, "0")}`;
+  const t = (min: number, sec: number): number =>
+    MOCK_START_MS + min * 60_000 + sec * 1_000;
+
+  type Builder = (
+    min: number,
+    sec: number,
+    delayMs: number,
+    instance: InstanceId,
+    message: string,
+    requestId?: RequestId,
+  ) => LiveTailSeedEntry;
+
+  const lvl = (level: LogLine["level"]): Builder =>
+    (min, sec, delayMs, instance, message, requestId) => ({
+      id: id(),
+      timestamp: t(min, sec),
+      instance,
+      level,
+      message,
+      delayMs,
+      ...(requestId ? { requestId } : {}),
+    });
+
+  const info = lvl("INFO");
+  const warn = lvl("WARN");
+
+  // Pattern: a few short clusters of request-lifecycle activity
+  // separated by quieter pauses. delayMs values approximate how long
+  // a viewer would wait between visible appearances of new lines.
+  return [
+    // Initial pause so the page settles before streaming begins —
+    // gives the user a moment to orient before motion starts.
+    info(60, 8, 1800, "7tbsm", "GET /api/users 200 in 36ms", "req_a3f9c2"),
+    info(60, 12, 320, "a3kx2", "GET /api/orders 200 in 49ms", "req_d2j5q8"),
+    info(60, 18, 280, "m9p4r", "Heartbeat sent"),
+    info(60, 24, 420, "7tbsm", "GET /api/products 200 in 29ms", "req_b81k4m"),
+
+    // Quiet stretch.
+    info(60, 38, 2200, "a3kx2", "Healthcheck OK"),
+    info(60, 49, 1700, "m9p4r", "GET /api/notifications 200 in 47ms", "req_e6h1v3"),
+
+    // Burst — request lifecycle.
+    info(61, 4, 2000, "7tbsm", "POST /api/orders 201 in 88ms", "req_a3f9c2"),
+    info(61, 7, 250, "7tbsm", "DB query: SELECT users WHERE id=? (12ms)", "req_a3f9c2"),
+    info(61, 10, 220, "7tbsm", "DB query: INSERT orders (28ms)", "req_a3f9c2"),
+    info(61, 13, 240, "7tbsm", "Cache invalidated: orders:7tbsm", "req_a3f9c2"),
+    info(61, 17, 380, "a3kx2", "PATCH /api/orders/68 200 in 71ms", "req_c4n7p9"),
+
+    // Quiet.
+    info(61, 32, 2400, "m9p4r", "Heartbeat sent"),
+    warn(61, 41, 1800, "a3kx2", "Cache miss rate elevated: 0.32 (expected <0.30)"),
+    info(61, 49, 1500, "7tbsm", "Healthcheck OK"),
+
+    // Burst — multi-instance activity.
+    info(62, 3, 2100, "m9p4r", "POST /api/sessions 201 in 63ms", "req_e6h1v3"),
+    info(62, 6, 220, "7tbsm", "GET /api/users/me 200 in 18ms", "req_b81k4m"),
+    info(62, 9, 260, "a3kx2", "GET /api/orders/68 200 in 46ms", "req_d2j5q8"),
+    info(62, 12, 280, "m9p4r", "GET /api/notifications 200 in 48ms", "req_e6h1v3"),
+    info(62, 16, 350, "7tbsm", "POST /api/events 202 in 12ms", "req_a3f9c2"),
+
+    // Quiet stretch.
+    info(62, 32, 2300, "a3kx2", "Background job 'token-refresh' completed in 84ms"),
+    info(62, 47, 2200, "m9p4r", "Heartbeat sent"),
+
+    // Final cluster — story winds down.
+    info(63, 1, 1900, "7tbsm", "GET /api/products 200 in 33ms", "req_b81k4m"),
+    info(63, 4, 240, "a3kx2", "GET /api/orders 200 in 51ms", "req_c4n7p9"),
+    info(63, 8, 320, "m9p4r", "Healthcheck OK"),
+    info(63, 19, 1600, "7tbsm", "Heartbeat sent"),
+    info(63, 31, 1900, "a3kx2", "Cache hit ratio: 0.91"),
+    info(63, 44, 1800, "m9p4r", "Background job 'session-cleanup' completed in 39ms"),
+    info(63, 58, 2100, "7tbsm", "Healthcheck OK"),
+  ];
+}
+
+export const liveTailSeed: readonly LiveTailSeedEntry[] = buildLiveTailSeed();
