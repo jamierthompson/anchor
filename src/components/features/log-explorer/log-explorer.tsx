@@ -20,6 +20,8 @@ import {
   ShortcutSheet,
   ShortcutSheetTrigger,
 } from "@/components/features/shortcut-sheet/shortcut-sheet";
+import { liveTailSeed } from "@/lib/mock-logs";
+import { useLiveTail } from "@/lib/use-live-tail";
 import {
   DEFAULT_CONTEXT_RANGE,
   nextContextRange,
@@ -91,7 +93,22 @@ type AnchorSnapshot = { id: string; top: number };
  * input array or the filter state changes. Open context windows will
  * become a third dependency in task #3.
  */
-export function LogExplorer({ lines }: { lines: readonly LogLine[] }) {
+export function LogExplorer({
+  lines: initialLines,
+}: {
+  lines: readonly LogLine[];
+}) {
+  // Live-tail simulation streams seed entries on a hand-curated
+  // cadence (spec §10.2). `lines` is the combined initial fixture +
+  // streamed-so-far entries; `freshIds` is the set of streamed line
+  // ids, which LogList uses to gate per-line mount-time animation
+  // (animate from height: 0 only for streamed lines, not the
+  // initial fixture).
+  const { lines, freshIds: streamedLineIds } = useLiveTail(
+    initialLines,
+    liveTailSeed,
+  );
+
   const [filterState, rawDispatch] = useReducer(
     filterReducer,
     initialFilterState,
@@ -349,6 +366,30 @@ export function LogExplorer({ lines }: { lines: readonly LogLine[] }) {
         clearTimeout(slowModeTimeoutRef.current);
     };
   }, []);
+
+  /**
+   * Live-tail at-bottom auto-follow (spec §9.8 / §10.2). When a new
+   * streamed line is appended AND the user is at the bottom of the
+   * list, kick off the existing scrollTop = max rAF loop. As Motion
+   * animates the new line's height from 0 → auto, the document grows
+   * underneath, and the rAF loop tracks the new bottom each frame so
+   * the user stays glued to the most-recent line.
+   *
+   * Tracks the previous lines length in a ref to detect appends
+   * without diffing arrays. useLayoutEffect (not useEffect) so the
+   * scroll adjustment commits synchronously before paint — avoids a
+   * one-frame flash where the document has grown but scrollTop hasn't
+   * caught up yet.
+   *
+   * Scrolled-up users get the pill (next commit) instead.
+   */
+  const prevLinesLengthRef = useRef(lines.length);
+  useLayoutEffect(() => {
+    const grew = lines.length > prevLinesLengthRef.current;
+    prevLinesLengthRef.current = lines.length;
+    if (!grew) return;
+    if (isAtBottom()) startStickToBottom();
+  }, [lines.length, isAtBottom, startStickToBottom]);
 
   // Live-tail convention: open at the bottom of the list. useLayoutEffect
   // runs after hydration commit but BEFORE the browser's next paint,
@@ -1013,6 +1054,7 @@ export function LogExplorer({ lines }: { lines: readonly LogLine[] }) {
           onKeyDown={handleKeyDown}
           selectedContextRangesById={effectiveSelectedContextRangesById}
           focusedLineId={effectiveFocusedLineId}
+          streamedLineIds={streamedLineIds}
           hasAnyFilter={hasAnyFilter(filterState)}
           transitionMode={transitionMode}
         />
