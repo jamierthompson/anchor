@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
 import { LogExplorer } from "@/components/features/log-explorer/log-explorer";
@@ -167,11 +168,18 @@ describe("LogExplorer — View Context toggle", () => {
     expect(liFor(/row zero info/).getAttribute("data-selected")).toBe("false");
   });
 
-  it("plain click on a line body does nothing — focus model is task #7", () => {
+  it("plain click on a line body focuses that line (and does NOT open a context)", () => {
+    // Plain click is the mouse focus model from spec §7/§8: clicking a
+    // line body sets keyboard focus on that line. cmd/ctrl + click stays
+    // reserved for the context-toggle modifier (covered separately).
     render(<LogExplorer lines={fixture} />);
     applyErrorFilter();
 
-    fireEvent.click(liFor(/row one error/).querySelector("[data-level]")!);
+    fireEvent.click(liFor(/row one error/));
+
+    expect(liFor(/row one error/).getAttribute("data-focused")).toBe("true");
+    // Selection accent must NOT have moved — focus and selection are
+    // independent states.
     expect(liFor(/row one error/).getAttribute("data-selected")).toBe("false");
   });
 
@@ -284,5 +292,124 @@ describe("LogExplorer — View Context toggle", () => {
       screen.getAllByRole("button", { name: /Filter by level ERROR/ })[0],
     );
     expect(liFor(/row one error/).getAttribute("data-selected")).toBe("true");
+  });
+});
+
+describe("LogExplorer — keyboard focus model (spec §7)", () => {
+  /**
+   * Helper: get the <ul> listbox for keyboard event dispatch. Each
+   * test focuses this element before sending keypresses so the
+   * onKeyDown handler actually receives them — it's attached to the
+   * listbox, not the document.
+   */
+  const listbox = () => screen.getByRole("listbox", { name: /log lines/i });
+
+  it("Tab from the page lands on the listbox and reports no active line yet", () => {
+    render(<LogExplorer lines={fixture} />);
+    const list = listbox();
+    list.focus();
+    expect(list).toHaveFocus();
+    expect(list.getAttribute("aria-activedescendant")).toBeFalsy();
+  });
+
+  it("ArrowDown from no-focus lands on the first visible line", async () => {
+    const user = userEvent.setup();
+    render(<LogExplorer lines={fixture} />);
+    listbox().focus();
+
+    await user.keyboard("{ArrowDown}");
+
+    expect(liFor(/row zero info/).getAttribute("data-focused")).toBe("true");
+    expect(listbox().getAttribute("aria-activedescendant")).toBe("line_l0");
+  });
+
+  it("j is equivalent to ArrowDown — vim-style power-user binding", async () => {
+    const user = userEvent.setup();
+    render(<LogExplorer lines={fixture} />);
+    listbox().focus();
+
+    await user.keyboard("j");
+    expect(liFor(/row zero info/).getAttribute("data-focused")).toBe("true");
+    await user.keyboard("j");
+    expect(liFor(/row one error/).getAttribute("data-focused")).toBe("true");
+  });
+
+  it("ArrowUp from no-focus lands on the last visible line", async () => {
+    const user = userEvent.setup();
+    render(<LogExplorer lines={fixture} />);
+    listbox().focus();
+
+    await user.keyboard("{ArrowUp}");
+
+    expect(liFor(/row four info/).getAttribute("data-focused")).toBe("true");
+  });
+
+  it("k is equivalent to ArrowUp", async () => {
+    const user = userEvent.setup();
+    render(<LogExplorer lines={fixture} />);
+    listbox().focus();
+
+    await user.keyboard("k");
+    expect(liFor(/row four info/).getAttribute("data-focused")).toBe("true");
+    await user.keyboard("k");
+    expect(liFor(/row three error/).getAttribute("data-focused")).toBe("true");
+  });
+
+  it("clamps at the top — ArrowUp on the first line stays put", async () => {
+    const user = userEvent.setup();
+    render(<LogExplorer lines={fixture} />);
+    listbox().focus();
+    await user.keyboard("{ArrowDown}{ArrowUp}{ArrowUp}");
+
+    expect(liFor(/row zero info/).getAttribute("data-focused")).toBe("true");
+  });
+
+  it("clamps at the bottom — ArrowDown on the last line stays put", async () => {
+    const user = userEvent.setup();
+    render(<LogExplorer lines={fixture} />);
+    listbox().focus();
+    await user.keyboard("{ArrowUp}{ArrowDown}{ArrowDown}");
+
+    expect(liFor(/row four info/).getAttribute("data-focused")).toBe("true");
+  });
+
+  it("skips hidden (filtered-out) lines when navigating", async () => {
+    // After ERROR filter, only l1 and l3 are visible. j should hop
+    // straight from l1 to l3, not pause on the hidden l2 in between.
+    const user = userEvent.setup();
+    render(<LogExplorer lines={fixture} />);
+    applyErrorFilter();
+    listbox().focus();
+
+    await user.keyboard("j"); // → l1 (first visible)
+    expect(liFor(/row one error/).getAttribute("data-focused")).toBe("true");
+
+    await user.keyboard("j"); // → l3 (next visible)
+    expect(liFor(/row three error/).getAttribute("data-focused")).toBe("true");
+  });
+
+  it("hops to the nearest visible line when a filter change hides the focused one (spec §7)", () => {
+    // Focus l2 (WARN), then apply an ERROR filter that hides l2. The
+    // focus persistence rule should jump focus to the nearest visible
+    // line — l3 (next-below) wins over l1 (above) because the rule
+    // prefers reading direction.
+    render(<LogExplorer lines={fixture} />);
+    fireEvent.click(liFor(/row two warn/));
+    expect(liFor(/row two warn/).getAttribute("data-focused")).toBe("true");
+
+    applyErrorFilter();
+
+    expect(liFor(/row three error/).getAttribute("data-focused")).toBe("true");
+  });
+
+  it("ignores cmd/ctrl + j so the browser shortcut is preserved", async () => {
+    const user = userEvent.setup();
+    render(<LogExplorer lines={fixture} />);
+    listbox().focus();
+
+    await user.keyboard("{Meta>}j{/Meta}");
+
+    // No focus moved — the handler bailed on the modifier.
+    expect(listbox().getAttribute("aria-activedescendant")).toBeFalsy();
   });
 });

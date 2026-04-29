@@ -104,6 +104,30 @@ export function LogExplorer({ lines }: { lines: readonly LogLine[] }) {
     [],
   );
 
+  // Keyboard-navigable focus, distinct from `openContexts` (the selection
+  // accent). Spec §7: a focused line gets a "subtle outline" — visually
+  // separate from the left-border accent that marks a context anchor.
+  //
+  // We use the **aria-activedescendant** pattern, not roving tabindex:
+  //   - The <ul> is the only Tab stop. tabIndex on individual <li>s
+  //     would mean Tab walks every line, which makes the list a focus
+  //     trap.
+  //   - `focusedLineId` is internal state; LogList renders it as
+  //     `aria-activedescendant="line_<id>"` on the <ul> and as
+  //     `data-focused="true"` on the matching <li> for the CSS outline.
+  //   - Screen readers honor aria-activedescendant: they announce the
+  //     "active descendant" as if it were focused, even though DOM focus
+  //     stays on the <ul>.
+  //   - Tab continues normally through buttons inside lines (instance
+  //     pills, level badges) — no manual Tab-handling needed to keep the
+  //     list as a single focus container.
+  //
+  // Compared to roving tabindex, this trades native :focus-visible for
+  // a manual outline rule, but saves us from juggling .focus() calls
+  // and Tab interception. For a list with focusable children, it's the
+  // simpler correct choice.
+  const [focusedLineId, setFocusedLineId] = useState<string | null>(null);
+
   // Single spatial anchor for the per-frame scroll compensation.
   // Resolved per dispatch with this priority:
   //   1. The line the user clicked from (pill click, context toggle).
@@ -511,6 +535,133 @@ export function LogExplorer({ lines }: { lines: readonly LogLine[] }) {
     ],
   );
 
+  /**
+   * Focus persistence rule (spec §7): the *saved* focus (`focusedLineId`)
+   * is what the user explicitly set; the *effective* focus is what
+   * actually renders. When the saved line is hidden by a filter change
+   * or context collapse, the effective focus hops to the nearest
+   * visible line by array-index distance — preferring the next visible
+   * line below (reading direction) over the previous one above.
+   *
+   * Computed during render rather than synced via setState-in-effect.
+   * This is the React 19 best practice for derived state and gives us
+   * a useful side benefit: the saved focus persists across filter
+   * changes the same way `openContexts` does. If the user un-filters
+   * later, the saved focus comes back automatically — same model the
+   * selection accent uses.
+   *
+   * If no line is visible at all, effective focus is null and the
+   * listbox renders with no aria-activedescendant.
+   */
+  const effectiveFocusedLineId = useMemo<string | null>(() => {
+    if (!focusedLineId) return null;
+    const focused = derivedLines.find((l) => l.id === focusedLineId);
+    if (focused?.isVisible) return focusedLineId;
+
+    const focusedIndex = derivedLines.findIndex(
+      (l) => l.id === focusedLineId,
+    );
+    if (focusedIndex === -1) return null;
+
+    for (let i = focusedIndex + 1; i < derivedLines.length; i++) {
+      if (derivedLines[i].isVisible) return derivedLines[i].id;
+    }
+    for (let i = focusedIndex - 1; i >= 0; i--) {
+      if (derivedLines[i].isVisible) return derivedLines[i].id;
+    }
+    return null;
+  }, [derivedLines, focusedLineId]);
+
+  /**
+   * When focus moves (programmatically or via click), scroll the
+   * effective focus into view if it's outside the viewport. Use
+   * `block: "nearest"` so already-visible focused lines don't trigger
+   * a scroll — only lines actually past the top/bottom edges do.
+   *
+   * Keys on the *effective* id, not the saved one, so a "hopped to
+   * nearest visible" line also gets scrolled into view.
+   */
+  useEffect(() => {
+    if (!effectiveFocusedLineId || !viewportRef.current) return;
+    const el = viewportRef.current.querySelector<HTMLElement>(
+      `[data-line-id="${effectiveFocusedLineId}"]`,
+    );
+    if (!el) return;
+    // jsdom doesn't implement scrollIntoView (it's a layout API). The
+    // typeof guard keeps unit tests from blowing up while leaving the
+    // real browser behavior untouched.
+    if (typeof el.scrollIntoView === "function") {
+      el.scrollIntoView({ block: "nearest", inline: "nearest" });
+    }
+  }, [effectiveFocusedLineId]);
+
+  /**
+   * Keyboard handler attached to the LogList's <ul>. Receives
+   * KeyboardEvents only when the list is focused (Tab into it, or any
+   * descendant has focus and the event bubbles up).
+   *
+   * j / ArrowDown — focus next visible line.
+   * k / ArrowUp   — focus previous visible line.
+   *
+   * Both pairs are first-class: arrow keys are the discoverable
+   * default that any user expects for list nav; j/k is the power-
+   * user / Vim-style convention common in dev-tool UIs (Linear, Slack
+   * threads, Gmail, command palettes). Supporting both costs us
+   * nothing and lets people use whichever muscle memory they already
+   * have.
+   *
+   * Visible lines (not the full `derivedLines` array) are the
+   * navigable set. A hidden line is functionally not there — pressing
+   * j shouldn't pause on lines the user can't see.
+   *
+   * If focus is null when navigation starts, "next" lands on the
+   * first visible line and "previous" on the last (natural start
+   * positions).
+   */
+  const handleKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLUListElement>) => {
+      // Ignore modified keys — cmd/ctrl + j is a browser shortcut on
+      // some platforms (downloads on Chrome), and shift+arrows
+      // typically extends a selection elsewhere. We claim only the
+      // bare keys; modified variants stay free for future bindings
+      // (e.g. shift+e for context-size cycle).
+      if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey)
+        return;
+
+      const isNext = event.key === "j" || event.key === "ArrowDown";
+      const isPrev = event.key === "k" || event.key === "ArrowUp";
+      if (!isNext && !isPrev) return;
+
+      const visible = derivedLines.filter((l) => l.isVisible);
+      if (visible.length === 0) return;
+
+      // Arrow keys would otherwise scroll the list; preventDefault
+      // claims them for our nav.
+      event.preventDefault();
+
+      // Use the *effective* id as the navigation reference: if the
+      // saved focus is hidden right now, the user sees the hopped-to
+      // visible line and expects j/k to advance from there.
+      const currentIndex = effectiveFocusedLineId
+        ? visible.findIndex((l) => l.id === effectiveFocusedLineId)
+        : -1;
+
+      let nextIndex: number;
+      if (currentIndex === -1) {
+        // Nothing focused yet — "next" starts at the top, "previous"
+        // at the bottom.
+        nextIndex = isNext ? 0 : visible.length - 1;
+      } else if (isNext) {
+        nextIndex = Math.min(currentIndex + 1, visible.length - 1);
+      } else {
+        nextIndex = Math.max(currentIndex - 1, 0);
+      }
+
+      setFocusedLineId(visible[nextIndex].id);
+    },
+    [derivedLines, effectiveFocusedLineId],
+  );
+
   return (
     // reducedMotion="user" honors the OS-level prefers-reduced-motion
     // setting — Motion drops durations to ~0 so the line transitions
@@ -523,7 +674,10 @@ export function LogExplorer({ lines }: { lines: readonly LogLine[] }) {
           viewportRef={viewportRef}
           onFilterToggle={handleFilterToggle}
           onToggleContext={handleToggleContext}
+          onLineFocus={setFocusedLineId}
+          onKeyDown={handleKeyDown}
           selectedLineIds={effectiveSelectedLineIds}
+          focusedLineId={effectiveFocusedLineId}
           transitionMode={transitionMode}
         />
       </div>
