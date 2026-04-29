@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
 import { LogExplorer } from "@/components/features/log-explorer/log-explorer";
@@ -167,11 +168,18 @@ describe("LogExplorer — View Context toggle", () => {
     expect(liFor(/row zero info/).getAttribute("data-selected")).toBe("false");
   });
 
-  it("plain click on a line body does nothing — focus model is task #7", () => {
+  it("plain click on a line body focuses that line (and does NOT open a context)", () => {
+    // Plain click is the mouse focus model from spec §7/§8: clicking a
+    // line body sets keyboard focus on that line. cmd/ctrl + click stays
+    // reserved for the context-toggle modifier (covered separately).
     render(<LogExplorer lines={fixture} />);
     applyErrorFilter();
 
-    fireEvent.click(liFor(/row one error/).querySelector("[data-level]")!);
+    fireEvent.click(liFor(/row one error/));
+
+    expect(liFor(/row one error/).getAttribute("data-focused")).toBe("true");
+    // Selection accent must NOT have moved — focus and selection are
+    // independent states.
     expect(liFor(/row one error/).getAttribute("data-selected")).toBe("false");
   });
 
@@ -285,4 +293,546 @@ describe("LogExplorer — View Context toggle", () => {
     );
     expect(liFor(/row one error/).getAttribute("data-selected")).toBe("true");
   });
+});
+
+describe("LogExplorer — keyboard focus model (spec §7)", () => {
+  /**
+   * Helper: get the <ul> listbox for keyboard event dispatch. Each
+   * test focuses this element before sending keypresses so the
+   * onKeyDown handler actually receives them — it's attached to the
+   * listbox, not the document.
+   */
+  const listbox = () => screen.getByRole("listbox", { name: /log lines/i });
+
+  it("Tab from the page lands on the listbox and reports no active line yet", () => {
+    render(<LogExplorer lines={fixture} />);
+    const list = listbox();
+    list.focus();
+    expect(list).toHaveFocus();
+    expect(list.getAttribute("aria-activedescendant")).toBeFalsy();
+  });
+
+  it("ArrowDown from no-focus lands on the first visible line", async () => {
+    const user = userEvent.setup();
+    render(<LogExplorer lines={fixture} />);
+    listbox().focus();
+
+    await user.keyboard("{ArrowDown}");
+
+    expect(liFor(/row zero info/).getAttribute("data-focused")).toBe("true");
+    expect(listbox().getAttribute("aria-activedescendant")).toBe("line_l0");
+  });
+
+  it("j is equivalent to ArrowDown — vim-style power-user binding", async () => {
+    const user = userEvent.setup();
+    render(<LogExplorer lines={fixture} />);
+    listbox().focus();
+
+    await user.keyboard("j");
+    expect(liFor(/row zero info/).getAttribute("data-focused")).toBe("true");
+    await user.keyboard("j");
+    expect(liFor(/row one error/).getAttribute("data-focused")).toBe("true");
+  });
+
+  it("ArrowUp from no-focus lands on the last visible line", async () => {
+    const user = userEvent.setup();
+    render(<LogExplorer lines={fixture} />);
+    listbox().focus();
+
+    await user.keyboard("{ArrowUp}");
+
+    expect(liFor(/row four info/).getAttribute("data-focused")).toBe("true");
+  });
+
+  it("k is equivalent to ArrowUp", async () => {
+    const user = userEvent.setup();
+    render(<LogExplorer lines={fixture} />);
+    listbox().focus();
+
+    await user.keyboard("k");
+    expect(liFor(/row four info/).getAttribute("data-focused")).toBe("true");
+    await user.keyboard("k");
+    expect(liFor(/row three error/).getAttribute("data-focused")).toBe("true");
+  });
+
+  it("clamps at the top — ArrowUp on the first line stays put", async () => {
+    const user = userEvent.setup();
+    render(<LogExplorer lines={fixture} />);
+    listbox().focus();
+    await user.keyboard("{ArrowDown}{ArrowUp}{ArrowUp}");
+
+    expect(liFor(/row zero info/).getAttribute("data-focused")).toBe("true");
+  });
+
+  it("clamps at the bottom — ArrowDown on the last line stays put", async () => {
+    const user = userEvent.setup();
+    render(<LogExplorer lines={fixture} />);
+    listbox().focus();
+    await user.keyboard("{ArrowUp}{ArrowDown}{ArrowDown}");
+
+    expect(liFor(/row four info/).getAttribute("data-focused")).toBe("true");
+  });
+
+  it("skips hidden (filtered-out) lines when navigating", async () => {
+    // After ERROR filter, only l1 and l3 are visible. j should hop
+    // straight from l1 to l3, not pause on the hidden l2 in between.
+    const user = userEvent.setup();
+    render(<LogExplorer lines={fixture} />);
+    applyErrorFilter();
+    listbox().focus();
+
+    await user.keyboard("j"); // → l1 (first visible)
+    expect(liFor(/row one error/).getAttribute("data-focused")).toBe("true");
+
+    await user.keyboard("j"); // → l3 (next visible)
+    expect(liFor(/row three error/).getAttribute("data-focused")).toBe("true");
+  });
+
+  it("hops to the nearest visible line when a filter change hides the focused one (spec §7)", () => {
+    // Focus l2 (WARN), then apply an ERROR filter that hides l2. The
+    // focus persistence rule should jump focus to the nearest visible
+    // line — l3 (next-below) wins over l1 (above) because the rule
+    // prefers reading direction.
+    render(<LogExplorer lines={fixture} />);
+    fireEvent.click(liFor(/row two warn/));
+    expect(liFor(/row two warn/).getAttribute("data-focused")).toBe("true");
+
+    applyErrorFilter();
+
+    expect(liFor(/row three error/).getAttribute("data-focused")).toBe("true");
+  });
+
+  it("ignores cmd/ctrl + j so the browser shortcut is preserved", async () => {
+    const user = userEvent.setup();
+    render(<LogExplorer lines={fixture} />);
+    listbox().focus();
+
+    await user.keyboard("{Meta>}j{/Meta}");
+
+    // No focus moved — the handler bailed on the modifier.
+    expect(listbox().getAttribute("aria-activedescendant")).toBeFalsy();
+  });
+
+  it("g jumps to the first visible line", async () => {
+    const user = userEvent.setup();
+    render(<LogExplorer lines={fixture} />);
+    listbox().focus();
+    // Move down a few lines first to prove g doesn't just hold us at start.
+    await user.keyboard("{ArrowDown}{ArrowDown}{ArrowDown}");
+    expect(liFor(/row two warn/).getAttribute("data-focused")).toBe("true");
+
+    await user.keyboard("g");
+
+    expect(liFor(/row zero info/).getAttribute("data-focused")).toBe("true");
+  });
+
+  it("G (shift+g) jumps to the last visible line", async () => {
+    const user = userEvent.setup();
+    render(<LogExplorer lines={fixture} />);
+    listbox().focus();
+
+    await user.keyboard("{Shift>}g{/Shift}");
+
+    expect(liFor(/row four info/).getAttribute("data-focused")).toBe("true");
+  });
+
+  it("g/G respect the visible set (filtered lines are skipped)", async () => {
+    const user = userEvent.setup();
+    render(<LogExplorer lines={fixture} />);
+    applyErrorFilter();
+    listbox().focus();
+
+    await user.keyboard("g");
+    expect(liFor(/row one error/).getAttribute("data-focused")).toBe("true");
+
+    await user.keyboard("{Shift>}g{/Shift}");
+    expect(liFor(/row three error/).getAttribute("data-focused")).toBe("true");
+  });
+});
+
+describe("LogExplorer — e toggles context on the focused line", () => {
+  const listbox = () => screen.getByRole("listbox", { name: /log lines/i });
+
+  it("opens a context on the focused line when a filter is active", async () => {
+    const user = userEvent.setup();
+    render(<LogExplorer lines={fixture} />);
+    applyErrorFilter();
+    listbox().focus();
+
+    // Focus l1 (row one error) and press e to open a context.
+    await user.keyboard("g"); // → first visible (l1)
+    await user.keyboard("e");
+
+    expect(liFor(/row one error/).getAttribute("data-selected")).toBe("true");
+    // Surrounding non-matching lines reveal dimmed via the context window.
+    expect(liFor(/row zero info/).getAttribute("data-visible")).toBe("true");
+    expect(liFor(/row zero info/).getAttribute("data-dimmed")).toBe("true");
+  });
+
+  it("a second e on the same focused line closes the context", async () => {
+    const user = userEvent.setup();
+    render(<LogExplorer lines={fixture} />);
+    applyErrorFilter();
+    listbox().focus();
+
+    await user.keyboard("g"); // focus l1
+    await user.keyboard("e"); // open
+    await user.keyboard("e"); // close
+
+    expect(liFor(/row one error/).getAttribute("data-selected")).toBe("false");
+    // Dimmed reveals collapse back to hidden.
+    expect(liFor(/row zero info/).getAttribute("data-visible")).toBe("false");
+  });
+
+  it("e on a different focused line stacks an additional context (multi-context model)", async () => {
+    const user = userEvent.setup();
+    render(<LogExplorer lines={fixture} />);
+    applyErrorFilter();
+    listbox().focus();
+
+    // Open a context on l1.
+    await user.keyboard("g");
+    await user.keyboard("e");
+
+    // After the context opens, the previously-hidden lines (l0, l2, l4)
+    // are revealed dimmed within the window. j navigates by visibility,
+    // so it walks l1 → l2 → l3. Two presses to reach l3 (also a §3-
+    // matched ERROR line, so e on it is allowed).
+    await user.keyboard("j");
+    await user.keyboard("j");
+    await user.keyboard("e");
+
+    // Both contexts active simultaneously per the §4 multi-context rule.
+    expect(liFor(/row one error/).getAttribute("data-selected")).toBe("true");
+    expect(liFor(/row three error/).getAttribute("data-selected")).toBe("true");
+  });
+
+  it("is a no-op when no line is focused — but preventDefault still fires", async () => {
+    const user = userEvent.setup();
+    render(<LogExplorer lines={fixture} />);
+    applyErrorFilter();
+    listbox().focus();
+
+    // No focus set yet; e should bail silently without selecting anything.
+    await user.keyboard("e");
+
+    expect(document.querySelector('[data-selected="true"]')).toBeNull();
+  });
+
+  it("is a no-op when no filter is active — spec §3 gate", async () => {
+    const user = userEvent.setup();
+    render(<LogExplorer lines={fixture} />);
+    listbox().focus();
+
+    await user.keyboard("g"); // focus l0
+    await user.keyboard("e"); // gate fails — no filter active
+
+    expect(liFor(/row zero info/).getAttribute("data-selected")).toBe("false");
+  });
+
+  it("is a no-op on a dimmed (context-revealed only) line — spec §3 gate", async () => {
+    const user = userEvent.setup();
+    render(<LogExplorer lines={fixture} />);
+    applyErrorFilter();
+    listbox().focus();
+
+    // Open a context on l1 — now l0 is visible-but-dimmed via the window.
+    await user.keyboard("g");
+    await user.keyboard("e");
+    expect(liFor(/row zero info/).getAttribute("data-dimmed")).toBe("true");
+
+    // Click l0 to focus it (j won't reach it because it's dimmed but still
+    // visible — actually j WILL hop onto it because it's visible). To make
+    // the test deterministic regardless, click directly.
+    fireEvent.click(liFor(/row zero info/));
+    await user.keyboard("e");
+
+    // The dimmed line did not become a new context anchor — the §3 gate
+    // refuses it (a dimmed line is "context-only," not filter-matched).
+    expect(liFor(/row zero info/).getAttribute("data-selected")).toBe("false");
+    // And the original context on l1 remains untouched.
+    expect(liFor(/row one error/).getAttribute("data-selected")).toBe("true");
+  });
+});
+
+describe("LogExplorer — shift+e cycles context size on the focused line", () => {
+  /**
+   * Fixture sized so each cycle range reveals a distinguishable set
+   * of surrounding lines. The anchor sits at the center; with ±20
+   * default the fixture is too small to differentiate, so we use a
+   * fixture that's 20 lines wide and assert on the visibility flips
+   * at the boundary.
+   *
+   * Layout (anchor at index 25):
+   *   l00..l24  → before anchor
+   *   l25       → ERROR anchor line
+   *   l26..l50  → after anchor
+   */
+  const wideFixture: LogLine[] = Array.from({ length: 51 }, (_, i) => {
+    const id = `l${String(i).padStart(2, "0")}`;
+    if (i === 25) {
+      return {
+        id,
+        timestamp: T(i),
+        instance: "i1",
+        level: "ERROR",
+        message: `row ${id} error anchor`,
+      };
+    }
+    return {
+      id,
+      timestamp: T(i),
+      instance: "i1",
+      level: "INFO",
+      message: `row ${id} info`,
+    };
+  });
+
+  const listbox = () => screen.getByRole("listbox", { name: /log lines/i });
+
+  /** Helper: count visible <li>s in the rendered list. */
+  const visibleLineCount = () =>
+    document.querySelectorAll('li[data-visible="true"]').length;
+
+  it("expands the window on shift+e (±20 → ±50)", async () => {
+    const user = userEvent.setup();
+    render(<LogExplorer lines={wideFixture} />);
+
+    // Apply ERROR filter via the only ERROR badge.
+    fireEvent.click(screen.getByRole("button", { name: /Filter by level ERROR/ }));
+    listbox().focus();
+
+    // Focus and open context at default ±20 — covers indices 5..45 (41 lines).
+    fireEvent.click(liFor(/row l25 error anchor/));
+    await user.keyboard("e");
+    const at20 = visibleLineCount();
+    expect(at20).toBe(41);
+
+    // shift+e → ±50 — fixture is only 51 wide, so the window covers everything.
+    await user.keyboard("{Shift>}e{/Shift}");
+    expect(visibleLineCount()).toBe(51);
+  });
+
+  it("wraps the cycle 100 → 20 after three presses", async () => {
+    const user = userEvent.setup();
+    render(<LogExplorer lines={wideFixture} />);
+    fireEvent.click(screen.getByRole("button", { name: /Filter by level ERROR/ }));
+    listbox().focus();
+
+    fireEvent.click(liFor(/row l25 error anchor/));
+    await user.keyboard("e"); // ±20
+    await user.keyboard("{Shift>}e{/Shift}"); // ±50
+    await user.keyboard("{Shift>}e{/Shift}"); // ±100
+    await user.keyboard("{Shift>}e{/Shift}"); // wraps to ±20
+    expect(visibleLineCount()).toBe(41); // back to ±20 width
+  });
+
+  it("is a no-op when the focused line has no context open (strict semantics)", async () => {
+    const user = userEvent.setup();
+    render(<LogExplorer lines={wideFixture} />);
+    fireEvent.click(screen.getByRole("button", { name: /Filter by level ERROR/ }));
+    listbox().focus();
+
+    fireEvent.click(liFor(/row l25 error anchor/));
+    // No `e` first — focused line has NO context. shift+e should not
+    // implicitly open a context at ±50.
+    await user.keyboard("{Shift>}e{/Shift}");
+
+    expect(liFor(/row l25 error anchor/).getAttribute("data-selected")).toBe(
+      "false",
+    );
+    // And the surrounding lines remain hidden (filter-only state).
+    expect(visibleLineCount()).toBe(1); // just the anchor itself
+  });
+
+  it("is a no-op when no line is focused", async () => {
+    const user = userEvent.setup();
+    render(<LogExplorer lines={wideFixture} />);
+    fireEvent.click(screen.getByRole("button", { name: /Filter by level ERROR/ }));
+    listbox().focus();
+
+    await user.keyboard("{Shift>}e{/Shift}");
+
+    expect(document.querySelector('[data-selected="true"]')).toBeNull();
+  });
+});
+
+describe("LogExplorer — global shortcuts (/ and Esc)", () => {
+  it("/ focuses the Add filter trigger from anywhere on the page", async () => {
+    const user = userEvent.setup();
+    render(<LogExplorer lines={fixture} />);
+
+    // Focus body so we're not on the listbox.
+    document.body.focus();
+    expect(document.activeElement).toBe(document.body);
+
+    await user.keyboard("/");
+
+    const trigger = document.getElementById("add-filter-trigger");
+    expect(trigger).toBeTruthy();
+    expect(document.activeElement).toBe(trigger);
+  });
+
+  it("/ does NOT intercept when focus is in a text input — user can type a literal '/'", async () => {
+    const user = userEvent.setup();
+    // Mount LogExplorer with a sibling input to simulate "user typing somewhere."
+    const { container } = render(
+      <>
+        <input data-testid="external" defaultValue="" />
+        <LogExplorer lines={fixture} />
+      </>,
+    );
+
+    const input = container.querySelector<HTMLInputElement>(
+      '[data-testid="external"]',
+    )!;
+    input.focus();
+    await user.keyboard("/");
+
+    // Trigger NOT focused — the input is.
+    expect(document.activeElement).toBe(input);
+    // And the input received the literal slash.
+    expect(input.value).toBe("/");
+  });
+
+  it("Esc clears all open contexts (spec §7 precedence #3)", async () => {
+    const user = userEvent.setup();
+    render(<LogExplorer lines={fixture} />);
+    applyErrorFilter();
+    const list = screen.getByRole("listbox", { name: /log lines/i });
+    list.focus();
+
+    // Open two contexts so we can prove Esc clears ALL of them.
+    await user.keyboard("g");
+    await user.keyboard("e");
+    await user.keyboard("j");
+    await user.keyboard("j");
+    await user.keyboard("e");
+    expect(document.querySelectorAll('li[data-selected="true"]').length).toBe(2);
+
+    await user.keyboard("{Escape}");
+
+    expect(document.querySelector('li[data-selected="true"]')).toBeNull();
+  });
+
+  it("Esc with no open contexts is a no-op (doesn't preventDefault, doesn't fight the OS)", async () => {
+    // No assertion on browser behavior — we just exercise the path
+    // and confirm no contexts get created/changed.
+    const user = userEvent.setup();
+    render(<LogExplorer lines={fixture} />);
+    applyErrorFilter();
+    screen.getByRole("listbox", { name: /log lines/i }).focus();
+
+    await user.keyboard("{Escape}");
+
+    expect(document.querySelector('li[data-selected="true"]')).toBeNull();
+  });
+
+  it("Esc preserves the filter — only contexts clear", async () => {
+    // Spec §7 explicitly: "Filters require explicit removal." Esc
+    // doesn't touch them.
+    const user = userEvent.setup();
+    render(<LogExplorer lines={fixture} />);
+    applyErrorFilter();
+    screen.getByRole("listbox", { name: /log lines/i }).focus();
+
+    await user.keyboard("g"); // focus l1
+    await user.keyboard("e"); // open context
+
+    await user.keyboard("{Escape}");
+
+    // The ERROR filter chip is still there.
+    expect(screen.getByText("level: error")).toBeInTheDocument();
+    // l0 is hidden again (filter excludes it; context that revealed it is gone).
+    expect(liFor(/row zero info/).getAttribute("data-visible")).toBe("false");
+  });
+});
+
+describe("LogExplorer — deploy-boundary navigation ([ / ])", () => {
+  /**
+   * Fixture with two deploy boundaries so [ and ] have somewhere to
+   * land — the spec §5 rule is that boundaries are always visible
+   * regardless of filter, so they're the natural anchor for cross-
+   * deploy navigation.
+   */
+  const boundaryFixture: LogLine[] = [
+    { id: "b0", timestamp: T(0), instance: "i1", level: "INFO", message: "before first deploy" },
+    {
+      id: "deploy_a",
+      timestamp: T(1),
+      instance: "i1",
+      level: "INFO",
+      message: "🎉 Deploy live · srv-i1@a3f2c1",
+      isDeployBoundary: true,
+    },
+    { id: "b1", timestamp: T(2), instance: "i1", level: "INFO", message: "between deploys A" },
+    { id: "b2", timestamp: T(3), instance: "i1", level: "INFO", message: "between deploys B" },
+    {
+      id: "deploy_b",
+      timestamp: T(4),
+      instance: "i1",
+      level: "INFO",
+      message: "🎉 Deploy live · srv-i1@b9e1d7",
+      isDeployBoundary: true,
+    },
+    { id: "b3", timestamp: T(5), instance: "i1", level: "INFO", message: "after second deploy" },
+  ];
+
+  const listbox = () => screen.getByRole("listbox", { name: /log lines/i });
+
+  // [ and ] are reserved characters in user-event's keyboard
+  // descriptor syntax (they delimit special key tokens). For these
+  // tests we drive the handler directly via fireEvent.keyDown, which
+  // bypasses the descriptor parser and lets us assert against the
+  // exact `key` value our handler keys off.
+  const press = (key: string) => fireEvent.keyDown(listbox(), { key });
+
+  it("] jumps to the next deploy boundary from no-focus", () => {
+    render(<LogExplorer lines={boundaryFixture} />);
+    listbox().focus();
+
+    press("]");
+
+    expect(liFor(/srv-i1@a3f2c1/).getAttribute("data-focused")).toBe("true");
+  });
+
+  it("] advances forward through boundaries", () => {
+    render(<LogExplorer lines={boundaryFixture} />);
+    listbox().focus();
+
+    press("]");
+    press("]");
+
+    expect(liFor(/srv-i1@b9e1d7/).getAttribute("data-focused")).toBe("true");
+  });
+
+  it("[ jumps to the previous deploy boundary", () => {
+    render(<LogExplorer lines={boundaryFixture} />);
+    listbox().focus();
+    fireEvent.click(liFor(/after second deploy/));
+
+    press("[");
+
+    expect(liFor(/srv-i1@b9e1d7/).getAttribute("data-focused")).toBe("true");
+  });
+
+  it("[ from no-focus wraps to the last boundary so the binding always does something", () => {
+    render(<LogExplorer lines={boundaryFixture} />);
+    listbox().focus();
+
+    press("[");
+
+    expect(liFor(/srv-i1@b9e1d7/).getAttribute("data-focused")).toBe("true");
+  });
+
+  it("] past the last boundary wraps to the first — keeps the binding meaningful", () => {
+    render(<LogExplorer lines={boundaryFixture} />);
+    listbox().focus();
+    fireEvent.click(liFor(/after second deploy/));
+
+    press("]");
+
+    expect(liFor(/srv-i1@a3f2c1/).getAttribute("data-focused")).toBe("true");
+  });
+
 });

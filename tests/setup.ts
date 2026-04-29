@@ -12,3 +12,15 @@
  * would have to rely on Vitest's much more limited built-in matchers.
  */
 import "@testing-library/jest-dom/vitest";
+
+/*
+ * jsdom doesn't implement layout-related scroll APIs. Element
+ * .scrollIntoView() routes to Window.scrollTo() internally there,
+ * which jsdom logs as "Not implemented" on every call — noisy under
+ * keyboard-navigation tests where every focus change scrolls. Stubbing
+ * both with no-ops here keeps test output readable; production code
+ * that relies on the real behavior is exercised in the browser, not
+ * in unit tests.
+ */
+window.scrollTo = () => {};
+Element.prototype.scrollIntoView = () => {};

@@ -2,13 +2,23 @@
 
 import * as ScrollArea from "@radix-ui/react-scroll-area";
 import { motion, type Transition } from "motion/react";
-import type { Ref } from "react";
+import type { KeyboardEvent as ReactKeyboardEvent, Ref } from "react";
 
 import type { FilterToggleTarget } from "@/lib/filter-state";
 import type { DerivedLogLine } from "@/types/log";
 
 import { LogLine } from "./log-line";
 import styles from "./log-list.module.css";
+
+/**
+ * DOM id prefix for each <li>. The <ul> uses
+ * `aria-activedescendant="line_<focusedLineId>"` to point screen
+ * readers at the visually focused line, so each <li> needs a stable
+ * id formed by this prefix + the line id. Kept as a single constant
+ * so the read and write sides stay in sync.
+ */
+const LINE_DOM_ID_PREFIX = "line_";
+const lineDomId = (lineId: string) => `${LINE_DOM_ID_PREFIX}${lineId}`;
 
 /**
  * Renders a sequence of log lines.
@@ -82,7 +92,10 @@ export function LogList({
   viewportRef,
   onFilterToggle,
   onToggleContext,
+  onLineFocus,
+  onKeyDown,
   selectedLineIds,
+  focusedLineId,
   transitionMode = "instant",
 }: {
   lines: readonly DerivedLogLine[];
@@ -97,6 +110,19 @@ export function LogList({
   onFilterToggle?: (target: FilterToggleTarget, sourceLineId: string) => void;
   onToggleContext?: (lineId: string) => void;
   /**
+   * Called with the line id when the user focuses a line via mouse
+   * (plain click on the line body). The keyboard navigation path
+   * (j/k/g/G/[ /]) sets focused state directly in LogExplorer — this
+   * callback is the mouse equivalent.
+   */
+  onLineFocus?: (lineId: string) => void;
+  /**
+   * Keyboard handler attached to the <ul>. LogExplorer owns the
+   * navigation logic (it has access to the derived lines and focus
+   * state); LogList just wires the event source.
+   */
+  onKeyDown?: (event: ReactKeyboardEvent<HTMLUListElement>) => void;
+  /**
    * Set of line ids currently anchoring an open context — every
    * matching `<li>` gets the left-border accent and every matching
    * `LogLine` renders the anchor icon. A Set (rather than a single id
@@ -104,6 +130,12 @@ export function LogList({
    * O(1) per-row lookup as we walk the rendered array.
    */
   selectedLineIds?: ReadonlySet<string>;
+  /**
+   * Id of the line that should appear focused. Drives the
+   * aria-activedescendant on the <ul> and the data-focused attribute
+   * on the matching <li> (which CSS keys off for the outline).
+   */
+  focusedLineId?: string | null;
   /**
    * Animation mode for line height changes:
    *   - "instant" (default): height jumps to/from 0; opacity still fades.
@@ -122,21 +154,52 @@ export function LogList({
         ref={viewportRef}
         className={styles.scrollViewport}
       >
-        <ul className={styles.list}>
+        {/*
+          The <ul> is the single Tab stop for keyboard nav. tabIndex={0}
+          makes it focusable; role="listbox" + aria-activedescendant
+          tells screen readers which line within the list is "active"
+          even though DOM focus is on the <ul> itself. Keyboard handler
+          lives in LogExplorer (it owns the derived-lines + focus state);
+          this is just the event source.
+        */}
+        <ul
+          className={styles.list}
+          role="listbox"
+          tabIndex={0}
+          aria-label="Log lines"
+          aria-activedescendant={
+            focusedLineId ? lineDomId(focusedLineId) : undefined
+          }
+          onKeyDown={onKeyDown}
+        >
           {lines.map((line) => {
             // Lookup once per row, used twice — by the <li> for the
             // border accent and by the LogLine for the anchor icon.
             // Both surfaces stay in sync without a second source of
             // truth.
             const isSelected = selectedLineIds?.has(line.id) ?? false;
+            const isFocused = line.id === focusedLineId;
             return (
               <motion.li
                 key={line.id}
+                id={lineDomId(line.id)}
                 data-line-id={line.id}
+                role="option"
+                aria-selected={isSelected}
                 className={styles.item}
                 data-visible={line.isVisible}
                 data-dimmed={line.isDimmed}
                 data-selected={isSelected}
+                data-focused={isFocused}
+                // Plain click on the <li> sets focus on this line.
+                // LogLine still owns the modifier-click (cmd/ctrl) for
+                // context toggle and stops propagation on its inner
+                // pill/badge buttons, so this only fires for non-button
+                // clicks landing on the line body.
+                onClick={(event) => {
+                  if (event.metaKey || event.ctrlKey) return;
+                  onLineFocus?.(line.id);
+                }}
                 // initial={false} so the page load doesn't animate every
                 // line expanding from 0 — the first render uses the target
                 // values directly. All subsequent isVisible toggles

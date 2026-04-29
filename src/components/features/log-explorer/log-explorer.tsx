@@ -11,10 +11,14 @@ import {
   useState,
 } from "react";
 
-import { FilterBar } from "@/components/features/filter-bar/filter-bar";
+import {
+  ADD_FILTER_TRIGGER_ID,
+  FilterBar,
+} from "@/components/features/filter-bar/filter-bar";
 import { LogList } from "@/components/features/log-list/log-list";
 import {
   DEFAULT_CONTEXT_RANGE,
+  nextContextRange,
   type OpenContext,
 } from "@/lib/context-state";
 import { deriveLines } from "@/lib/derive-lines";
@@ -103,6 +107,30 @@ export function LogExplorer({ lines }: { lines: readonly LogLine[] }) {
   const [openContexts, setOpenContexts] = useState<readonly OpenContext[]>(
     [],
   );
+
+  // Keyboard-navigable focus, distinct from `openContexts` (the selection
+  // accent). Spec §7: a focused line gets a "subtle outline" — visually
+  // separate from the left-border accent that marks a context anchor.
+  //
+  // We use the **aria-activedescendant** pattern, not roving tabindex:
+  //   - The <ul> is the only Tab stop. tabIndex on individual <li>s
+  //     would mean Tab walks every line, which makes the list a focus
+  //     trap.
+  //   - `focusedLineId` is internal state; LogList renders it as
+  //     `aria-activedescendant="line_<id>"` on the <ul> and as
+  //     `data-focused="true"` on the matching <li> for the CSS outline.
+  //   - Screen readers honor aria-activedescendant: they announce the
+  //     "active descendant" as if it were focused, even though DOM focus
+  //     stays on the <ul>.
+  //   - Tab continues normally through buttons inside lines (instance
+  //     pills, level badges) — no manual Tab-handling needed to keep the
+  //     list as a single focus container.
+  //
+  // Compared to roving tabindex, this trades native :focus-visible for
+  // a manual outline rule, but saves us from juggling .focus() calls
+  // and Tab interception. For a list with focusable children, it's the
+  // simpler correct choice.
+  const [focusedLineId, setFocusedLineId] = useState<string | null>(null);
 
   // Single spatial anchor for the per-frame scroll compensation.
   // Resolved per dispatch with this priority:
@@ -511,6 +539,365 @@ export function LogExplorer({ lines }: { lines: readonly LogLine[] }) {
     ],
   );
 
+  /**
+   * Cycle the range of an existing context window on the focused line
+   * (spec §7 — shift+e cycles ±20 → ±50 → ±100 → ±20).
+   *
+   * Strict semantics: this only acts on a line that already has an
+   * open context. Shift+e on a line with no context is a no-op — we
+   * don't implicitly open a context at ±50, because "open a context"
+   * (e) and "make my context bigger" (shift+e) are conceptually
+   * separate. The user can always press e first and then shift+e if
+   * they want a wider window.
+   *
+   * Switches to "slow" transition mode for the duration of the
+   * resize so the lines newly revealed (or hidden) at the window's
+   * edges animate in, matching the choreography of e itself.
+   * Anchor line is the focused line — the user wants their reading
+   * position pinned while the surrounding region grows or shrinks.
+   */
+  const handleCycleContextRange = useCallback(
+    (lineId: string) => {
+      const existingIndex = openContexts.findIndex(
+        (c) => c.selectedLineId === lineId,
+      );
+      if (existingIndex === -1) return; // strict: no-op without an open context
+
+      const anchor = captureAnchor(lineId);
+
+      if (lineId !== anchorLineId) setAnchorLineId(lineId);
+
+      setTransitionMode("slow");
+      if (slowModeTimeoutRef.current !== null)
+        clearTimeout(slowModeTimeoutRef.current);
+      slowModeTimeoutRef.current = window.setTimeout(() => {
+        setTransitionMode("instant");
+        slowModeTimeoutRef.current = null;
+      }, 600);
+
+      setOpenContexts((current) =>
+        current.map((c, i) =>
+          i === existingIndex ? { ...c, range: nextContextRange(c.range) } : c,
+        ),
+      );
+
+      if (anchor) startCompensation(anchor);
+    },
+    [openContexts, anchorLineId, captureAnchor, startCompensation],
+  );
+
+  /**
+   * Focus persistence rule (spec §7): the *saved* focus (`focusedLineId`)
+   * is what the user explicitly set; the *effective* focus is what
+   * actually renders. When the saved line is hidden by a filter change
+   * or context collapse, the effective focus hops to the nearest
+   * visible line by array-index distance — preferring the next visible
+   * line below (reading direction) over the previous one above.
+   *
+   * Computed during render rather than synced via setState-in-effect.
+   * This is the React 19 best practice for derived state and gives us
+   * a useful side benefit: the saved focus persists across filter
+   * changes the same way `openContexts` does. If the user un-filters
+   * later, the saved focus comes back automatically — same model the
+   * selection accent uses.
+   *
+   * If no line is visible at all, effective focus is null and the
+   * listbox renders with no aria-activedescendant.
+   */
+  const effectiveFocusedLineId = useMemo<string | null>(() => {
+    if (!focusedLineId) return null;
+    const focused = derivedLines.find((l) => l.id === focusedLineId);
+    if (focused?.isVisible) return focusedLineId;
+
+    const focusedIndex = derivedLines.findIndex(
+      (l) => l.id === focusedLineId,
+    );
+    if (focusedIndex === -1) return null;
+
+    for (let i = focusedIndex + 1; i < derivedLines.length; i++) {
+      if (derivedLines[i].isVisible) return derivedLines[i].id;
+    }
+    for (let i = focusedIndex - 1; i >= 0; i--) {
+      if (derivedLines[i].isVisible) return derivedLines[i].id;
+    }
+    return null;
+  }, [derivedLines, focusedLineId]);
+
+  /**
+   * When focus moves (programmatically or via click), scroll the
+   * effective focus into view if it's outside the viewport. Use
+   * `block: "nearest"` so already-visible focused lines don't trigger
+   * a scroll — only lines actually past the top/bottom edges do.
+   *
+   * Keys on the *effective* id, not the saved one, so a "hopped to
+   * nearest visible" line also gets scrolled into view.
+   */
+  useEffect(() => {
+    if (!effectiveFocusedLineId || !viewportRef.current) return;
+    const el = viewportRef.current.querySelector<HTMLElement>(
+      `[data-line-id="${effectiveFocusedLineId}"]`,
+    );
+    if (!el) return;
+    // jsdom doesn't implement scrollIntoView (it's a layout API). The
+    // typeof guard keeps unit tests from blowing up while leaving the
+    // real browser behavior untouched.
+    if (typeof el.scrollIntoView === "function") {
+      el.scrollIntoView({ block: "nearest", inline: "nearest" });
+    }
+  }, [effectiveFocusedLineId]);
+
+  /**
+   * Keyboard handler attached to the LogList's <ul>. Receives
+   * KeyboardEvents only when the list is focused (Tab into it, or any
+   * descendant has focus and the event bubbles up).
+   *
+   * Bindings (spec §7):
+   *
+   *   j / ArrowDown — focus next visible line
+   *   k / ArrowUp   — focus previous visible line
+   *   g             — focus first visible line
+   *   G (shift+g)   — focus last visible line
+   *   [             — focus previous deploy boundary
+   *   ]             — focus next deploy boundary
+   *
+   * Arrow keys and j/k are first-class equivalents — arrow keys are
+   * the discoverable default; j/k is the Vim/Linear/Slack power-user
+   * convention. g/G follows the Vim/less convention (lowercase = top,
+   * shift = bottom). [ and ] jump between deploy boundaries — global
+   * section markers in the log feed (spec §5) that are always visible
+   * regardless of filter.
+   *
+   * Visible lines are the navigable set for j/k/g/G; deploy
+   * boundaries are their own set for [/]. A hidden line is
+   * functionally not there for navigation.
+   */
+  const handleKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLUListElement>) => {
+      // Ignore browser-claimed modifier combos. cmd/ctrl + j is a
+      // downloads shortcut on Chrome; alt-prefixed keys are reserved
+      // for OS/browser bindings on most platforms.
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+
+      const { key, shiftKey } = event;
+
+      // Two shifted keys are accepted: shift+g (last visible line) and
+      // shift+e (cycle context size). Everything else with a shift
+      // modifier bails — keeps the no-shift default close to universal
+      // and leaves shift+letter free for future bindings without a
+      // case-by-case audit.
+      if (shiftKey && key !== "G" && key !== "g" && key !== "E" && key !== "e")
+        return;
+
+      const isNext = !shiftKey && (key === "j" || key === "ArrowDown");
+      const isPrev = !shiftKey && (key === "k" || key === "ArrowUp");
+      const isFirst = !shiftKey && key === "g";
+      // Accept both forms — `key: "G"` is what most browsers fire for
+      // shift+g on US keyboards, but some testing tools and non-US
+      // layouts fire `key: "g"` with shiftKey true. Handling both
+      // makes the binding robust without changing the user-facing
+      // contract. Same dual check applies to shift+e below.
+      const isLast = shiftKey && (key === "G" || key === "g");
+      const isPrevBoundary = !shiftKey && key === "[";
+      const isNextBoundary = !shiftKey && key === "]";
+      const isToggleContext = !shiftKey && key === "e";
+      const isCycleContextRange = shiftKey && (key === "E" || key === "e");
+
+      if (
+        !isNext &&
+        !isPrev &&
+        !isFirst &&
+        !isLast &&
+        !isPrevBoundary &&
+        !isNextBoundary &&
+        !isToggleContext &&
+        !isCycleContextRange
+      ) {
+        return;
+      }
+
+      // Context toggle on the focused line. Reuses the same handler
+      // that powers the cmd/ctrl-click modifier — same §3 gate
+      // (requires a filter active, not allowed on dimmed lines), same
+      // append/remove semantics, same scroll compensation. The
+      // keyboard binding is just a different input path into the same
+      // pipeline.
+      //
+      // Bails silently if no line is focused — the binding has no
+      // target, but we still preventDefault so the bare `e` doesn't
+      // leak through to anything else.
+      if (isToggleContext) {
+        event.preventDefault();
+        if (effectiveFocusedLineId) {
+          handleToggleContext(effectiveFocusedLineId);
+        }
+        return;
+      }
+
+      // shift+e cycles the range of an open context on the focused
+      // line. Strict: no-op when the focused line has no context
+      // open (handler enforces this internally).
+      if (isCycleContextRange) {
+        event.preventDefault();
+        if (effectiveFocusedLineId) {
+          handleCycleContextRange(effectiveFocusedLineId);
+        }
+        return;
+      }
+
+      // Boundary navigation has its own filter (deploy boundaries
+      // only) and direction logic — separate it out from the
+      // visible-lines path used by j/k/g/G.
+      if (isPrevBoundary || isNextBoundary) {
+        const boundaries = derivedLines.filter((l) => l.isDeployBoundary);
+        if (boundaries.length === 0) return;
+        event.preventDefault();
+
+        // Compare against the *full* derivedLines index, not the
+        // boundaries-filtered index — "previous boundary" means "the
+        // boundary whose array index is the largest one still less
+        // than the focused line's index."
+        const focusIdx = effectiveFocusedLineId
+          ? derivedLines.findIndex((l) => l.id === effectiveFocusedLineId)
+          : -1;
+
+        let target: string | null = null;
+        if (isNextBoundary) {
+          for (const b of boundaries) {
+            const bi = derivedLines.findIndex((l) => l.id === b.id);
+            if (bi > focusIdx) {
+              target = b.id;
+              break;
+            }
+          }
+          // From no focus (or past the last boundary), wrap to the
+          // first boundary so the binding always does something.
+          if (!target) target = boundaries[0].id;
+        } else {
+          // Walk from the end so we land on the largest-index
+          // boundary still strictly less than focusIdx.
+          for (let i = boundaries.length - 1; i >= 0; i--) {
+            const bi = derivedLines.findIndex(
+              (l) => l.id === boundaries[i].id,
+            );
+            if (focusIdx === -1 || bi < focusIdx) {
+              target = boundaries[i].id;
+              break;
+            }
+          }
+          // From no focus (or before the first boundary), fall back
+          // to the last boundary — same wrap semantics as next.
+          if (!target) target = boundaries[boundaries.length - 1].id;
+        }
+
+        if (target) setFocusedLineId(target);
+        return;
+      }
+
+      const visible = derivedLines.filter((l) => l.isVisible);
+      if (visible.length === 0) return;
+
+      // Arrow keys would otherwise scroll the list; preventDefault
+      // claims them for our nav.
+      event.preventDefault();
+
+      // Use the *effective* id as the navigation reference: if the
+      // saved focus is hidden right now, the user sees the hopped-to
+      // visible line and expects j/k to advance from there.
+      const currentIndex = effectiveFocusedLineId
+        ? visible.findIndex((l) => l.id === effectiveFocusedLineId)
+        : -1;
+
+      let nextIndex: number;
+      if (isFirst) {
+        nextIndex = 0;
+      } else if (isLast) {
+        nextIndex = visible.length - 1;
+      } else if (currentIndex === -1) {
+        // Nothing focused yet — "next" starts at the top, "previous"
+        // at the bottom.
+        nextIndex = isNext ? 0 : visible.length - 1;
+      } else if (isNext) {
+        nextIndex = Math.min(currentIndex + 1, visible.length - 1);
+      } else {
+        nextIndex = Math.max(currentIndex - 1, 0);
+      }
+
+      setFocusedLineId(visible[nextIndex].id);
+    },
+    [
+      derivedLines,
+      effectiveFocusedLineId,
+      handleToggleContext,
+      handleCycleContextRange,
+    ],
+  );
+
+  /**
+   * Document-level shortcuts. Two bindings need to work regardless of
+   * where focus currently is on the page (GitHub, Slack, Linear all
+   * follow this convention):
+   *
+   *   /    — focus the "+ Add filter" trigger
+   *   Esc  — clear all open contexts (spec §7 precedence #3)
+   *
+   * The listbox-level handler covers in-list bindings (j/k/g/G/[/]/e/
+   * shift+e). Splitting them this way keeps each handler responsible
+   * for one focus context — no "is the listbox focused?" branching
+   * inside individual bindings.
+   *
+   * Both bail when `event.defaultPrevented` is set so a Radix
+   * Popover/Dialog handling its own Escape (e.g. closing the filter
+   * popover) doesn't double-fire as "clear contexts." That's the
+   * correct precedence: closeable surfaces consume their own dismiss
+   * before a global-clear runs.
+   *
+   * `/` additionally bails when focus is inside an input/textarea/
+   * contenteditable so typing a literal `/` in a filter input later
+   * (e.g. if a search box appears) doesn't get intercepted.
+   *
+   * Esc precedence per spec §7:
+   *   1. shortcut sheet open → close it     (deferred — task #9)
+   *   2. kebab menu open → close it          (deferred — task #8)
+   *   3. any context open → close all
+   *   4. else: no-op
+   * The first two branches are handled by their owning Radix
+   * primitives (which preventDefault on close). Our handler covers
+   * branch 3 only.
+   */
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented) return;
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+
+      if (event.key === "Escape") {
+        if (openContexts.length === 0) return;
+        event.preventDefault();
+        setOpenContexts([]);
+        return;
+      }
+
+      if (event.key === "/" && !event.shiftKey) {
+        const target = event.target as HTMLElement | null;
+        // Don't intercept while the user is typing in any text input.
+        if (
+          target &&
+          (target.tagName === "INPUT" ||
+            target.tagName === "TEXTAREA" ||
+            target.isContentEditable)
+        ) {
+          return;
+        }
+        const trigger = document.getElementById(ADD_FILTER_TRIGGER_ID);
+        if (!trigger) return;
+        event.preventDefault();
+        trigger.focus();
+      }
+    };
+
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [openContexts.length]);
+
   return (
     // reducedMotion="user" honors the OS-level prefers-reduced-motion
     // setting — Motion drops durations to ~0 so the line transitions
@@ -523,7 +910,10 @@ export function LogExplorer({ lines }: { lines: readonly LogLine[] }) {
           viewportRef={viewportRef}
           onFilterToggle={handleFilterToggle}
           onToggleContext={handleToggleContext}
+          onLineFocus={setFocusedLineId}
+          onKeyDown={handleKeyDown}
           selectedLineIds={effectiveSelectedLineIds}
+          focusedLineId={effectiveFocusedLineId}
           transitionMode={transitionMode}
         />
       </div>

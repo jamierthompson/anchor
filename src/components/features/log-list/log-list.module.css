@@ -93,6 +93,20 @@
   background: var(--color-bg);
 }
 
+/*
+ * The <ul> is the single Tab stop for the keyboard navigation model
+ * (aria-activedescendant pattern — see LogExplorer's `focusedLineId`
+ * comment). When the user Tabs into the list we'd normally see the
+ * browser's default focus ring on the <ul> itself; suppress that, since
+ * the per-line outline below is what conveys "where you are." Keep
+ * focus-visible navigable for accessibility tooling — outline: none on
+ * a tabIndex container is generally fine when a child element carries
+ * the visible focus indicator.
+ */
+.list:focus {
+  outline: none;
+}
+
 .item {
   /*
    * 4px transparent border on every line so opening a context only
@@ -131,8 +145,31 @@
 /*
  * The selected line — the anchor of an open View Context window —
  * carries an accent-colored left border (spec §4). Distinct visually
- * from the focused-line outline (which is its own thing, task #7).
+ * from the focused-line outline (below) — selected and focused are
+ * separate states.
  */
 .item[data-selected="true"] {
   border-left-color: var(--color-accent);
+}
+
+/*
+ * The focused line carries a subtle outline (spec §7). This is the
+ * keyboard-nav cursor — moves with j/k/ArrowDown/ArrowUp/g/G/[/].
+ * Distinct from selected (left-border accent) and dimmed (opacity).
+ *
+ * Inset outline (negative offset) so it sits *inside* the line's
+ * bounding box rather than overflowing the row's visual edge — this
+ * matters because the parent <li> has overflow: hidden for the
+ * height-collapse animation, which would clip a positive-offset
+ * outline.
+ *
+ * Color is the muted foreground — distinct enough to read as a focus
+ * ring but quieter than the accent (which belongs to selection). The
+ * ring sits over both selected and unselected lines; if a focused line
+ * is also selected, you see the left-border accent + the inset outline
+ * together.
+ */
+.item[data-focused="true"] {
+  outline: 1px solid var(--color-fg-muted);
+  outline-offset: -1px;
 }
