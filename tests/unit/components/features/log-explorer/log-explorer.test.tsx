@@ -87,7 +87,10 @@ describe("LogExplorer — View Context toggle", () => {
     expect(liFor(/row zero info/).getAttribute("data-visible")).toBe("false");
   });
 
-  it("cmd + click on a different matched line moves the selection", () => {
+  it("cmd + click on a different matched line opens an additional context — both stay selected", () => {
+    // Multi-context support (§14 task #6 / spec §4). Two simultaneous
+    // contexts means both anchor lines render the selected accent;
+    // earlier selections are no longer replaced by later ones.
     render(<LogExplorer lines={fixture} />);
     applyErrorFilter();
 
@@ -98,8 +101,40 @@ describe("LogExplorer — View Context toggle", () => {
       metaKey: true,
     });
 
-    expect(liFor(/row one error/).getAttribute("data-selected")).toBe("false");
+    expect(liFor(/row one error/).getAttribute("data-selected")).toBe("true");
     expect(liFor(/row three error/).getAttribute("data-selected")).toBe("true");
+  });
+
+  it("closing one of two open contexts leaves the other selected", () => {
+    // Closing the most-recently-opened context should NOT clear the
+    // earlier one — each entry tracks independently.
+    render(<LogExplorer lines={fixture} />);
+    applyErrorFilter();
+
+    const oneBody = liFor(/row one error/).querySelector("[data-level]")!;
+    const threeBody = liFor(/row three error/).querySelector("[data-level]")!;
+
+    fireEvent.click(oneBody, { metaKey: true });
+    fireEvent.click(threeBody, { metaKey: true });
+    fireEvent.click(threeBody, { metaKey: true }); // close l3
+
+    expect(liFor(/row one error/).getAttribute("data-selected")).toBe("true");
+    expect(liFor(/row three error/).getAttribute("data-selected")).toBe("false");
+  });
+
+  it("closing both contexts clears all accents", () => {
+    render(<LogExplorer lines={fixture} />);
+    applyErrorFilter();
+
+    const oneBody = liFor(/row one error/).querySelector("[data-level]")!;
+    const threeBody = liFor(/row three error/).querySelector("[data-level]")!;
+
+    fireEvent.click(oneBody, { metaKey: true });
+    fireEvent.click(threeBody, { metaKey: true });
+    fireEvent.click(oneBody, { metaKey: true });
+    fireEvent.click(threeBody, { metaKey: true });
+
+    expect(document.querySelector('[data-selected="true"]')).toBeNull();
   });
 
   it("cmd + click is a no-op when no filter is active (spec §3 gate)", () => {

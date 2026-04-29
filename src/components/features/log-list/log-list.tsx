@@ -82,7 +82,7 @@ export function LogList({
   viewportRef,
   onFilterToggle,
   onToggleContext,
-  selectedLineId,
+  selectedLineIds,
   transitionMode = "instant",
 }: {
   lines: readonly DerivedLogLine[];
@@ -96,8 +96,14 @@ export function LogList({
   viewportRef?: Ref<HTMLDivElement>;
   onFilterToggle?: (target: FilterToggleTarget, sourceLineId: string) => void;
   onToggleContext?: (lineId: string) => void;
-  /** Id of the line currently anchoring an open context — drives the left-border accent. */
-  selectedLineId?: string;
+  /**
+   * Set of line ids currently anchoring an open context — every
+   * matching `<li>` gets the left-border accent and every matching
+   * `LogLine` renders the anchor icon. A Set (rather than a single id
+   * or array) lets us express multi-context selection cleanly and gives
+   * O(1) per-row lookup as we walk the rendered array.
+   */
+  selectedLineIds?: ReadonlySet<string>;
   /**
    * Animation mode for line height changes:
    *   - "instant" (default): height jumps to/from 0; opacity still fades.
@@ -117,33 +123,40 @@ export function LogList({
         className={styles.scrollViewport}
       >
         <ul className={styles.list}>
-          {lines.map((line) => (
-            <motion.li
-              key={line.id}
-              data-line-id={line.id}
-              className={styles.item}
-              data-visible={line.isVisible}
-              data-dimmed={line.isDimmed}
-              data-selected={line.id === selectedLineId}
-              // initial={false} so the page load doesn't animate every
-              // line expanding from 0 — the first render uses the target
-              // values directly. All subsequent isVisible toggles
-              // animate.
-              initial={false}
-              animate={{
-                height: line.isVisible ? "auto" : 0,
-                opacity: line.isVisible ? 1 : 0,
-              }}
-              transition={line.isVisible ? expand : collapse}
-            >
-              <LogLine
-                line={line}
-                isDimmed={line.isDimmed}
-                onFilterToggle={onFilterToggle}
-                onToggleContext={onToggleContext}
-              />
-            </motion.li>
-          ))}
+          {lines.map((line) => {
+            // Lookup once per row, used twice — by the <li> for the
+            // border accent and by the LogLine for the anchor icon.
+            // Both surfaces stay in sync without a second source of
+            // truth.
+            const isSelected = selectedLineIds?.has(line.id) ?? false;
+            return (
+              <motion.li
+                key={line.id}
+                data-line-id={line.id}
+                className={styles.item}
+                data-visible={line.isVisible}
+                data-dimmed={line.isDimmed}
+                data-selected={isSelected}
+                // initial={false} so the page load doesn't animate every
+                // line expanding from 0 — the first render uses the target
+                // values directly. All subsequent isVisible toggles
+                // animate.
+                initial={false}
+                animate={{
+                  height: line.isVisible ? "auto" : 0,
+                  opacity: line.isVisible ? 1 : 0,
+                }}
+                transition={line.isVisible ? expand : collapse}
+              >
+                <LogLine
+                  line={line}
+                  isDimmed={line.isDimmed}
+                  onFilterToggle={onFilterToggle}
+                  onToggleContext={onToggleContext}
+                />
+              </motion.li>
+            );
+          })}
         </ul>
       </ScrollArea.Viewport>
       <ScrollArea.Scrollbar
