@@ -555,6 +555,108 @@ describe("LogExplorer — e toggles context on the focused line", () => {
   });
 });
 
+describe("LogExplorer — shift+e cycles context size on the focused line", () => {
+  /**
+   * Fixture sized so each cycle range reveals a distinguishable set
+   * of surrounding lines. The anchor sits at the center; with ±20
+   * default the fixture is too small to differentiate, so we use a
+   * fixture that's 20 lines wide and assert on the visibility flips
+   * at the boundary.
+   *
+   * Layout (anchor at index 25):
+   *   l00..l24  → before anchor
+   *   l25       → ERROR anchor line
+   *   l26..l50  → after anchor
+   */
+  const wideFixture: LogLine[] = Array.from({ length: 51 }, (_, i) => {
+    const id = `l${String(i).padStart(2, "0")}`;
+    if (i === 25) {
+      return {
+        id,
+        timestamp: T(i),
+        instance: "i1",
+        level: "ERROR",
+        message: `row ${id} error anchor`,
+      };
+    }
+    return {
+      id,
+      timestamp: T(i),
+      instance: "i1",
+      level: "INFO",
+      message: `row ${id} info`,
+    };
+  });
+
+  const listbox = () => screen.getByRole("listbox", { name: /log lines/i });
+
+  /** Helper: count visible <li>s in the rendered list. */
+  const visibleLineCount = () =>
+    document.querySelectorAll('li[data-visible="true"]').length;
+
+  it("expands the window on shift+e (±20 → ±50)", async () => {
+    const user = userEvent.setup();
+    render(<LogExplorer lines={wideFixture} />);
+
+    // Apply ERROR filter via the only ERROR badge.
+    fireEvent.click(screen.getByRole("button", { name: /Filter by level ERROR/ }));
+    listbox().focus();
+
+    // Focus and open context at default ±20 — covers indices 5..45 (41 lines).
+    fireEvent.click(liFor(/row l25 error anchor/));
+    await user.keyboard("e");
+    const at20 = visibleLineCount();
+    expect(at20).toBe(41);
+
+    // shift+e → ±50 — fixture is only 51 wide, so the window covers everything.
+    await user.keyboard("{Shift>}e{/Shift}");
+    expect(visibleLineCount()).toBe(51);
+  });
+
+  it("wraps the cycle 100 → 20 after three presses", async () => {
+    const user = userEvent.setup();
+    render(<LogExplorer lines={wideFixture} />);
+    fireEvent.click(screen.getByRole("button", { name: /Filter by level ERROR/ }));
+    listbox().focus();
+
+    fireEvent.click(liFor(/row l25 error anchor/));
+    await user.keyboard("e"); // ±20
+    await user.keyboard("{Shift>}e{/Shift}"); // ±50
+    await user.keyboard("{Shift>}e{/Shift}"); // ±100
+    await user.keyboard("{Shift>}e{/Shift}"); // wraps to ±20
+    expect(visibleLineCount()).toBe(41); // back to ±20 width
+  });
+
+  it("is a no-op when the focused line has no context open (strict semantics)", async () => {
+    const user = userEvent.setup();
+    render(<LogExplorer lines={wideFixture} />);
+    fireEvent.click(screen.getByRole("button", { name: /Filter by level ERROR/ }));
+    listbox().focus();
+
+    fireEvent.click(liFor(/row l25 error anchor/));
+    // No `e` first — focused line has NO context. shift+e should not
+    // implicitly open a context at ±50.
+    await user.keyboard("{Shift>}e{/Shift}");
+
+    expect(liFor(/row l25 error anchor/).getAttribute("data-selected")).toBe(
+      "false",
+    );
+    // And the surrounding lines remain hidden (filter-only state).
+    expect(visibleLineCount()).toBe(1); // just the anchor itself
+  });
+
+  it("is a no-op when no line is focused", async () => {
+    const user = userEvent.setup();
+    render(<LogExplorer lines={wideFixture} />);
+    fireEvent.click(screen.getByRole("button", { name: /Filter by level ERROR/ }));
+    listbox().focus();
+
+    await user.keyboard("{Shift>}e{/Shift}");
+
+    expect(document.querySelector('[data-selected="true"]')).toBeNull();
+  });
+});
+
 describe("LogExplorer — deploy-boundary navigation ([ / ])", () => {
   /**
    * Fixture with two deploy boundaries so [ and ] have somewhere to

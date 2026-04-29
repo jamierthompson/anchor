@@ -15,6 +15,7 @@ import { FilterBar } from "@/components/features/filter-bar/filter-bar";
 import { LogList } from "@/components/features/log-list/log-list";
 import {
   DEFAULT_CONTEXT_RANGE,
+  nextContextRange,
   type OpenContext,
 } from "@/lib/context-state";
 import { deriveLines } from "@/lib/derive-lines";
@@ -536,6 +537,53 @@ export function LogExplorer({ lines }: { lines: readonly LogLine[] }) {
   );
 
   /**
+   * Cycle the range of an existing context window on the focused line
+   * (spec §7 — shift+e cycles ±20 → ±50 → ±100 → ±20).
+   *
+   * Strict semantics: this only acts on a line that already has an
+   * open context. Shift+e on a line with no context is a no-op — we
+   * don't implicitly open a context at ±50, because "open a context"
+   * (e) and "make my context bigger" (shift+e) are conceptually
+   * separate. The user can always press e first and then shift+e if
+   * they want a wider window.
+   *
+   * Switches to "slow" transition mode for the duration of the
+   * resize so the lines newly revealed (or hidden) at the window's
+   * edges animate in, matching the choreography of e itself.
+   * Anchor line is the focused line — the user wants their reading
+   * position pinned while the surrounding region grows or shrinks.
+   */
+  const handleCycleContextRange = useCallback(
+    (lineId: string) => {
+      const existingIndex = openContexts.findIndex(
+        (c) => c.selectedLineId === lineId,
+      );
+      if (existingIndex === -1) return; // strict: no-op without an open context
+
+      const anchor = captureAnchor(lineId);
+
+      if (lineId !== anchorLineId) setAnchorLineId(lineId);
+
+      setTransitionMode("slow");
+      if (slowModeTimeoutRef.current !== null)
+        clearTimeout(slowModeTimeoutRef.current);
+      slowModeTimeoutRef.current = window.setTimeout(() => {
+        setTransitionMode("instant");
+        slowModeTimeoutRef.current = null;
+      }, 600);
+
+      setOpenContexts((current) =>
+        current.map((c, i) =>
+          i === existingIndex ? { ...c, range: nextContextRange(c.range) } : c,
+        ),
+      );
+
+      if (anchor) startCompensation(anchor);
+    },
+    [openContexts, anchorLineId, captureAnchor, startCompensation],
+  );
+
+  /**
    * Focus persistence rule (spec §7): the *saved* focus (`focusedLineId`)
    * is what the user explicitly set; the *effective* focus is what
    * actually renders. When the saved line is hidden by a filter change
@@ -629,11 +677,13 @@ export function LogExplorer({ lines }: { lines: readonly LogLine[] }) {
 
       const { key, shiftKey } = event;
 
-      // Reject any shifted key that isn't shift+g. Single exception
-      // keeps the rule "no shift" almost universal — accepting both
-      // `key === "G"` and `key === "g"` here matches the dual check
-      // for `isLast` below.
-      if (shiftKey && key !== "G" && key !== "g") return;
+      // Two shifted keys are accepted: shift+g (last visible line) and
+      // shift+e (cycle context size). Everything else with a shift
+      // modifier bails — keeps the no-shift default close to universal
+      // and leaves shift+letter free for future bindings without a
+      // case-by-case audit.
+      if (shiftKey && key !== "G" && key !== "g" && key !== "E" && key !== "e")
+        return;
 
       const isNext = !shiftKey && (key === "j" || key === "ArrowDown");
       const isPrev = !shiftKey && (key === "k" || key === "ArrowUp");
@@ -642,11 +692,12 @@ export function LogExplorer({ lines }: { lines: readonly LogLine[] }) {
       // shift+g on US keyboards, but some testing tools and non-US
       // layouts fire `key: "g"` with shiftKey true. Handling both
       // makes the binding robust without changing the user-facing
-      // contract.
+      // contract. Same dual check applies to shift+e below.
       const isLast = shiftKey && (key === "G" || key === "g");
       const isPrevBoundary = !shiftKey && key === "[";
       const isNextBoundary = !shiftKey && key === "]";
       const isToggleContext = !shiftKey && key === "e";
+      const isCycleContextRange = shiftKey && (key === "E" || key === "e");
 
       if (
         !isNext &&
@@ -655,7 +706,8 @@ export function LogExplorer({ lines }: { lines: readonly LogLine[] }) {
         !isLast &&
         !isPrevBoundary &&
         !isNextBoundary &&
-        !isToggleContext
+        !isToggleContext &&
+        !isCycleContextRange
       ) {
         return;
       }
@@ -674,6 +726,17 @@ export function LogExplorer({ lines }: { lines: readonly LogLine[] }) {
         event.preventDefault();
         if (effectiveFocusedLineId) {
           handleToggleContext(effectiveFocusedLineId);
+        }
+        return;
+      }
+
+      // shift+e cycles the range of an open context on the focused
+      // line. Strict: no-op when the focused line has no context
+      // open (handler enforces this internally).
+      if (isCycleContextRange) {
+        event.preventDefault();
+        if (effectiveFocusedLineId) {
+          handleCycleContextRange(effectiveFocusedLineId);
         }
         return;
       }
@@ -758,7 +821,12 @@ export function LogExplorer({ lines }: { lines: readonly LogLine[] }) {
 
       setFocusedLineId(visible[nextIndex].id);
     },
-    [derivedLines, effectiveFocusedLineId, handleToggleContext],
+    [
+      derivedLines,
+      effectiveFocusedLineId,
+      handleToggleContext,
+      handleCycleContextRange,
+    ],
   );
 
   return (
