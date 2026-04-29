@@ -1,0 +1,358 @@
+/*
+ * Shortcut sheet styles.
+ *
+ * Visual goal: physical-looking key caps grouped by function. The
+ * keycaps use stacked box-shadows + a subtle top-light gradient to
+ * read as dimensional; the modal itself sits over a dimmed
+ * backdrop with a soft fade-in animation.
+ */
+
+/*
+ * Backdrop. Slightly more opaque than a typical dialog backdrop so
+ * the keycap shadows have a darker stage to push off of, which is
+ * what makes them read as physical. Keying enter/exit off Radix's
+ * data-state attribute gives us CSS-driven animation without
+ * touching React.
+ */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(2px);
+  z-index: 100;
+  animation: overlayFadeIn 160ms var(--ease-standard);
+}
+
+.overlay[data-state="closed"] {
+  animation: overlayFadeOut 120ms var(--ease-standard) forwards;
+}
+
+@keyframes overlayFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes overlayFadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+/*
+ * Modal panel. Centered via fixed positioning + transform; max-width
+ * keeps the layout from sprawling on wide screens. The panel's
+ * border + outer shadow lift it off the backdrop just enough that
+ * it reads as a separate plane, not a flat overlay.
+ */
+.content {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(640px, calc(100vw - var(--space-8)));
+  max-height: calc(100vh - var(--space-8));
+  overflow-y: auto;
+  padding: var(--space-6);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-bg-elevated);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.04) inset,
+    0 24px 48px rgba(0, 0, 0, 0.5),
+    0 6px 16px rgba(0, 0, 0, 0.4);
+  z-index: 101;
+  font-family: var(--font-sans);
+  animation: contentEnter 200ms var(--ease-standard);
+}
+
+.content[data-state="closed"] {
+  animation: contentExit 140ms var(--ease-standard) forwards;
+}
+
+@keyframes contentEnter {
+  from {
+    opacity: 0;
+    transform: translate(-50%, calc(-50% + 8px));
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+  }
+}
+
+@keyframes contentExit {
+  from {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+  }
+  to {
+    opacity: 0;
+    transform: translate(-50%, calc(-50% + 4px));
+  }
+}
+
+.title {
+  margin: 0 0 var(--space-6);
+  color: var(--color-fg);
+  font-family: var(--font-sans);
+  font-size: 18px;
+  font-weight: var(--font-weight-medium);
+  letter-spacing: -0.01em;
+}
+
+/*
+ * Two-column layout for the four sections. Falls back to single-
+ * column on narrow screens. minmax(0, 1fr) prevents long
+ * descriptions from blowing out the column width.
+ */
+.groups {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-6) var(--space-8);
+}
+
+@media (max-width: 540px) {
+  .groups {
+    grid-template-columns: 1fr;
+  }
+}
+
+.group {
+  min-width: 0;
+}
+
+.groupTitle {
+  margin: 0 0 var(--space-3);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-fg-muted);
+  font-size: 11px;
+  font-weight: var(--font-weight-medium);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.shortcutList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.shortcutRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  min-height: 28px;
+}
+
+.description {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-fg);
+  font-size: 13px;
+  /*
+   * Keep descriptions on one line. If a description ever needs
+   * wrapping, we'll bump min-height accordingly — for now the
+   * registry's descriptions are short by design.
+   */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.descriptionIcon {
+  flex-shrink: 0;
+  color: var(--color-fg-muted);
+}
+
+/*
+ * Keycap container holds a sequence (or sequences, when there are
+ * aliases) of physical-looking caps. flex-wrap so cap groups can
+ * fall to a new line on narrow screens without overflowing.
+ */
+.keyCapGroup {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.keyCapSequence {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.keyCapPair {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.aliasSeparator {
+  color: var(--color-fg-subtle);
+  font-size: 12px;
+  font-family: var(--font-mono);
+  margin: 0 2px;
+}
+
+.comboPlus {
+  color: var(--color-fg-subtle);
+  font-size: 11px;
+  font-family: var(--font-mono);
+}
+
+/*
+ * Physical keycap. The dimensionality comes from layered shadows:
+ *   - Inset top highlight (the cap's "rim" catching light)
+ *   - Inset bottom inner shadow (the keycap's slight concavity)
+ *   - Outer 1px translucent border (cap edge)
+ *   - Outer 2px solid bottom shadow (the gap between cap and base)
+ *   - Outer drop shadow (the keycap's lift off the keyboard plane)
+ *
+ * Linear-gradient on background creates the "top is slightly
+ * brighter" cue that makes the cap read as facing up.
+ *
+ * Active state (:active) shrinks the bottom shadow + nudges the cap
+ * down 1px, mimicking a key being pressed. This is animated below
+ * so the press has a tactile feel.
+ */
+.keyCap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 8px;
+  border-radius: 6px;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.04) 0%,
+      rgba(255, 255, 255, 0) 50%,
+      rgba(0, 0, 0, 0.05) 100%
+    ),
+    var(--color-bg);
+  color: var(--color-fg);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: var(--font-weight-medium);
+  line-height: 1;
+  letter-spacing: 0;
+  /*
+   * Stacked shadows in order:
+   *   1. inset top white = rim highlight (cap face catching light)
+   *   2. inset bottom black = slight cap dip
+   *   3. outer 0 0 0 1px = cap-edge border
+   *   4. outer 2px down black = gap between cap and base
+   *   5. outer drop = lift off the keyboard
+   */
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.25),
+    0 0 0 1px rgba(255, 255, 255, 0.06),
+    0 2px 0 rgba(0, 0, 0, 0.4),
+    0 4px 6px rgba(0, 0, 0, 0.3);
+  transition:
+    transform 80ms var(--ease-standard),
+    box-shadow 80ms var(--ease-standard);
+}
+
+/*
+ * Modifier and arrow caps lean a bit wider so "Shift" / "↓" don't
+ * crowd the corners. Targeted via attribute selectors would be
+ * cleaner, but kbd elements don't have stable attrs to key off —
+ * relying on min-width auto-expand from padding works for
+ * everything in the registry today.
+ */
+
+.closeButton {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-fg-muted);
+  cursor: pointer;
+  transition:
+    color 100ms var(--ease-standard),
+    background 100ms var(--ease-standard);
+}
+
+.closeButton:hover {
+  background: var(--color-bg);
+  color: var(--color-fg);
+}
+
+.closeButton:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+/*
+ * Bottom-right floating `?` trigger. Floats over content via
+ * position: fixed. Placement matches the convention commonly used for the user's "help corner".
+ *
+ * z-index keeps it above the log list but below the modal overlay
+ * (overlay is 100). Box-shadow stack mirrors the keycap so the
+ * affordance reads as connected to the sheet's visual language.
+ */
+.floatingTrigger {
+  position: fixed;
+  bottom: var(--space-4);
+  right: var(--space-4);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--color-bg-elevated);
+  color: var(--color-fg-muted);
+  cursor: pointer;
+  z-index: 50;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 0 0 1px var(--color-border),
+    0 2px 4px rgba(0, 0, 0, 0.4);
+  transition:
+    transform 120ms var(--ease-standard),
+    color 120ms var(--ease-standard),
+    box-shadow 120ms var(--ease-standard);
+}
+
+.floatingTrigger:hover {
+  color: var(--color-fg);
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 0 0 1px var(--color-fg-muted),
+    0 4px 8px rgba(0, 0, 0, 0.5);
+}
+
+.floatingTrigger:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}

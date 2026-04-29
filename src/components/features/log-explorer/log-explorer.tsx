@@ -17,6 +17,10 @@ import {
 } from "@/components/features/filter-bar/filter-bar";
 import { LogList } from "@/components/features/log-list/log-list";
 import {
+  ShortcutSheet,
+  ShortcutSheetTrigger,
+} from "@/components/features/shortcut-sheet/shortcut-sheet";
+import {
   DEFAULT_CONTEXT_RANGE,
   nextContextRange,
   previousContextRange,
@@ -151,6 +155,13 @@ export function LogExplorer({ lines }: { lines: readonly LogLine[] }) {
     "instant",
   );
   const slowModeTimeoutRef = useRef<number | null>(null);
+
+  // Open state for the shortcut sheet (spec §9.7). Lifted to
+  // LogExplorer so the document-level `?` keyboard handler — which
+  // can't sit inside the Dialog tree — can flip it. Spec §7 says
+  // the sheet doesn't toggle on `?` (open-only); Esc / click-outside
+  // do the closing via Radix Dialog's native behavior.
+  const [sheetOpen, setSheetOpen] = useState(false);
 
   // Ref to the Radix Scroll Area viewport. The anchor mechanics below
   // read getBoundingClientRect on a target `<li>` and write scrollTop
@@ -995,6 +1006,8 @@ export function LogExplorer({ lines }: { lines: readonly LogLine[] }) {
           hasAnyFilter={hasAnyFilter(filterState)}
           transitionMode={transitionMode}
         />
+        <ShortcutSheetTrigger onOpen={() => setSheetOpen(true)} />
+        <ShortcutSheet open={sheetOpen} onOpenChange={setSheetOpen} />
       </div>
     </MotionConfig>
   );
