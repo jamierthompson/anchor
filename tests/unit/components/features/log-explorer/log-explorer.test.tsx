@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { LogExplorer } from "@/components/features/log-explorer/log-explorer";
 import type { LogLine } from "@/types/log";
@@ -29,6 +29,31 @@ const fixture: LogLine[] = [
   { id: "l3", timestamp: T(3), instance: "i2", level: "ERROR", message: "row three error" },
   { id: "l4", timestamp: T(4), instance: "i2", level: "INFO", message: "row four info" },
 ];
+
+/**
+ * Wider fixture used by tests that need a context window to fall short
+ * of covering everything (so visibility differs at ±20 vs ±50 vs ±100).
+ * Hoisted to module scope so multiple describe blocks can share it.
+ */
+const wideFixture: LogLine[] = Array.from({ length: 51 }, (_, i) => {
+  const id = `l${String(i).padStart(2, "0")}`;
+  if (i === 25) {
+    return {
+      id,
+      timestamp: T(i),
+      instance: "i1",
+      level: "ERROR",
+      message: `row ${id} error anchor`,
+    };
+  }
+  return {
+    id,
+    timestamp: T(i),
+    instance: "i1",
+    level: "INFO",
+    message: `row ${id} info`,
+  };
+});
 
 const liFor = (textFragment: string | RegExp): HTMLElement => {
   const el = screen.getByText(textFragment).closest("li");
@@ -556,38 +581,10 @@ describe("LogExplorer — e toggles context on the focused line", () => {
 });
 
 describe("LogExplorer — shift+e cycles context size on the focused line", () => {
-  /**
-   * Fixture sized so each cycle range reveals a distinguishable set
-   * of surrounding lines. The anchor sits at the center; with ±20
-   * default the fixture is too small to differentiate, so we use a
-   * fixture that's 20 lines wide and assert on the visibility flips
-   * at the boundary.
-   *
-   * Layout (anchor at index 25):
-   *   l00..l24  → before anchor
-   *   l25       → ERROR anchor line
-   *   l26..l50  → after anchor
-   */
-  const wideFixture: LogLine[] = Array.from({ length: 51 }, (_, i) => {
-    const id = `l${String(i).padStart(2, "0")}`;
-    if (i === 25) {
-      return {
-        id,
-        timestamp: T(i),
-        instance: "i1",
-        level: "ERROR",
-        message: `row ${id} error anchor`,
-      };
-    }
-    return {
-      id,
-      timestamp: T(i),
-      instance: "i1",
-      level: "INFO",
-      message: `row ${id} info`,
-    };
-  });
-
+  // Uses the module-level wideFixture (51 lines, anchor at index 25)
+  // — sized so each cycle range reveals a distinguishable set of
+  // surrounding lines. The 5-line `fixture` would be entirely covered
+  // by even a ±20 window, so visibility flips couldn't differentiate.
   const listbox = () => screen.getByRole("listbox", { name: /log lines/i });
 
   /** Helper: count visible <li>s in the rendered list. */
@@ -654,6 +651,48 @@ describe("LogExplorer — shift+e cycles context size on the focused line", () =
     await user.keyboard("{Shift>}e{/Shift}");
 
     expect(document.querySelector('[data-selected="true"]')).toBeNull();
+  });
+});
+
+describe("LogExplorer — c copies the focused line", () => {
+  const listbox = () => screen.getByRole("listbox", { name: /log lines/i });
+
+  it("writes the formatted line text to navigator.clipboard", () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText },
+      configurable: true,
+    });
+
+    render(<LogExplorer lines={fixture} />);
+    const list = listbox();
+    list.focus();
+
+    // Land on l1 (row one error) by clicking it, then copy via `c`.
+    fireEvent.click(liFor(/row one error/));
+    fireEvent.keyDown(list, { key: "c" });
+
+    expect(writeText).toHaveBeenCalledTimes(1);
+    const text = writeText.mock.calls[0][0] as string;
+    expect(text).toContain("[i1]");
+    expect(text).toContain("ERROR");
+    expect(text).toContain("row one error");
+  });
+
+  it("is a no-op when no line is focused", () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText },
+      configurable: true,
+    });
+
+    render(<LogExplorer lines={fixture} />);
+    const list = listbox();
+    list.focus();
+
+    fireEvent.keyDown(list, { key: "c" });
+
+    expect(writeText).not.toHaveBeenCalled();
   });
 });
 
@@ -745,6 +784,142 @@ describe("LogExplorer — global shortcuts (/ and Esc)", () => {
     expect(screen.getByText("level: error")).toBeInTheDocument();
     // l0 is hidden again (filter excludes it; context that revealed it is gone).
     expect(liFor(/row zero info/).getAttribute("data-visible")).toBe("false");
+  });
+});
+
+describe("LogExplorer — line-action integration (spec §8 — hover icon row)", () => {
+  it("View context button opens a context (toggle pipeline reuse)", async () => {
+    const user = userEvent.setup();
+    render(<LogExplorer lines={fixture} />);
+    applyErrorFilter();
+
+    const l1Row = liFor(/row one error/);
+    const viewBtn = l1Row.querySelector<HTMLButtonElement>(
+      'button[aria-label="View context"]',
+    );
+    expect(viewBtn).not.toBeNull();
+    await user.click(viewBtn!);
+
+    expect(l1Row.getAttribute("data-selected")).toBe("true");
+    // Surrounding non-matching line revealed dimmed via the window.
+    expect(liFor(/row zero info/).getAttribute("data-dimmed")).toBe("true");
+  });
+
+  it("Hide context button (active anchor) closes the open context", async () => {
+    const user = userEvent.setup();
+    render(<LogExplorer lines={fixture} />);
+    applyErrorFilter();
+
+    // Open via cmd+click for variety, then verify the row now offers Hide.
+    fireEvent.click(liFor(/row one error/).querySelector("[data-level]")!, {
+      metaKey: true,
+    });
+    expect(liFor(/row one error/).getAttribute("data-selected")).toBe("true");
+
+    const hideBtn = liFor(/row one error/).querySelector<HTMLButtonElement>(
+      'button[aria-label="Hide context"]',
+    );
+    expect(hideBtn).not.toBeNull();
+    expect(hideBtn?.getAttribute("data-active")).toBe("true");
+    await user.click(hideBtn!);
+
+    expect(liFor(/row one error/).getAttribute("data-selected")).toBe("false");
+  });
+
+  it("action row is empty (no toggle/copy buttons) on lines that fail the §3 gate when no filter is active", () => {
+    render(<LogExplorer lines={fixture} />);
+
+    // No filter — no line should expose View context / Hide context.
+    expect(
+      document.querySelectorAll('button[aria-label="View context"]'),
+    ).toHaveLength(0);
+    expect(
+      document.querySelectorAll('button[aria-label="Hide context"]'),
+    ).toHaveLength(0);
+  });
+
+  it("dimmed (context-revealed) lines hide the View context button but keep Copy", async () => {
+    const user = userEvent.setup();
+    render(<LogExplorer lines={fixture} />);
+    applyErrorFilter();
+
+    // Open a context on l1 — l0 becomes visible-but-dimmed.
+    await user.click(
+      liFor(/row one error/).querySelector<HTMLButtonElement>(
+        'button[aria-label="View context"]',
+      )!,
+    );
+    expect(liFor(/row zero info/).getAttribute("data-dimmed")).toBe("true");
+
+    // §3 gate refuses View context on dimmed lines (no nested context).
+    expect(
+      liFor(/row zero info/).querySelector('button[aria-label="View context"]'),
+    ).toBeNull();
+    // Copy is universal — it must work on any visible line, including
+    // context-revealed dimmed ones, so a user can grab the surrounding
+    // context text.
+    expect(
+      liFor(/row zero info/).querySelector('button[aria-label="Copy line"]'),
+    ).not.toBeNull();
+  });
+
+  it("Expand / Less buttons appear and step the range on click", async () => {
+    const user = userEvent.setup();
+    render(<LogExplorer lines={wideFixture} />);
+    fireEvent.click(
+      screen.getByRole("button", { name: /Filter by level ERROR/ }),
+    );
+
+    // Open context at default ±20.
+    await user.click(
+      liFor(/row l25 error anchor/).querySelector<HTMLButtonElement>(
+        'button[aria-label="View context"]',
+      )!,
+    );
+    // ±20 — Expand visible, Less hidden.
+    const anchorRow = liFor(/row l25 error anchor/);
+    expect(
+      anchorRow.querySelector('button[aria-label="Expand context"]'),
+    ).not.toBeNull();
+    expect(
+      anchorRow.querySelector('button[aria-label="Less context"]'),
+    ).toBeNull();
+
+    // Step up — visible-line count grows from 41 (±20) to 51 (±50, full
+    // fixture). Less should now appear.
+    await user.click(
+      anchorRow.querySelector<HTMLButtonElement>(
+        'button[aria-label="Expand context"]',
+      )!,
+    );
+    expect(
+      document.querySelectorAll('li[data-visible="true"]').length,
+    ).toBe(51);
+    expect(
+      anchorRow.querySelector('button[aria-label="Less context"]'),
+    ).not.toBeNull();
+  });
+
+  it("Copy button writes a formatted line to navigator.clipboard", () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal("navigator", { ...navigator, clipboard: { writeText } });
+
+    render(<LogExplorer lines={fixture} />);
+    applyErrorFilter();
+
+    const copyBtn = liFor(/row one error/).querySelector<HTMLButtonElement>(
+      'button[aria-label="Copy line"]',
+    );
+    expect(copyBtn).not.toBeNull();
+    fireEvent.click(copyBtn!);
+
+    expect(writeText).toHaveBeenCalledTimes(1);
+    const text = writeText.mock.calls[0][0] as string;
+    expect(text).toContain("[i1]");
+    expect(text).toContain("ERROR");
+    expect(text).toContain("row one error");
+
+    vi.unstubAllGlobals();
   });
 });
 

@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import { LogLine } from "@/components/features/log-list/log-line";
@@ -105,25 +106,17 @@ describe("LogLine — dim styling lives on the inner element", () => {
     expect(inner?.getAttribute("data-dimmed")).toBe("false");
   });
 
-  it("carries data-selected on the inner line element so the anchor icon can fade in via CSS", () => {
-    // The anchor-icon visibility is driven by a CSS rule
-    // (.line[data-selected="true"] .anchorIcon { opacity: 1 }) so the
-    // attribute has to live on the inner .line, not just the outer <li>.
+  it("carries data-selected on the inner line element (drives action-row reveal CSS)", () => {
+    // .line[data-selected="true"] .actionRow keeps the row visible
+    // even without hover so the user can close an open context. The
+    // attribute has to live on the inner .line for the descendant
+    // selector to work — both the <li> and the inner div carry it.
     const { container, rerender } = render(<LogLine line={baseLine} />);
     const inner = container.querySelector("[data-level]");
     expect(inner?.getAttribute("data-selected")).toBe("false");
 
     rerender(<LogLine line={baseLine} isSelected />);
     expect(inner?.getAttribute("data-selected")).toBe("true");
-  });
-
-  it("renders the Anchor icon inside the line for the CSS opacity transition to target", () => {
-    // The icon is always in the DOM — its visibility comes from the
-    // opacity transition keyed off data-selected. Lucide icons render
-    // an <svg> with a `lucide-anchor` class on it, which is a stable
-    // hook for this assertion.
-    const { container } = render(<LogLine line={baseLine} isSelected />);
-    expect(container.querySelector("svg.lucide-anchor")).not.toBeNull();
   });
 
   it("deploy boundaries do not carry data-dimmed (always undimmed per spec §5)", () => {
@@ -240,5 +233,175 @@ describe("LogLine — deploy boundaries", () => {
     render(<LogLine line={deployLine} />);
     expect(screen.queryByText("14:32:08")).not.toBeInTheDocument();
     expect(screen.queryByText("7tbsm")).not.toBeInTheDocument();
+  });
+});
+
+describe("LogLine — line actions (spec §8 — hover-revealed icon row)", () => {
+  it("renders no actions when no onToggleContext is supplied (static-render path)", () => {
+    render(<LogLine line={baseLine} />);
+    expect(
+      screen.queryByRole("button", { name: /View context/ }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Copy line/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("renders no actions when the §3 gate fails (no filter, no open context)", () => {
+    // canToggleContext=false AND isSelected=false → no action would
+    // make sense on this line, so the row hides entirely.
+    render(
+      <LogLine
+        line={baseLine}
+        onToggleContext={() => {}}
+        canToggleContext={false}
+        isSelected={false}
+      />,
+    );
+    expect(
+      screen.queryByRole("button", { name: /View context/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("renders the View context + Copy actions when the §3 gate passes", () => {
+    render(
+      <LogLine
+        line={baseLine}
+        onToggleContext={() => {}}
+        onCopyLine={() => {}}
+        canToggleContext
+      />,
+    );
+    expect(
+      screen.getByRole("button", { name: /View context/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Copy line/ }),
+    ).toBeInTheDocument();
+  });
+
+  it("flips the toggle label to 'Hide context' and marks the button active when isSelected", () => {
+    render(
+      <LogLine
+        line={baseLine}
+        onToggleContext={() => {}}
+        canToggleContext
+        isSelected
+      />,
+    );
+    const toggle = screen.getByRole("button", { name: /Hide context/ });
+    expect(toggle).toBeInTheDocument();
+    expect(toggle.getAttribute("data-active")).toBe("true");
+    expect(toggle.getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("clicking the View/Hide context button calls onToggleContext with the line id", async () => {
+    const user = userEvent.setup();
+    const onToggleContext = vi.fn();
+    render(
+      <LogLine
+        line={baseLine}
+        onToggleContext={onToggleContext}
+        canToggleContext
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: /View context/ }));
+    expect(onToggleContext).toHaveBeenCalledWith(baseLine.id);
+  });
+
+  it("renders the Expand context button when isSelected and contextRange < max", () => {
+    render(
+      <LogLine
+        line={baseLine}
+        onToggleContext={() => {}}
+        onExpandContext={() => {}}
+        onLessContext={() => {}}
+        canToggleContext
+        isSelected
+        contextRange={50}
+      />,
+    );
+    expect(
+      screen.getByRole("button", { name: /Expand context/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Less context/ }),
+    ).toBeInTheDocument();
+  });
+
+  it("hides Expand at the cycle max (±100) and Less at the cycle min (±20)", () => {
+    const { rerender } = render(
+      <LogLine
+        line={baseLine}
+        onToggleContext={() => {}}
+        onExpandContext={() => {}}
+        onLessContext={() => {}}
+        canToggleContext
+        isSelected
+        contextRange={20}
+      />,
+    );
+    // ±20 — only Expand is meaningful; Less is hidden.
+    expect(
+      screen.getByRole("button", { name: /Expand context/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Less context/ }),
+    ).not.toBeInTheDocument();
+
+    rerender(
+      <LogLine
+        line={baseLine}
+        onToggleContext={() => {}}
+        onExpandContext={() => {}}
+        onLessContext={() => {}}
+        canToggleContext
+        isSelected
+        contextRange={100}
+      />,
+    );
+    // ±100 — only Less is meaningful; Expand is hidden.
+    expect(
+      screen.queryByRole("button", { name: /Expand context/ }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Less context/ }),
+    ).toBeInTheDocument();
+  });
+
+  it("Expand and Less buttons fire their respective callbacks with the line id", async () => {
+    const user = userEvent.setup();
+    const onExpandContext = vi.fn();
+    const onLessContext = vi.fn();
+    render(
+      <LogLine
+        line={baseLine}
+        onToggleContext={() => {}}
+        onExpandContext={onExpandContext}
+        onLessContext={onLessContext}
+        canToggleContext
+        isSelected
+        contextRange={50}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: /Expand context/ }));
+    expect(onExpandContext).toHaveBeenCalledWith(baseLine.id);
+    await user.click(screen.getByRole("button", { name: /Less context/ }));
+    expect(onLessContext).toHaveBeenCalledWith(baseLine.id);
+  });
+
+  it("Copy button fires onCopyLine with the line id", async () => {
+    const user = userEvent.setup();
+    const onCopyLine = vi.fn();
+    render(
+      <LogLine
+        line={baseLine}
+        onToggleContext={() => {}}
+        onCopyLine={onCopyLine}
+        canToggleContext
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: /Copy line/ }));
+    expect(onCopyLine).toHaveBeenCalledWith(baseLine.id);
   });
 });

@@ -32,8 +32,7 @@
 }
 
 .filterTrigger:hover {
-  /* A subtle hover so click-to-filter affordance is discoverable
-     without competing with the kebab affordance arriving in §8. */
+  /* A subtle hover so click-to-filter affordance is discoverable. */
   filter: brightness(1.15);
 }
 
@@ -45,72 +44,62 @@
 .line {
   display: grid;
   /*
-   * Four columns:
-   *   1. 14px gutter — reserves space for the anchor icon when this
-   *      line is the selected anchor of an open context (§4). Always
-   *      present so toggling selected state doesn't shift the rest of
-   *      the row sideways.
-   *   2. auto — time column.
-   *   3. auto — instance pill.
-   *   4. 1fr  — message + request id badge.
+   * Three columns:
+   *   1. auto — time column.
+   *   2. auto — instance pill.
+   *   3. 1fr  — message + request id badge.
+   *
+   * The hover-revealed action row (.actionRow / .actionButton below)
+   * is *absolutely* positioned at the right edge — it's not a grid
+   * cell. Putting it in the grid would shrink the message column on
+   * every line, which can tip longer messages onto extra wrap rows
+   * and make Motion's height-0 ↔ height-auto animation read as
+   * inconsistent (taller rows traverse more pixels in the same fixed
+   * duration). Absolute positioning keeps the message column at full
+   * width.
    */
-  grid-template-columns: 14px auto auto 1fr;
+  grid-template-columns: auto auto 1fr;
   align-items: baseline;
   gap: var(--space-3);
   padding: var(--space-1) var(--space-4);
   font-family: var(--font-mono);
   font-size: 13px;
   line-height: 1.5;
+  /* Anchor for the absolutely-positioned .actionRow below. */
+  position: relative;
 }
 
 /*
- * Dim opacity lives on the inner element (this .line div) so it
- * composes with Motion's visibility opacity on the parent <li>:
+ * Dim opacity targets the line's *content* children (time, instance,
+ * message) rather than the line root. CSS opacity composes
+ * multiplicatively, so dimming the .line root would also dim any
+ * descendant — including the hover-revealed .actionRow buttons,
+ * which would read as disabled. By keeping the dim on individual
+ * content children, the action row sits at full opacity and reads as
+ * "interactive on a context-revealed line."
  *
- *   visible + undimmed → 1 × 1   = 1
- *   visible + dimmed   → 1 × 0.4 = 0.4
- *   hidden  + dimmed   → 0 × 0.4 = 0   (mid-collapse it stacks too)
+ * Composition with Motion's visibility opacity on the parent <li>:
+ *
+ *   visible + undimmed → 1 × 1   = 1     (children at full opacity)
+ *   visible + dimmed   → 1 × 0.4 = 0.4   (children dimmed; row at 1)
+ *   hidden  + dimmed   → 0 × 0.4 = 0     (everything fades with li)
  *
  * The dim/undim transition is the spec's "fast" duration (~120ms) —
- * just an opacity tween, no choreography. Targets opacity on this
- * element only; the parent <li>'s opacity is owned by Motion and
- * isn't affected by this CSS rule.
+ * just an opacity tween. The parent <li>'s opacity is owned by Motion
+ * and isn't affected by these rules.
  */
-.line {
+.line > time,
+.line > .instance,
+.line > .message,
+.line > .messageMuted {
   transition: opacity var(--duration-fast) var(--ease-standard);
 }
 
-.line[data-dimmed="true"] {
+.line[data-dimmed="true"] > time,
+.line[data-dimmed="true"] > .instance,
+.line[data-dimmed="true"] > .message,
+.line[data-dimmed="true"] > .messageMuted {
   opacity: var(--opacity-dimmed);
-}
-
-/*
- * Anchor-icon slot — sits in the leading 14px gutter column. The
- * <span> is always rendered; the icon's visibility is driven by an
- * opacity fade on this element keyed off the parent .line's
- * data-selected attribute. Matches the parent <li>'s
- * border-left-color transition (--duration-base var(--ease-standard))
- * so the border accent and the icon resolve together.
- *
- * A selected line is never dimmed by construction: LogExplorer's
- * `effectiveSelectedLineIds` only includes ids whose line currently
- * matches the active filter, which is the same predicate that drives
- * isDimmed = false. So we don't need to reason about icon-on-dimmed-
- * line composition — that state can't occur.
- *
- * align-self: center because baseline alignment of an SVG inside a
- * baseline-aligned grid row sits the icon awkwardly low.
- */
-.anchorIcon {
-  display: inline-flex;
-  align-self: center;
-  color: var(--color-accent);
-  opacity: 0;
-  transition: opacity var(--duration-base) var(--ease-standard);
-}
-
-.line[data-selected="true"] .anchorIcon {
-  opacity: 1;
 }
 
 .time {
@@ -134,12 +123,21 @@
 .message {
   color: var(--color-fg);
   word-break: break-word;
+  /*
+   * Reserve space for the action row. Up to three icon buttons
+   * (24px wide each + 4px gaps + 8px row padding ≈ 88px). With
+   * absolute-positioned .actionRow sitting in this padding zone, the
+   * request-id badge stops cleanly before the icons begin and never
+   * gets visually stacked under them.
+   */
+  padding-right: 92px;
 }
 
 /* DEBUG lines render at the subtle text color across the whole message. */
 .messageMuted {
   color: var(--color-fg-subtle);
   word-break: break-word;
+  padding-right: 92px;
 }
 
 .levelWARN {
@@ -161,6 +159,91 @@
   background: var(--color-bg-elevated);
   color: var(--color-fg-muted);
   font-size: 11px;
+}
+
+/*
+ * Hover-revealed line actions (spec §8 — redesigned from the
+ * originally-planned kebab menu). The row is absolutely positioned
+ * at the right edge of the line so it doesn't compete with the
+ * message column for grid space. Hidden at rest; revealed when:
+ *
+ *   - the line is hovered (`.line:hover .actionRow`)
+ *   - the line is keyboard-focused (`.line[data-focused="true"]
+ *     .actionRow`) — power users navigating with j/k see the
+ *     affordances before mousing
+ *   - the line is the anchor of an open context (selected) — the
+ *     anchor button needs to stay clickable so the user can close
+ *     the context without re-hovering
+ *
+ * Composing with Motion's animated parent <li> opacity: the
+ * actionRow is INSIDE the .line, so during height-collapse the row
+ * fades along with the line content (single source of opacity).
+ */
+.actionRow {
+  position: absolute;
+  top: 50%;
+  right: var(--space-4);
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--ease-standard);
+  pointer-events: none;
+}
+
+.line:hover .actionRow,
+.line[data-focused="true"] .actionRow,
+.line[data-selected="true"] .actionRow {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.actionButton {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--color-fg-muted);
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard);
+}
+
+.actionButton:hover {
+  background: var(--color-bg-elevated);
+  color: var(--color-fg);
+}
+
+.actionButton:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+/*
+ * Active state — currently set on the Anchor button when the line is
+ * the selected anchor of an open context. Filled background + accent
+ * color make it read as "active toggle" without needing a separate
+ * "anchor on / anchor off" icon set (Lucide doesn't ship AnchorOff).
+ * Pairs with the left-border accent on the <li> for redundant
+ * affordance.
+ */
+.actionButton[data-active="true"] {
+  background: var(--color-accent);
+  color: var(--color-bg);
+}
+
+.actionButton[data-active="true"]:hover {
+  background: var(--color-accent);
+  color: var(--color-bg);
+  filter: brightness(1.1);
 }
 
 /* Deploy boundary: horizontal divider with the deploy event text inline. */

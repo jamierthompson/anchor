@@ -4,6 +4,7 @@ import {
   CONTEXT_RANGE_CYCLE,
   DEFAULT_CONTEXT_RANGE,
   nextContextRange,
+  previousContextRange,
 } from "@/lib/context-state";
 
 /**
@@ -39,5 +40,24 @@ describe("nextContextRange — shift+e cycle helper", () => {
     expect(nextContextRange(35)).toBe(20);
     expect(nextContextRange(0)).toBe(20);
     expect(nextContextRange(999)).toBe(20);
+  });
+});
+
+describe("previousContextRange — Less context icon-button helper", () => {
+  it("steps 100 → 50", () => {
+    expect(previousContextRange(100)).toBe(50);
+  });
+
+  it("steps 50 → 20", () => {
+    expect(previousContextRange(50)).toBe(20);
+  });
+
+  it("clamps at 20 (the icon button is hidden at min, but defensive)", () => {
+    expect(previousContextRange(20)).toBe(20);
+  });
+
+  it("falls back to the first cycle entry for off-cycle values", () => {
+    expect(previousContextRange(35)).toBe(20);
+    expect(previousContextRange(0)).toBe(20);
   });
 });
