@@ -450,6 +450,111 @@ describe("LogExplorer — keyboard focus model (spec §7)", () => {
   });
 });
 
+describe("LogExplorer — e toggles context on the focused line", () => {
+  const listbox = () => screen.getByRole("listbox", { name: /log lines/i });
+
+  it("opens a context on the focused line when a filter is active", async () => {
+    const user = userEvent.setup();
+    render(<LogExplorer lines={fixture} />);
+    applyErrorFilter();
+    listbox().focus();
+
+    // Focus l1 (row one error) and press e to open a context.
+    await user.keyboard("g"); // → first visible (l1)
+    await user.keyboard("e");
+
+    expect(liFor(/row one error/).getAttribute("data-selected")).toBe("true");
+    // Surrounding non-matching lines reveal dimmed via the context window.
+    expect(liFor(/row zero info/).getAttribute("data-visible")).toBe("true");
+    expect(liFor(/row zero info/).getAttribute("data-dimmed")).toBe("true");
+  });
+
+  it("a second e on the same focused line closes the context", async () => {
+    const user = userEvent.setup();
+    render(<LogExplorer lines={fixture} />);
+    applyErrorFilter();
+    listbox().focus();
+
+    await user.keyboard("g"); // focus l1
+    await user.keyboard("e"); // open
+    await user.keyboard("e"); // close
+
+    expect(liFor(/row one error/).getAttribute("data-selected")).toBe("false");
+    // Dimmed reveals collapse back to hidden.
+    expect(liFor(/row zero info/).getAttribute("data-visible")).toBe("false");
+  });
+
+  it("e on a different focused line stacks an additional context (multi-context model)", async () => {
+    const user = userEvent.setup();
+    render(<LogExplorer lines={fixture} />);
+    applyErrorFilter();
+    listbox().focus();
+
+    // Open a context on l1.
+    await user.keyboard("g");
+    await user.keyboard("e");
+
+    // After the context opens, the previously-hidden lines (l0, l2, l4)
+    // are revealed dimmed within the window. j navigates by visibility,
+    // so it walks l1 → l2 → l3. Two presses to reach l3 (also a §3-
+    // matched ERROR line, so e on it is allowed).
+    await user.keyboard("j");
+    await user.keyboard("j");
+    await user.keyboard("e");
+
+    // Both contexts active simultaneously per the §4 multi-context rule.
+    expect(liFor(/row one error/).getAttribute("data-selected")).toBe("true");
+    expect(liFor(/row three error/).getAttribute("data-selected")).toBe("true");
+  });
+
+  it("is a no-op when no line is focused — but preventDefault still fires", async () => {
+    const user = userEvent.setup();
+    render(<LogExplorer lines={fixture} />);
+    applyErrorFilter();
+    listbox().focus();
+
+    // No focus set yet; e should bail silently without selecting anything.
+    await user.keyboard("e");
+
+    expect(document.querySelector('[data-selected="true"]')).toBeNull();
+  });
+
+  it("is a no-op when no filter is active — spec §3 gate", async () => {
+    const user = userEvent.setup();
+    render(<LogExplorer lines={fixture} />);
+    listbox().focus();
+
+    await user.keyboard("g"); // focus l0
+    await user.keyboard("e"); // gate fails — no filter active
+
+    expect(liFor(/row zero info/).getAttribute("data-selected")).toBe("false");
+  });
+
+  it("is a no-op on a dimmed (context-revealed only) line — spec §3 gate", async () => {
+    const user = userEvent.setup();
+    render(<LogExplorer lines={fixture} />);
+    applyErrorFilter();
+    listbox().focus();
+
+    // Open a context on l1 — now l0 is visible-but-dimmed via the window.
+    await user.keyboard("g");
+    await user.keyboard("e");
+    expect(liFor(/row zero info/).getAttribute("data-dimmed")).toBe("true");
+
+    // Click l0 to focus it (j won't reach it because it's dimmed but still
+    // visible — actually j WILL hop onto it because it's visible). To make
+    // the test deterministic regardless, click directly.
+    fireEvent.click(liFor(/row zero info/));
+    await user.keyboard("e");
+
+    // The dimmed line did not become a new context anchor — the §3 gate
+    // refuses it (a dimmed line is "context-only," not filter-matched).
+    expect(liFor(/row zero info/).getAttribute("data-selected")).toBe("false");
+    // And the original context on l1 remains untouched.
+    expect(liFor(/row one error/).getAttribute("data-selected")).toBe("true");
+  });
+});
+
 describe("LogExplorer — deploy-boundary navigation ([ / ])", () => {
   /**
    * Fixture with two deploy boundaries so [ and ] have somewhere to

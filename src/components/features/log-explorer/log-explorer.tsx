@@ -646,6 +646,7 @@ export function LogExplorer({ lines }: { lines: readonly LogLine[] }) {
       const isLast = shiftKey && (key === "G" || key === "g");
       const isPrevBoundary = !shiftKey && key === "[";
       const isNextBoundary = !shiftKey && key === "]";
+      const isToggleContext = !shiftKey && key === "e";
 
       if (
         !isNext &&
@@ -653,8 +654,27 @@ export function LogExplorer({ lines }: { lines: readonly LogLine[] }) {
         !isFirst &&
         !isLast &&
         !isPrevBoundary &&
-        !isNextBoundary
+        !isNextBoundary &&
+        !isToggleContext
       ) {
+        return;
+      }
+
+      // Context toggle on the focused line. Reuses the same handler
+      // that powers the cmd/ctrl-click modifier — same §3 gate
+      // (requires a filter active, not allowed on dimmed lines), same
+      // append/remove semantics, same scroll compensation. The
+      // keyboard binding is just a different input path into the same
+      // pipeline.
+      //
+      // Bails silently if no line is focused — the binding has no
+      // target, but we still preventDefault so the bare `e` doesn't
+      // leak through to anything else.
+      if (isToggleContext) {
+        event.preventDefault();
+        if (effectiveFocusedLineId) {
+          handleToggleContext(effectiveFocusedLineId);
+        }
         return;
       }
 
@@ -738,7 +758,7 @@ export function LogExplorer({ lines }: { lines: readonly LogLine[] }) {
 
       setFocusedLineId(visible[nextIndex].id);
     },
-    [derivedLines, effectiveFocusedLineId],
+    [derivedLines, effectiveFocusedLineId, handleToggleContext],
   );
 
   return (
