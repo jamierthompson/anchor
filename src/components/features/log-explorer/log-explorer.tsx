@@ -11,7 +11,10 @@ import {
   useState,
 } from "react";
 
-import { FilterBar } from "@/components/features/filter-bar/filter-bar";
+import {
+  ADD_FILTER_TRIGGER_ID,
+  FilterBar,
+} from "@/components/features/filter-bar/filter-bar";
 import { LogList } from "@/components/features/log-list/log-list";
 import {
   DEFAULT_CONTEXT_RANGE,
@@ -828,6 +831,72 @@ export function LogExplorer({ lines }: { lines: readonly LogLine[] }) {
       handleCycleContextRange,
     ],
   );
+
+  /**
+   * Document-level shortcuts. Two bindings need to work regardless of
+   * where focus currently is on the page (GitHub, Slack, Linear all
+   * follow this convention):
+   *
+   *   /    — focus the "+ Add filter" trigger
+   *   Esc  — clear all open contexts (spec §7 precedence #3)
+   *
+   * The listbox-level handler covers in-list bindings (j/k/g/G/[/]/e/
+   * shift+e). Splitting them this way keeps each handler responsible
+   * for one focus context — no "is the listbox focused?" branching
+   * inside individual bindings.
+   *
+   * Both bail when `event.defaultPrevented` is set so a Radix
+   * Popover/Dialog handling its own Escape (e.g. closing the filter
+   * popover) doesn't double-fire as "clear contexts." That's the
+   * correct precedence: closeable surfaces consume their own dismiss
+   * before a global-clear runs.
+   *
+   * `/` additionally bails when focus is inside an input/textarea/
+   * contenteditable so typing a literal `/` in a filter input later
+   * (e.g. if a search box appears) doesn't get intercepted.
+   *
+   * Esc precedence per spec §7:
+   *   1. shortcut sheet open → close it     (deferred — task #9)
+   *   2. kebab menu open → close it          (deferred — task #8)
+   *   3. any context open → close all
+   *   4. else: no-op
+   * The first two branches are handled by their owning Radix
+   * primitives (which preventDefault on close). Our handler covers
+   * branch 3 only.
+   */
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented) return;
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+
+      if (event.key === "Escape") {
+        if (openContexts.length === 0) return;
+        event.preventDefault();
+        setOpenContexts([]);
+        return;
+      }
+
+      if (event.key === "/" && !event.shiftKey) {
+        const target = event.target as HTMLElement | null;
+        // Don't intercept while the user is typing in any text input.
+        if (
+          target &&
+          (target.tagName === "INPUT" ||
+            target.tagName === "TEXTAREA" ||
+            target.isContentEditable)
+        ) {
+          return;
+        }
+        const trigger = document.getElementById(ADD_FILTER_TRIGGER_ID);
+        if (!trigger) return;
+        event.preventDefault();
+        trigger.focus();
+      }
+    };
+
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [openContexts.length]);
 
   return (
     // reducedMotion="user" honors the OS-level prefers-reduced-motion

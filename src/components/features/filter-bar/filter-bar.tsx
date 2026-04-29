@@ -82,11 +82,24 @@ export function FilterBar({ state, dispatch }: FilterBarProps) {
   );
 }
 
+/**
+ * Stable DOM id for the "+ Add filter" trigger. The `/` keyboard
+ * shortcut (spec §7) lands focus on this button regardless of where
+ * the user currently is on the page, and querying by id is the
+ * lightest-touch way to expose the focus target without lifting a
+ * ref out of FilterBar's internal Popover scope.
+ */
+export const ADD_FILTER_TRIGGER_ID = "add-filter-trigger";
+
 function AddFilterPopover({ state, dispatch }: FilterBarProps) {
   return (
     <Popover.Root>
       <Popover.Trigger asChild>
-        <button type="button" className={styles.addTrigger}>
+        <button
+          id={ADD_FILTER_TRIGGER_ID}
+          type="button"
+          className={styles.addTrigger}
+        >
           <Plus aria-hidden="true" size={14} className={styles.addPlus} />
           Add filter
         </button>

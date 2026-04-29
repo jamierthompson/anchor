@@ -657,6 +657,97 @@ describe("LogExplorer — shift+e cycles context size on the focused line", () =
   });
 });
 
+describe("LogExplorer — global shortcuts (/ and Esc)", () => {
+  it("/ focuses the Add filter trigger from anywhere on the page", async () => {
+    const user = userEvent.setup();
+    render(<LogExplorer lines={fixture} />);
+
+    // Focus body so we're not on the listbox.
+    document.body.focus();
+    expect(document.activeElement).toBe(document.body);
+
+    await user.keyboard("/");
+
+    const trigger = document.getElementById("add-filter-trigger");
+    expect(trigger).toBeTruthy();
+    expect(document.activeElement).toBe(trigger);
+  });
+
+  it("/ does NOT intercept when focus is in a text input — user can type a literal '/'", async () => {
+    const user = userEvent.setup();
+    // Mount LogExplorer with a sibling input to simulate "user typing somewhere."
+    const { container } = render(
+      <>
+        <input data-testid="external" defaultValue="" />
+        <LogExplorer lines={fixture} />
+      </>,
+    );
+
+    const input = container.querySelector<HTMLInputElement>(
+      '[data-testid="external"]',
+    )!;
+    input.focus();
+    await user.keyboard("/");
+
+    // Trigger NOT focused — the input is.
+    expect(document.activeElement).toBe(input);
+    // And the input received the literal slash.
+    expect(input.value).toBe("/");
+  });
+
+  it("Esc clears all open contexts (spec §7 precedence #3)", async () => {
+    const user = userEvent.setup();
+    render(<LogExplorer lines={fixture} />);
+    applyErrorFilter();
+    const list = screen.getByRole("listbox", { name: /log lines/i });
+    list.focus();
+
+    // Open two contexts so we can prove Esc clears ALL of them.
+    await user.keyboard("g");
+    await user.keyboard("e");
+    await user.keyboard("j");
+    await user.keyboard("j");
+    await user.keyboard("e");
+    expect(document.querySelectorAll('li[data-selected="true"]').length).toBe(2);
+
+    await user.keyboard("{Escape}");
+
+    expect(document.querySelector('li[data-selected="true"]')).toBeNull();
+  });
+
+  it("Esc with no open contexts is a no-op (doesn't preventDefault, doesn't fight the OS)", async () => {
+    // No assertion on browser behavior — we just exercise the path
+    // and confirm no contexts get created/changed.
+    const user = userEvent.setup();
+    render(<LogExplorer lines={fixture} />);
+    applyErrorFilter();
+    screen.getByRole("listbox", { name: /log lines/i }).focus();
+
+    await user.keyboard("{Escape}");
+
+    expect(document.querySelector('li[data-selected="true"]')).toBeNull();
+  });
+
+  it("Esc preserves the filter — only contexts clear", async () => {
+    // Spec §7 explicitly: "Filters require explicit removal." Esc
+    // doesn't touch them.
+    const user = userEvent.setup();
+    render(<LogExplorer lines={fixture} />);
+    applyErrorFilter();
+    screen.getByRole("listbox", { name: /log lines/i }).focus();
+
+    await user.keyboard("g"); // focus l1
+    await user.keyboard("e"); // open context
+
+    await user.keyboard("{Escape}");
+
+    // The ERROR filter chip is still there.
+    expect(screen.getByText("level: error")).toBeInTheDocument();
+    // l0 is hidden again (filter excludes it; context that revealed it is gone).
+    expect(liFor(/row zero info/).getAttribute("data-visible")).toBe("false");
+  });
+});
+
 describe("LogExplorer — deploy-boundary navigation ([ / ])", () => {
   /**
    * Fixture with two deploy boundaries so [ and ] have somewhere to
