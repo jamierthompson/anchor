@@ -24,3 +24,18 @@ import "@testing-library/jest-dom/vitest";
  */
 window.scrollTo = () => {};
 Element.prototype.scrollIntoView = () => {};
+
+/*
+ * jsdom doesn't ship ResizeObserver. Radix Scroll Area, Popover, and
+ * DropdownMenu all set one up in a layout effect to size their
+ * content, throwing a ReferenceError under tests that mount those
+ * primitives. A no-op class is enough for unit tests — we don't
+ * exercise the resize-driven layout, just the rendered DOM.
+ */
+class ResizeObserverStub {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+(globalThis as { ResizeObserver: typeof ResizeObserver }).ResizeObserver =
+  ResizeObserverStub as unknown as typeof ResizeObserver;

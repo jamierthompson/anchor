@@ -19,8 +19,10 @@ import { LogList } from "@/components/features/log-list/log-list";
 import {
   DEFAULT_CONTEXT_RANGE,
   nextContextRange,
+  previousContextRange,
   type OpenContext,
 } from "@/lib/context-state";
+import { formatLineForCopy } from "@/lib/copy-lines";
 import { deriveLines } from "@/lib/derive-lines";
 import {
   actionForTarget,
@@ -63,11 +65,12 @@ const COMPENSATION_DURATION_MS = 600;
 const AT_BOTTOM_TOLERANCE_PX = 50;
 
 /**
- * Stable empty set returned by `effectiveSelectedLineIds` when no
- * accent should render. Reusing one instance keeps the prop reference
- * stable across renders so LogList isn't re-keyed unnecessarily.
+ * Stable empty map returned by `effectiveSelectedContextRangesById`
+ * when no accent should render. Reusing one instance keeps the prop
+ * reference stable across renders so LogList doesn't re-render
+ * unnecessarily.
  */
-const EMPTY_SELECTED_SET: ReadonlySet<string> = new Set();
+const EMPTY_SELECTED_MAP: ReadonlyMap<string, number> = new Map();
 
 type AnchorSnapshot = { id: string; top: number };
 
@@ -434,8 +437,10 @@ export function LogExplorer({ lines }: { lines: readonly LogLine[] }) {
   );
 
   /**
-   * The set of line ids that should currently render the selected-accent
-   * visual (left border + anchor icon).
+   * Map of line id → currently-open context's ±range. Single source of
+   * truth for both the selection-accent visual (left border + active-
+   * state Anchor icon in the action row) AND the per-line action row
+   * (Expand / Less buttons gate on `range`).
    *
    * Open contexts are preserved across filter changes (spec §5) so that
    * loosening a filter restores the saved selection in place. But the
@@ -443,20 +448,21 @@ export function LogExplorer({ lines }: { lines: readonly LogLine[] }) {
    * least one filter active AND the selected line still matches. When
    * either part of the gate fails for an entry, the saved state stays
    * put behind the scenes but its accent disappears.
-   *
-   * Returned as a Set so LogList does O(1) per-row lookup as it walks
-   * the rendered array.
    */
-  const effectiveSelectedLineIds = useMemo<ReadonlySet<string>>(() => {
-    if (openContexts.length === 0) return EMPTY_SELECTED_SET;
-    if (!hasAnyFilter(filterState)) return EMPTY_SELECTED_SET;
-    const ids = new Set<string>();
+  const effectiveSelectedContextRangesById = useMemo<
+    ReadonlyMap<string, number>
+  >(() => {
+    if (openContexts.length === 0) return EMPTY_SELECTED_MAP;
+    if (!hasAnyFilter(filterState)) return EMPTY_SELECTED_MAP;
+    const byId = new Map<string, number>();
     for (const ctx of openContexts) {
       const selected = lines.find((l) => l.id === ctx.selectedLineId);
       if (!selected) continue;
-      if (lineMatchesFilter(selected, filterState)) ids.add(ctx.selectedLineId);
+      if (lineMatchesFilter(selected, filterState)) {
+        byId.set(ctx.selectedLineId, ctx.range);
+      }
     }
-    return ids;
+    return byId;
   }, [openContexts, filterState, lines]);
 
   const handleFilterToggle = useCallback(
@@ -540,28 +546,33 @@ export function LogExplorer({ lines }: { lines: readonly LogLine[] }) {
   );
 
   /**
-   * Cycle the range of an existing context window on the focused line
-   * (spec §7 — shift+e cycles ±20 → ±50 → ±100 → ±20).
+   * Step an open context's range up or down by one cycle entry.
    *
-   * Strict semantics: this only acts on a line that already has an
-   * open context. Shift+e on a line with no context is a no-op — we
-   * don't implicitly open a context at ±50, because "open a context"
-   * (e) and "make my context bigger" (shift+e) are conceptually
-   * separate. The user can always press e first and then shift+e if
-   * they want a wider window.
+   * Three input paths bind to this:
+   *   - `shift+e` keyboard shortcut → step="next" (wraps ±100 → ±20).
+   *   - "Expand context" icon button → step="next" (no wrap; button
+   *     hides at ±100).
+   *   - "Less context" icon button → step="prev" (no wrap; button
+   *     hides at ±20).
+   *
+   * Strict semantics: no-op if the line has no open context. "Open a
+   * context" (e / Anchor button) and "resize a context" (shift+e /
+   * cycle buttons) are conceptually separate — implicit-open would
+   * conflate them and obscure the default ±20 starting point.
    *
    * Switches to "slow" transition mode for the duration of the
-   * resize so the lines newly revealed (or hidden) at the window's
-   * edges animate in, matching the choreography of e itself.
-   * Anchor line is the focused line — the user wants their reading
-   * position pinned while the surrounding region grows or shrinks.
+   * resize so the newly-revealed (or hidden) lines at the window's
+   * edges animate in, matching the choreography of `e` itself.
+   * Anchor line is the line being acted on — the user wants their
+   * reading position pinned while the surrounding region grows or
+   * shrinks.
    */
-  const handleCycleContextRange = useCallback(
-    (lineId: string) => {
+  const stepContextRange = useCallback(
+    (lineId: string, step: "next" | "prev") => {
       const existingIndex = openContexts.findIndex(
         (c) => c.selectedLineId === lineId,
       );
-      if (existingIndex === -1) return; // strict: no-op without an open context
+      if (existingIndex === -1) return;
 
       const anchor = captureAnchor(lineId);
 
@@ -577,13 +588,63 @@ export function LogExplorer({ lines }: { lines: readonly LogLine[] }) {
 
       setOpenContexts((current) =>
         current.map((c, i) =>
-          i === existingIndex ? { ...c, range: nextContextRange(c.range) } : c,
+          i === existingIndex
+            ? {
+                ...c,
+                range:
+                  step === "next"
+                    ? nextContextRange(c.range)
+                    : previousContextRange(c.range),
+              }
+            : c,
         ),
       );
 
       if (anchor) startCompensation(anchor);
     },
     [openContexts, anchorLineId, captureAnchor, startCompensation],
+  );
+
+  // shift+e (wraps via nextContextRange) and the "Expand context"
+  // icon button both call the same handler — the button is hidden at
+  // ±100 so it never fires at that endpoint, while shift+e wraps
+  // around to ±20. Both paths into one handler keeps invariants
+  // consolidated.
+  const handleExpandContext = useCallback(
+    (lineId: string) => stepContextRange(lineId, "next"),
+    [stepContextRange],
+  );
+
+  const handleLessContext = useCallback(
+    (lineId: string) => stepContextRange(lineId, "prev"),
+    [stepContextRange],
+  );
+
+  /**
+   * Copy a plain-text representation of a single line to the
+   * clipboard. Bound to the Copy icon button and the `c` keyboard
+   * shortcut.
+   *
+   * Format: ISO timestamp + instance + level (when WARN/ERROR) +
+   * message + request id (when present). Mirrors what a developer
+   * would paste into a bug report — enough context to identify the
+   * line without needing to share the whole UI.
+   *
+   * Deploy-boundary lines copy their `message` as-is.
+   *
+   * Uses navigator.clipboard.writeText. Best-effort: on browsers that
+   * deny clipboard access (older or non-secure contexts), silently
+   * no-ops. The fallback case is rare in modern dev environments and
+   * a clipboard error UI isn't worth its weight in a prototype.
+   */
+  const handleCopyLine = useCallback(
+    (lineId: string) => {
+      const line = lines.find((l) => l.id === lineId);
+      if (!line) return;
+      const text = formatLineForCopy(line);
+      void navigator.clipboard?.writeText?.(text);
+    },
+    [lines],
   );
 
   /**
@@ -701,6 +762,7 @@ export function LogExplorer({ lines }: { lines: readonly LogLine[] }) {
       const isNextBoundary = !shiftKey && key === "]";
       const isToggleContext = !shiftKey && key === "e";
       const isCycleContextRange = shiftKey && (key === "E" || key === "e");
+      const isCopyLine = !shiftKey && key === "c";
 
       if (
         !isNext &&
@@ -710,7 +772,8 @@ export function LogExplorer({ lines }: { lines: readonly LogLine[] }) {
         !isPrevBoundary &&
         !isNextBoundary &&
         !isToggleContext &&
-        !isCycleContextRange
+        !isCycleContextRange &&
+        !isCopyLine
       ) {
         return;
       }
@@ -739,7 +802,18 @@ export function LogExplorer({ lines }: { lines: readonly LogLine[] }) {
       if (isCycleContextRange) {
         event.preventDefault();
         if (effectiveFocusedLineId) {
-          handleCycleContextRange(effectiveFocusedLineId);
+          handleExpandContext(effectiveFocusedLineId);
+        }
+        return;
+      }
+
+      // c — copy the focused line to clipboard. Mirrors the action
+      // row's Copy button so every visible action has a keyboard
+      // equivalent. Bails silently when no line is focused.
+      if (isCopyLine) {
+        event.preventDefault();
+        if (effectiveFocusedLineId) {
+          handleCopyLine(effectiveFocusedLineId);
         }
         return;
       }
@@ -828,7 +902,8 @@ export function LogExplorer({ lines }: { lines: readonly LogLine[] }) {
       derivedLines,
       effectiveFocusedLineId,
       handleToggleContext,
-      handleCycleContextRange,
+      handleExpandContext,
+      handleCopyLine,
     ],
   );
 
@@ -910,10 +985,14 @@ export function LogExplorer({ lines }: { lines: readonly LogLine[] }) {
           viewportRef={viewportRef}
           onFilterToggle={handleFilterToggle}
           onToggleContext={handleToggleContext}
+          onExpandContext={handleExpandContext}
+          onLessContext={handleLessContext}
+          onCopyLine={handleCopyLine}
           onLineFocus={setFocusedLineId}
           onKeyDown={handleKeyDown}
-          selectedLineIds={effectiveSelectedLineIds}
+          selectedContextRangesById={effectiveSelectedContextRangesById}
           focusedLineId={effectiveFocusedLineId}
+          hasAnyFilter={hasAnyFilter(filterState)}
           transitionMode={transitionMode}
         />
       </div>

@@ -92,10 +92,14 @@ export function LogList({
   viewportRef,
   onFilterToggle,
   onToggleContext,
+  onExpandContext,
+  onLessContext,
+  onCopyLine,
   onLineFocus,
   onKeyDown,
-  selectedLineIds,
+  selectedContextRangesById,
   focusedLineId,
+  hasAnyFilter = false,
   transitionMode = "instant",
 }: {
   lines: readonly DerivedLogLine[];
@@ -109,6 +113,12 @@ export function LogList({
   viewportRef?: Ref<HTMLDivElement>;
   onFilterToggle?: (target: FilterToggleTarget, sourceLineId: string) => void;
   onToggleContext?: (lineId: string) => void;
+  /** Steps the open context's range up one cycle entry. */
+  onExpandContext?: (lineId: string) => void;
+  /** Steps the open context's range down one cycle entry. */
+  onLessContext?: (lineId: string) => void;
+  /** Copies a plain-text representation of the line to the clipboard. */
+  onCopyLine?: (lineId: string) => void;
   /**
    * Called with the line id when the user focuses a line via mouse
    * (plain click on the line body). The keyboard navigation path
@@ -123,19 +133,27 @@ export function LogList({
    */
   onKeyDown?: (event: ReactKeyboardEvent<HTMLUListElement>) => void;
   /**
-   * Set of line ids currently anchoring an open context — every
-   * matching `<li>` gets the left-border accent and every matching
-   * `LogLine` renders the anchor icon. A Set (rather than a single id
-   * or array) lets us express multi-context selection cleanly and gives
-   * O(1) per-row lookup as we walk the rendered array.
+   * Map of line id → currently-open context's ±range. Serves both as
+   * the "is this line selected?" check (via `.has()`) and the
+   * per-line range lookup (via `.get()`) that the action row uses to
+   * decide whether to render the Expand / Less context buttons.
    */
-  selectedLineIds?: ReadonlySet<string>;
+  selectedContextRangesById?: ReadonlyMap<string, number>;
   /**
    * Id of the line that should appear focused. Drives the
    * aria-activedescendant on the <ul> and the data-focused attribute
    * on the matching <li> (which CSS keys off for the outline).
    */
   focusedLineId?: string | null;
+  /**
+   * Whether at least one filter is currently active. Combined with
+   * the per-line `isDimmed` flag (already on each derived line) this
+   * is enough to decide whether the kebab's "View context" item
+   * should render — the §3 gate is `hasAnyFilter && !isDimmed`.
+   * Lifted to a prop so LogList doesn't need to know FilterState's
+   * shape; LogExplorer pre-computes it once via `hasAnyFilter`.
+   */
+  hasAnyFilter?: boolean;
   /**
    * Animation mode for line height changes:
    *   - "instant" (default): height jumps to/from 0; opacity still fades.
@@ -173,11 +191,15 @@ export function LogList({
           onKeyDown={onKeyDown}
         >
           {lines.map((line) => {
-            // Lookup once per row, used twice — by the <li> for the
-            // border accent and by the LogLine for the anchor icon.
-            // Both surfaces stay in sync without a second source of
-            // truth.
-            const isSelected = selectedLineIds?.has(line.id) ?? false;
+            // Single-source-of-truth lookup per row. The Map carries
+            // both the boolean ("is this line a selected context
+            // anchor?" via `.has`) AND the per-line range ("what ±N is
+            // its window currently set to?" via `.get`). Used by the
+            // <li> for the border accent and by LogLine's action row
+            // to gate the Expand / Less buttons.
+            const isSelected =
+              selectedContextRangesById?.has(line.id) ?? false;
+            const contextRange = selectedContextRangesById?.get(line.id);
             const isFocused = line.id === focusedLineId;
             return (
               <motion.li
@@ -213,10 +235,21 @@ export function LogList({
               >
                 <LogLine
                   line={line}
+                  isVisible={line.isVisible}
                   isDimmed={line.isDimmed}
                   isSelected={isSelected}
+                  contextRange={contextRange}
+                  // §3 gate for the View/Hide context toggle action.
+                  // The Copy action has its own (looser) gate — see
+                  // LineActions; it shows on any visible line.
+                  canToggleContext={
+                    hasAnyFilter && line.isVisible && !line.isDimmed
+                  }
                   onFilterToggle={onFilterToggle}
                   onToggleContext={onToggleContext}
+                  onExpandContext={onExpandContext}
+                  onLessContext={onLessContext}
+                  onCopyLine={onCopyLine}
                 />
               </motion.li>
             );

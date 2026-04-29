@@ -1,8 +1,10 @@
-import { Anchor } from "lucide-react";
 import type { MouseEvent as ReactMouseEvent } from "react";
 
+import { DEFAULT_CONTEXT_RANGE } from "@/lib/context-state";
 import type { FilterToggleTarget } from "@/lib/filter-state";
 import type { LogLine as LogLineType, Level } from "@/types/log";
+
+import { LineActions } from "./line-actions";
 
 import styles from "./log-line.module.css";
 
@@ -32,12 +34,25 @@ import styles from "./log-line.module.css";
  * which decides whether to open or close a context window. The
  * pill/badge button onClick handlers `stopPropagation` so a modifier
  * click on those still adds a filter rather than also opening a context.
- * Plain click on the line body is a no-op — the focus model arrives
- * with the keyboard pass in task #7.
+ *
+ * Hover-revealed line actions (spec §8 — redesigned from the originally-
+ * planned kebab menu): when `onToggleContext` is supplied, a row of
+ * small icon buttons reveals at the right edge on hover (or while the
+ * line is keyboard-focused). Plain `<button>` elements with no
+ * dropdown / portal / open-state machinery — direct manipulation, no
+ * Radix mount/unmount churn during context toggles. See the LineActions
+ * component below.
  */
 
 type LogLineProps = {
   line: LogLineType;
+  /**
+   * Whether this line is currently rendered (vs collapsed by Motion to
+   * height: 0). Threads through to LineActions so the action row only
+   * renders for visible rows — rendering plain buttons for ~390 hidden
+   * lines is wasted React reconciliation work on every state change.
+   */
+  isVisible?: boolean;
   /**
    * Drives the dim opacity. Lives on the inner element (this component's
    * root) so it composes cleanly with the visibility opacity that Motion
@@ -47,14 +62,28 @@ type LogLineProps = {
   isDimmed?: boolean;
   /**
    * Whether this line is currently anchoring an open View Context
-   * window. When true the line renders an Anchor icon in its leading
-   * gutter column; when false the column is still present (empty) so
-   * toggling never causes a horizontal layout shift. The matching <li>
-   * also carries `data-selected="true"` (set by LogList) which paints
-   * the left-border accent — same source of truth (`selectedLineIds`),
-   * two visual surfaces.
+   * window. Drives the action-row label/icon flips ("View context" ↔
+   * "Hide context") and gates the visibility of the Expand/Less
+   * range-cycle buttons. The matching <li> also carries
+   * `data-selected="true"` (set by LogList) which paints the left-
+   * border accent.
    */
   isSelected?: boolean;
+  /**
+   * Whether the View context button should appear in the action row.
+   * The §3 gate (filter active + line currently filter-matched + not
+   * dimmed) is computed once in LogList and passed in pre-resolved;
+   * LogLine doesn't need to know FilterState shape.
+   * Spec §8: "hide items that don't apply rather than show disabled."
+   */
+  canToggleContext?: boolean;
+  /**
+   * The current ±N range of the open context on this line, if any.
+   * Drives whether Expand / Less buttons render and which icons each
+   * uses (the buttons hide at the endpoints of CONTEXT_RANGE_CYCLE).
+   * Only meaningful when `isSelected` is true.
+   */
+  contextRange?: number;
   /**
    * `sourceLineId` lets the parent know which line the click originated
    * from — used as the converging-wave anchor so the stagger radiates
@@ -63,6 +92,21 @@ type LogLineProps = {
    */
   onFilterToggle?: (target: FilterToggleTarget, sourceLineId: string) => void;
   onToggleContext?: (lineId: string) => void;
+  /**
+   * Steps the open context's range to the next entry in
+   * CONTEXT_RANGE_CYCLE. Bound to the "Expand context" icon button.
+   */
+  onExpandContext?: (lineId: string) => void;
+  /**
+   * Steps the open context's range to the previous entry in
+   * CONTEXT_RANGE_CYCLE. Bound to the "Less context" icon button.
+   */
+  onLessContext?: (lineId: string) => void;
+  /**
+   * Copies a plain-text representation of this line to the clipboard.
+   * Bound to the "Copy line" icon button.
+   */
+  onCopyLine?: (lineId: string) => void;
 };
 
 const LEVEL_PREFIX: Record<Level, string | null> = {
@@ -90,10 +134,16 @@ function formatTime(timestamp: number): string {
 
 export function LogLine({
   line,
+  isVisible,
   isDimmed,
   isSelected,
+  canToggleContext,
+  contextRange,
   onFilterToggle,
   onToggleContext,
+  onExpandContext,
+  onLessContext,
+  onCopyLine,
 }: LogLineProps) {
   if (line.isDeployBoundary) {
     // Deploy boundaries don't participate in View Context — they're
@@ -139,19 +189,6 @@ export function LogLine({
       data-selected={isSelected ?? false}
       onClick={onToggleContext ? handleLineClick : undefined}
     >
-      {/*
-        Always-present gutter slot reserves space for the anchor icon
-        so toggling between selected/unselected never shifts the time
-        column. The icon itself fades in/out via opacity (CSS keys off
-        data-selected on .line) at the same duration as the parent
-        <li>'s left-border accent so the two surfaces resolve together.
-        aria-hidden because the icon's meaning is decorative — the
-        underlying state is announced via the kebab menu's "Hide
-        context" action when that lands in §8.
-      */}
-      <span className={styles.anchorIcon} aria-hidden="true">
-        <Anchor size={12} strokeWidth={2.25} />
-      </span>
       <time
         className={styles.time}
         dateTime={new Date(line.timestamp).toISOString()}
@@ -216,6 +253,20 @@ export function LogLine({
             <span className={styles.requestId}>{line.requestId}</span>
           ))}
       </span>
+      {onToggleContext ? (
+        <LineActions
+          lineId={line.id}
+          isVisible={isVisible ?? true}
+          isSelected={isSelected ?? false}
+          canToggleContext={canToggleContext ?? false}
+          contextRange={contextRange ?? DEFAULT_CONTEXT_RANGE}
+          onToggleContext={onToggleContext}
+          onExpandContext={onExpandContext}
+          onLessContext={onLessContext}
+          onCopyLine={onCopyLine}
+        />
+      ) : null}
     </div>
   );
 }
+
