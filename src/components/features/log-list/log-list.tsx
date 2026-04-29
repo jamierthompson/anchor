@@ -151,6 +151,7 @@ export function LogList({
                 <LogLine
                   line={line}
                   isDimmed={line.isDimmed}
+                  isSelected={isSelected}
                   onFilterToggle={onFilterToggle}
                   onToggleContext={onToggleContext}
                 />
