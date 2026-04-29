@@ -108,4 +108,19 @@ describe("LogList", () => {
     expect(items[0].getAttribute("data-dimmed")).toBe("true");
     expect(items[1].getAttribute("data-dimmed")).toBe("false");
   });
+
+  it("marks every line whose id is in selectedLineIds via data-selected (multi-context support)", () => {
+    // Two ids in the Set → both matching <li>s carry the accent flag,
+    // the third stays unselected. Drives the left-border accent in
+    // log-list.module.css and the anchor-icon visibility in
+    // log-line.module.css from one source of truth.
+    const selectedLineIds = new Set([sampleLines[0].id, sampleLines[1].id]);
+    const { container } = render(
+      <LogList lines={sampleLines} selectedLineIds={selectedLineIds} />,
+    );
+    const items = Array.from(container.querySelectorAll("li"));
+    expect(items[0].getAttribute("data-selected")).toBe("true");
+    expect(items[1].getAttribute("data-selected")).toBe("true");
+    expect(items[2].getAttribute("data-selected")).toBe("false");
+  });
 });

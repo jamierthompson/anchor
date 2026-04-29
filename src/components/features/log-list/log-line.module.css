@@ -44,7 +44,17 @@
 
 .line {
   display: grid;
-  grid-template-columns: auto auto 1fr;
+  /*
+   * Four columns:
+   *   1. 14px gutter — reserves space for the anchor icon when this
+   *      line is the selected anchor of an open context (§4). Always
+   *      present so toggling selected state doesn't shift the rest of
+   *      the row sideways.
+   *   2. auto — time column.
+   *   3. auto — instance pill.
+   *   4. 1fr  — message + request id badge.
+   */
+  grid-template-columns: 14px auto auto 1fr;
   align-items: baseline;
   gap: var(--space-3);
   padding: var(--space-1) var(--space-4);
@@ -72,6 +82,35 @@
 
 .line[data-dimmed="true"] {
   opacity: var(--opacity-dimmed);
+}
+
+/*
+ * Anchor-icon slot — sits in the leading 14px gutter column. The
+ * <span> is always rendered; the icon's visibility is driven by an
+ * opacity fade on this element keyed off the parent .line's
+ * data-selected attribute. Matches the parent <li>'s
+ * border-left-color transition (--duration-base var(--ease-standard))
+ * so the border accent and the icon resolve together.
+ *
+ * A selected line is never dimmed by construction: LogExplorer's
+ * `effectiveSelectedLineIds` only includes ids whose line currently
+ * matches the active filter, which is the same predicate that drives
+ * isDimmed = false. So we don't need to reason about icon-on-dimmed-
+ * line composition — that state can't occur.
+ *
+ * align-self: center because baseline alignment of an SVG inside a
+ * baseline-aligned grid row sits the icon awkwardly low.
+ */
+.anchorIcon {
+  display: inline-flex;
+  align-self: center;
+  color: var(--color-accent);
+  opacity: 0;
+  transition: opacity var(--duration-base) var(--ease-standard);
+}
+
+.line[data-selected="true"] .anchorIcon {
+  opacity: 1;
 }
 
 .time {

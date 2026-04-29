@@ -1,3 +1,4 @@
+import { Anchor } from "lucide-react";
 import type { MouseEvent as ReactMouseEvent } from "react";
 
 import type { FilterToggleTarget } from "@/lib/filter-state";
@@ -45,6 +46,16 @@ type LogLineProps = {
    */
   isDimmed?: boolean;
   /**
+   * Whether this line is currently anchoring an open View Context
+   * window. When true the line renders an Anchor icon in its leading
+   * gutter column; when false the column is still present (empty) so
+   * toggling never causes a horizontal layout shift. The matching <li>
+   * also carries `data-selected="true"` (set by LogList) which paints
+   * the left-border accent — same source of truth (`selectedLineIds`),
+   * two visual surfaces.
+   */
+  isSelected?: boolean;
+  /**
    * `sourceLineId` lets the parent know which line the click originated
    * from — used as the converging-wave anchor so the stagger radiates
    * from the line the user actually interacted with. Always set to
@@ -80,6 +91,7 @@ function formatTime(timestamp: number): string {
 export function LogLine({
   line,
   isDimmed,
+  isSelected,
   onFilterToggle,
   onToggleContext,
 }: LogLineProps) {
@@ -124,8 +136,22 @@ export function LogLine({
       className={styles.line}
       data-level={line.level}
       data-dimmed={isDimmed ?? false}
+      data-selected={isSelected ?? false}
       onClick={onToggleContext ? handleLineClick : undefined}
     >
+      {/*
+        Always-present gutter slot reserves space for the anchor icon
+        so toggling between selected/unselected never shifts the time
+        column. The icon itself fades in/out via opacity (CSS keys off
+        data-selected on .line) at the same duration as the parent
+        <li>'s left-border accent so the two surfaces resolve together.
+        aria-hidden because the icon's meaning is decorative — the
+        underlying state is announced via the kebab menu's "Hide
+        context" action when that lands in §8.
+      */}
+      <span className={styles.anchorIcon} aria-hidden="true">
+        <Anchor size={12} strokeWidth={2.25} />
+      </span>
       <time
         className={styles.time}
         dateTime={new Date(line.timestamp).toISOString()}

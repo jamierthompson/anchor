@@ -58,6 +58,13 @@ const COMPENSATION_DURATION_MS = 600;
  */
 const AT_BOTTOM_TOLERANCE_PX = 50;
 
+/**
+ * Stable empty set returned by `effectiveSelectedLineIds` when no
+ * accent should render. Reusing one instance keeps the prop reference
+ * stable across renders so LogList isn't re-keyed unnecessarily.
+ */
+const EMPTY_SELECTED_SET: ReadonlySet<string> = new Set();
+
 type AnchorSnapshot = { id: string; top: number };
 
 /**
@@ -79,10 +86,23 @@ export function LogExplorer({ lines }: { lines: readonly LogLine[] }) {
     initialFilterState,
   );
 
-  // Single open context for task #3. Task #6 makes this an array; the
-  // unified rule already handles multiple windows, so widening here is
-  // a one-line change when that lands.
-  const [openContext, setOpenContext] = useState<OpenContext | null>(null);
+  // Open View Context windows. Multiple may be active simultaneously
+  // (spec §4 — "no cap initially"). Array order doubles as recency:
+  // the most recently toggled context is appended at the end. This
+  // matters for the spec §4 anchor-priority rule — the most recently
+  // selected context line is the scroll anchor — which is enforced
+  // implicitly by `handleToggleContext` calling `setAnchorLineId` with
+  // the toggled line on every dispatch.
+  //
+  // The unified rule in `deriveLines` already accepts an array of open
+  // contexts and handles overlapping windows correctly (a line is
+  // visible if ANY context covers it; undimmed only if it matches the
+  // filter regardless of how many windows include it). So widening
+  // from `OpenContext | null` to `OpenContext[]` here doesn't require
+  // any changes to the derivation.
+  const [openContexts, setOpenContexts] = useState<readonly OpenContext[]>(
+    [],
+  );
 
   // Single spatial anchor for the per-frame scroll compensation.
   // Resolved per dispatch with this priority:
@@ -381,30 +401,35 @@ export function LogExplorer({ lines }: { lines: readonly LogLine[] }) {
   );
 
   const derivedLines = useMemo(
-    () => deriveLines(lines, filterState, openContext ? [openContext] : []),
-    [lines, filterState, openContext],
+    () => deriveLines(lines, filterState, openContexts),
+    [lines, filterState, openContexts],
   );
 
   /**
-   * The id passed down for the selected-accent visual.
+   * The set of line ids that should currently render the selected-accent
+   * visual (left border + anchor icon).
    *
-   * `openContext` is preserved across filter changes (spec §5) so that
+   * Open contexts are preserved across filter changes (spec §5) so that
    * loosening a filter restores the saved selection in place. But the
-   * blue accent should only render while the selection is *meaningful* —
-   * at least one filter active AND the selected line still matches. When
-   * either part of the gate fails, the saved state stays put behind the
-   * scenes but the accent disappears, avoiding the prior reading where a
-   * stale blue edge sat on a hidden line.
+   * accent should only render while the selection is *meaningful* — at
+   * least one filter active AND the selected line still matches. When
+   * either part of the gate fails for an entry, the saved state stays
+   * put behind the scenes but its accent disappears.
+   *
+   * Returned as a Set so LogList does O(1) per-row lookup as it walks
+   * the rendered array.
    */
-  const effectiveSelectedLineId = useMemo(() => {
-    if (!openContext) return undefined;
-    if (!hasAnyFilter(filterState)) return undefined;
-    const selected = lines.find((l) => l.id === openContext.selectedLineId);
-    if (!selected) return undefined;
-    return lineMatchesFilter(selected, filterState)
-      ? openContext.selectedLineId
-      : undefined;
-  }, [openContext, filterState, lines]);
+  const effectiveSelectedLineIds = useMemo<ReadonlySet<string>>(() => {
+    if (openContexts.length === 0) return EMPTY_SELECTED_SET;
+    if (!hasAnyFilter(filterState)) return EMPTY_SELECTED_SET;
+    const ids = new Set<string>();
+    for (const ctx of openContexts) {
+      const selected = lines.find((l) => l.id === ctx.selectedLineId);
+      if (!selected) continue;
+      if (lineMatchesFilter(selected, filterState)) ids.add(ctx.selectedLineId);
+    }
+    return ids;
+  }, [openContexts, filterState, lines]);
 
   const handleFilterToggle = useCallback(
     (target: FilterToggleTarget, sourceLineId: string) =>
@@ -421,11 +446,17 @@ export function LogExplorer({ lines }: { lines: readonly LogLine[] }) {
    * visible only because some other context revealed it, so opening a
    * nested context on it is disallowed.
    *
-   * Toggling on the currently selected line closes the context.
+   * Toggling on a line that already has a context window closes that
+   * one (and leaves any other open contexts alone). Toggling on a new
+   * line appends a fresh entry — array order doubles as recency, so the
+   * appended entry is by definition the most recent one.
    *
    * The toggled line is the explicit anchor target — the user clicked
    * it, so it should stay fixed on screen while surrounding lines
-   * expand or collapse around it.
+   * expand or collapse around it. This is exactly spec §4's anchor-
+   * priority rule ("most recently selected is the scroll anchor"):
+   * each toggle resets `anchorLineId` to the line just acted on, so a
+   * subsequent filter dispatch falls through to the right reference.
    */
   const handleToggleContext = useCallback(
     (lineId: string) => {
@@ -436,7 +467,10 @@ export function LogExplorer({ lines }: { lines: readonly LogLine[] }) {
       const anchor = captureAnchor(lineId);
 
       // The toggled line is the spatial anchor — scroll compensation
-      // pins it while context lines fluidly expand/collapse.
+      // pins it while context lines fluidly expand/collapse. Holds
+      // whether we're opening or closing on this line: the user just
+      // clicked it, so it's the natural visual reference for the
+      // surrounding animation.
       if (lineId !== anchorLineId) setAnchorLineId(lineId);
 
       // Switch into slow mode for the duration of the slow animation.
@@ -451,11 +485,20 @@ export function LogExplorer({ lines }: { lines: readonly LogLine[] }) {
         slowModeTimeoutRef.current = null;
       }, 600);
 
-      setOpenContext((current) =>
-        current?.selectedLineId === lineId
-          ? null
-          : { selectedLineId: lineId, range: DEFAULT_CONTEXT_RANGE },
-      );
+      setOpenContexts((current) => {
+        const existingIndex = current.findIndex(
+          (c) => c.selectedLineId === lineId,
+        );
+        if (existingIndex !== -1) {
+          // Close: drop the matching entry, preserve the order of the rest.
+          return current.filter((_, i) => i !== existingIndex);
+        }
+        // Open: append so the newest is at the end (most-recent invariant).
+        return [
+          ...current,
+          { selectedLineId: lineId, range: DEFAULT_CONTEXT_RANGE },
+        ];
+      });
 
       if (anchor) startCompensation(anchor);
     },
@@ -480,7 +523,7 @@ export function LogExplorer({ lines }: { lines: readonly LogLine[] }) {
           viewportRef={viewportRef}
           onFilterToggle={handleFilterToggle}
           onToggleContext={handleToggleContext}
-          selectedLineId={effectiveSelectedLineId}
+          selectedLineIds={effectiveSelectedLineIds}
           transitionMode={transitionMode}
         />
       </div>

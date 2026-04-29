@@ -105,6 +105,27 @@ describe("LogLine — dim styling lives on the inner element", () => {
     expect(inner?.getAttribute("data-dimmed")).toBe("false");
   });
 
+  it("carries data-selected on the inner line element so the anchor icon can fade in via CSS", () => {
+    // The anchor-icon visibility is driven by a CSS rule
+    // (.line[data-selected="true"] .anchorIcon { opacity: 1 }) so the
+    // attribute has to live on the inner .line, not just the outer <li>.
+    const { container, rerender } = render(<LogLine line={baseLine} />);
+    const inner = container.querySelector("[data-level]");
+    expect(inner?.getAttribute("data-selected")).toBe("false");
+
+    rerender(<LogLine line={baseLine} isSelected />);
+    expect(inner?.getAttribute("data-selected")).toBe("true");
+  });
+
+  it("renders the Anchor icon inside the line for the CSS opacity transition to target", () => {
+    // The icon is always in the DOM — its visibility comes from the
+    // opacity transition keyed off data-selected. Lucide icons render
+    // an <svg> with a `lucide-anchor` class on it, which is a stable
+    // hook for this assertion.
+    const { container } = render(<LogLine line={baseLine} isSelected />);
+    expect(container.querySelector("svg.lucide-anchor")).not.toBeNull();
+  });
+
   it("deploy boundaries do not carry data-dimmed (always undimmed per spec §5)", () => {
     const { container } = render(
       <LogLine
