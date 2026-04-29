@@ -787,6 +787,95 @@ describe("LogExplorer — global shortcuts (/ and Esc)", () => {
   });
 });
 
+describe("LogExplorer — ? opens the shortcut sheet (spec §9.7)", () => {
+  it("opens the sheet when ? is pressed from anywhere on the page", () => {
+    render(<LogExplorer lines={fixture} />);
+    expect(screen.queryByText("Keyboard shortcuts")).not.toBeInTheDocument();
+
+    fireEvent.keyDown(document, { key: "?" });
+
+    expect(
+      screen.getByRole("heading", { name: /Keyboard shortcuts/ }),
+    ).toBeInTheDocument();
+  });
+
+  it("also accepts shift+/ as the ? form (US keyboard / cross-tool robustness)", () => {
+    render(<LogExplorer lines={fixture} />);
+
+    fireEvent.keyDown(document, { key: "/", shiftKey: true });
+
+    expect(
+      screen.getByRole("heading", { name: /Keyboard shortcuts/ }),
+    ).toBeInTheDocument();
+  });
+
+  it("Esc closes the open sheet (Radix Dialog handles it natively)", () => {
+    render(<LogExplorer lines={fixture} />);
+    fireEvent.keyDown(document, { key: "?" });
+    expect(
+      screen.getByRole("heading", { name: /Keyboard shortcuts/ }),
+    ).toBeInTheDocument();
+
+    fireEvent.keyDown(document, { key: "Escape" });
+
+    expect(
+      screen.queryByRole("heading", { name: /Keyboard shortcuts/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("Esc-while-sheet-open does NOT also clear contexts (cascade composes via defaultPrevented)", () => {
+    // Open a context first, then open the sheet, then press Esc. The
+    // sheet should close; the context should NOT also close.
+    render(<LogExplorer lines={fixture} />);
+    applyErrorFilter();
+    fireEvent.click(liFor(/row one error/).querySelector("[data-level]")!, {
+      metaKey: true,
+    });
+    expect(liFor(/row one error/).getAttribute("data-selected")).toBe("true");
+
+    fireEvent.keyDown(document, { key: "?" });
+    fireEvent.keyDown(document, { key: "Escape" });
+
+    // Sheet closed, context still open.
+    expect(
+      screen.queryByRole("heading", { name: /Keyboard shortcuts/ }),
+    ).not.toBeInTheDocument();
+    expect(liFor(/row one error/).getAttribute("data-selected")).toBe("true");
+  });
+
+  it("clicking the floating ? button opens the sheet", async () => {
+    const user = userEvent.setup();
+    render(<LogExplorer lines={fixture} />);
+
+    await user.click(
+      screen.getByRole("button", { name: /Open keyboard shortcuts/ }),
+    );
+
+    expect(
+      screen.getByRole("heading", { name: /Keyboard shortcuts/ }),
+    ).toBeInTheDocument();
+  });
+
+  it("? does NOT intercept when focus is inside a text input — user can type a literal '?'", () => {
+    const { container } = render(
+      <>
+        <input data-testid="external" defaultValue="" />
+        <LogExplorer lines={fixture} />
+      </>,
+    );
+    const input = container.querySelector<HTMLInputElement>(
+      '[data-testid="external"]',
+    )!;
+    input.focus();
+
+    fireEvent.keyDown(input, { key: "?" });
+
+    expect(
+      screen.queryByRole("heading", { name: /Keyboard shortcuts/ }),
+    ).not.toBeInTheDocument();
+  });
+});
+
 describe("LogExplorer — line-action integration (spec §8 — hover icon row)", () => {
   it("View context button opens a context (toggle pipeline reuse)", async () => {
     const user = userEvent.setup();

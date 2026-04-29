@@ -111,9 +111,7 @@ export function LogExplorer({ lines }: { lines: readonly LogLine[] }) {
   // filter regardless of how many windows include it). So widening
   // from `OpenContext | null` to `OpenContext[]` here doesn't require
   // any changes to the derivation.
-  const [openContexts, setOpenContexts] = useState<readonly OpenContext[]>(
-    [],
-  );
+  const [openContexts, setOpenContexts] = useState<readonly OpenContext[]>([]);
 
   // Keyboard-navigable focus, distinct from `openContexts` (the selection
   // accent). Spec §7: a focused line gets a "subtle outline" — visually
@@ -175,17 +173,14 @@ export function LogExplorer({ lines }: { lines: readonly LogLine[] }) {
    * the viewport isn't mounted yet or the line isn't in the DOM (e.g.
    * during initial render before any state has changed).
    */
-  const captureAnchor = useCallback(
-    (lineId: string): AnchorSnapshot | null => {
-      if (!viewportRef.current) return null;
-      const el = viewportRef.current.querySelector<HTMLElement>(
-        `[data-line-id="${lineId}"]`,
-      );
-      if (!el) return null;
-      return { id: lineId, top: el.getBoundingClientRect().top };
-    },
-    [],
-  );
+  const captureAnchor = useCallback((lineId: string): AnchorSnapshot | null => {
+    if (!viewportRef.current) return null;
+    const el = viewportRef.current.querySelector<HTMLElement>(
+      `[data-line-id="${lineId}"]`,
+    );
+    if (!el) return null;
+    return { id: lineId, top: el.getBoundingClientRect().top };
+  }, []);
 
   /**
    * Whether the line with the given id is currently visible in the
@@ -309,8 +304,7 @@ export function LogExplorer({ lines }: { lines: readonly LogLine[] }) {
    *
    * The simple "useLayoutEffect after commit" approach the spec
    * sketches anchors only the end state; this loop is what makes the
-   * anchor stay fixed *during* the expand/collapse, which is the
-   * craft moment.
+   * anchor stay fixed *during* the expand/collapse.
    */
   const startCompensation = useCallback((anchor: AnchorSnapshot) => {
     if (rafRef.current !== null) {
@@ -453,7 +447,7 @@ export function LogExplorer({ lines }: { lines: readonly LogLine[] }) {
    * state Anchor icon in the action row) AND the per-line action row
    * (Expand / Less buttons gate on `range`).
    *
-   * Open contexts are preserved across filter changes (spec §5) so that
+   * Open contexts are preserved across filter changes so that
    * loosening a filter restores the saved selection in place. But the
    * accent should only render while the selection is *meaningful* — at
    * least one filter active AND the selected line still matches. When
@@ -485,7 +479,7 @@ export function LogExplorer({ lines }: { lines: readonly LogLine[] }) {
   /**
    * Toggle a View Context window on the given line.
    *
-   * Spec §3 gates: only available on filter-matched (non-context-only)
+   * Only available on filter-matched (non-context-only)
    * lines, and only when at least one filter is active. The first guard
    * checks the dimmed flag of the derived line — a dimmed line is
    * visible only because some other context revealed it, so opening a
@@ -547,13 +541,7 @@ export function LogExplorer({ lines }: { lines: readonly LogLine[] }) {
 
       if (anchor) startCompensation(anchor);
     },
-    [
-      filterState,
-      derivedLines,
-      anchorLineId,
-      captureAnchor,
-      startCompensation,
-    ],
+    [filterState, derivedLines, anchorLineId, captureAnchor, startCompensation],
   );
 
   /**
@@ -681,9 +669,7 @@ export function LogExplorer({ lines }: { lines: readonly LogLine[] }) {
     const focused = derivedLines.find((l) => l.id === focusedLineId);
     if (focused?.isVisible) return focusedLineId;
 
-    const focusedIndex = derivedLines.findIndex(
-      (l) => l.id === focusedLineId,
-    );
+    const focusedIndex = derivedLines.findIndex((l) => l.id === focusedLineId);
     if (focusedIndex === -1) return null;
 
     for (let i = focusedIndex + 1; i < derivedLines.length; i++) {
@@ -861,9 +847,7 @@ export function LogExplorer({ lines }: { lines: readonly LogLine[] }) {
           // Walk from the end so we land on the largest-index
           // boundary still strictly less than focusIdx.
           for (let i = boundaries.length - 1; i >= 0; i--) {
-            const bi = derivedLines.findIndex(
-              (l) => l.id === boundaries[i].id,
-            );
+            const bi = derivedLines.findIndex((l) => l.id === boundaries[i].id);
             if (focusIdx === -1 || bi < focusIdx) {
               target = boundaries[i].id;
               break;
@@ -919,36 +903,40 @@ export function LogExplorer({ lines }: { lines: readonly LogLine[] }) {
   );
 
   /**
-   * Document-level shortcuts. Two bindings need to work regardless of
-   * where focus currently is on the page (GitHub, Slack, Linear all
-   * follow this convention):
+   * Document-level shortcuts. Three bindings need to work regardless
+   * of where focus currently is on the page (GitHub / Slack / Linear
+   * convention):
    *
    *   /    — focus the "+ Add filter" trigger
    *   Esc  — clear all open contexts (spec §7 precedence #3)
+   *   ?    — open the shortcut sheet
    *
    * The listbox-level handler covers in-list bindings (j/k/g/G/[/]/e/
-   * shift+e). Splitting them this way keeps each handler responsible
+   * shift+e/c). Splitting them this way keeps each handler responsible
    * for one focus context — no "is the listbox focused?" branching
    * inside individual bindings.
    *
-   * Both bail when `event.defaultPrevented` is set so a Radix
-   * Popover/Dialog handling its own Escape (e.g. closing the filter
-   * popover) doesn't double-fire as "clear contexts." That's the
-   * correct precedence: closeable surfaces consume their own dismiss
-   * before a global-clear runs.
+   * All three bail when `event.defaultPrevented` is set so Radix
+   * Popover / Dialog primitives handling their own Escape (filter
+   * popover, shortcut sheet itself) don't double-fire as "clear
+   * contexts." Closeable surfaces consume their own dismiss before a
+   * global-clear runs — this is what makes the Esc precedence
+   * cascade compose for free.
    *
    * `/` additionally bails when focus is inside an input/textarea/
    * contenteditable so typing a literal `/` in a filter input later
    * (e.g. if a search box appears) doesn't get intercepted.
    *
+   * `?` is shift+/ on US keyboards. Both `event.key === "?"` and the
+   * shift+/ pair land here; we accept either form for robustness
+   * across keyboard layouts and testing tools (same dual-form check
+   * we use for shift+g and shift+e in the listbox handler).
+   *
    * Esc precedence per spec §7:
-   *   1. shortcut sheet open → close it     (deferred — task #9)
-   *   2. kebab menu open → close it          (deferred — task #8)
-   *   3. any context open → close all
+   *   1. shortcut sheet open → close it     (handled by Radix Dialog)
+   *   2. kebab menu open → close it          (no kebab — task #8 redesigned)
+   *   3. any context open → close all       (this handler)
    *   4. else: no-op
-   * The first two branches are handled by their owning Radix
-   * primitives (which preventDefault on close). Our handler covers
-   * branch 3 only.
    */
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -977,12 +965,34 @@ export function LogExplorer({ lines }: { lines: readonly LogLine[] }) {
         if (!trigger) return;
         event.preventDefault();
         trigger.focus();
+        return;
+      }
+
+      // ? opens the shortcut sheet. Open-only — closing happens via
+      // Esc / click-outside / the modal's close button (all handled
+      // by Radix Dialog). Bail if the sheet is already open so we
+      // don't redundantly setState.
+      const isQuestionMark =
+        event.key === "?" || (event.key === "/" && event.shiftKey);
+      if (isQuestionMark) {
+        const target = event.target as HTMLElement | null;
+        if (
+          target &&
+          (target.tagName === "INPUT" ||
+            target.tagName === "TEXTAREA" ||
+            target.isContentEditable)
+        ) {
+          return;
+        }
+        if (sheetOpen) return;
+        event.preventDefault();
+        setSheetOpen(true);
       }
     };
 
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, [openContexts.length]);
+  }, [openContexts.length, sheetOpen]);
 
   return (
     // reducedMotion="user" honors the OS-level prefers-reduced-motion
