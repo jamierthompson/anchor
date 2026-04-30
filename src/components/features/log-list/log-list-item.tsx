@@ -153,6 +153,52 @@ function LogListItemImpl({
 }
 
 /**
- * Memoized row component. See file-level docblock for why this matters.
+ * Custom equality for the row memo.
+ *
+ * `deriveLines` rebuilds every `DerivedLogLine` on each call (`lines.map(
+ * line => ({ ...line, isVisible, isDimmed }))`), so the default shallow
+ * `prevProps.line === nextProps.line` would always fail and the memo
+ * would never bite — exactly the case we're trying to fix.
+ *
+ * The underlying `LogLine` source array is immutable (every field is
+ * `readonly` per src/types/log.ts), so the only fields that can change
+ * between two `DerivedLogLine` objects sharing the same `id` are the
+ * derived flags `isVisible` and `isDimmed`. Comparing those three
+ * fields is therefore a sound proxy for "this row's data is unchanged."
+ *
+ * Everything else (booleans, scalars, callbacks stabilized via
+ * `useCallback` in LogExplorer, module-constant `Transition` refs)
+ * compares by `===` as it would under default shallow equality.
+ *
+ * Note: `domId` is derived from `line.id` and a constant prefix, so
+ * when `line.id` matches, `domId` necessarily matches; we still
+ * compare it explicitly to keep the contract self-evident.
  */
-export const LogListItem = memo(LogListItemImpl);
+function arePropsEqual(prev: LogListItemProps, next: LogListItemProps) {
+  return (
+    prev.line.id === next.line.id &&
+    prev.line.isVisible === next.line.isVisible &&
+    prev.line.isDimmed === next.line.isDimmed &&
+    prev.domId === next.domId &&
+    prev.isStreamed === next.isStreamed &&
+    prev.isSelected === next.isSelected &&
+    prev.isFocused === next.isFocused &&
+    prev.contextRange === next.contextRange &&
+    prev.canToggleContext === next.canToggleContext &&
+    prev.expand === next.expand &&
+    prev.collapse === next.collapse &&
+    prev.onLineFocus === next.onLineFocus &&
+    prev.onFilterToggle === next.onFilterToggle &&
+    prev.onToggleContext === next.onToggleContext &&
+    prev.onExpandContext === next.onExpandContext &&
+    prev.onLessContext === next.onLessContext &&
+    prev.onCopyLine === next.onCopyLine
+  );
+}
+
+/**
+ * Memoized row component. See file-level docblock for why this matters,
+ * and `arePropsEqual` above for why default shallow equality isn't
+ * enough.
+ */
+export const LogListItem = memo(LogListItemImpl, arePropsEqual);
