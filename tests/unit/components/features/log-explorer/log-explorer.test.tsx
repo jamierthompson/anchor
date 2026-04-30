@@ -36,8 +36,16 @@ const fixture: LogLine[] = [
 ];
 
 /**
- * Wider fixture used by tests that need a context window to fall short
- * of covering everything (so visibility differs at ±20 vs ±50 vs ±100).
+ * Wider fixture used by tests that exercise the shift+e boundary —
+ * 51 lines, only l25 is an ERROR (the anchor). Anchor is centered:
+ * `Math.max(25, 25) = 25` is the file-extent boundary distance.
+ *
+ *   - At ±20 (window 5..45): 41 lines visible; both file edges are
+ *     still 5 lines away → expansion allowed.
+ *   - shift+e grows by full STEP to ±40 — covers indices 0..50
+ *     (the whole fixture, with each side past its file edge).
+ *     `currentRange (40) >= maxDistance (25)` → boundary.
+ *
  * Hoisted to module scope so multiple describe blocks can share it.
  */
 const wideFixture: LogLine[] = Array.from({ length: 51 }, (_, i) => {
@@ -520,20 +528,22 @@ describe("LogExplorer — e toggles context on the focused line", () => {
 });
 
 describe("LogExplorer — shift+e expands the most-recent context by a fixed step", () => {
-  // Uses the module-level wideFixture (51 lines, anchor at index 25).
-  // Anchor-to-edge max distance is 25, so:
-  //   - ±20 covers indices 5..45 → 41 visible lines
-  //   - ±25 (single step beyond ±20, clamped to the boundary) covers
-  //     all 51 lines
-  // The 5-line `fixture` would be entirely covered by ±20, so it
-  // can't differentiate step sizes — wideFixture is necessary.
+  // Uses the module-level wideFixture (51 lines, l25 the only ERROR
+  // and the anchor). Anchor is centered: file-extent boundary
+  // distance is `Math.max(25, 25) = 25` on each side.
+  //
+  //   - At ±20 (window 5..45): 41 visible lines. Both file edges
+  //     are still 5 lines away → expansion allowed.
+  //   - shift+e: full +20 step → ±40. Window covers indices -15..65
+  //     (clamped 0..50) — past both edges. All 51 lines visible,
+  //     boundary reached.
   const listbox = () => screen.getByRole("listbox", { name: /log lines/i });
 
   /** Helper: count visible <li>s in the rendered list. */
   const visibleLineCount = () =>
     document.querySelectorAll('li[data-visible="true"]').length;
 
-  it("grows the most-recent context's window by CONTEXT_RANGE_STEP (clamped to file boundary)", async () => {
+  it("grows the most-recent context's window by a full CONTEXT_RANGE_STEP each press", async () => {
     const user = userEvent.setup();
     render(<LogExplorer lines={wideFixture} />);
     applyErrorFilter();
@@ -544,29 +554,25 @@ describe("LogExplorer — shift+e expands the most-recent context by a fixed ste
     await user.keyboard("e");
     expect(visibleLineCount()).toBe(41);
 
-    // shift+e: +20 step would be ±40, but the anchor's farther edge is
-    // 25 lines away, so it clamps there. ±25 covers everything.
+    // shift+e: full +20 step, so ±40. Past both file edges → all 51.
     await user.keyboard("{Shift>}e{/Shift}");
     expect(visibleLineCount()).toBe(51);
   });
 
   it("targets the most-recent context, not the focused line", async () => {
-    // Behaviour change vs the old cycle: shift+e used to operate on
-    // whichever line was focused, which silently no-op'd or hit the
-    // wrong window when focus had moved away from the anchor. Now it
-    // always grows "the thing I just opened."
+    // Behaviour: shift+e operates on the most-recently-opened context
+    // regardless of where focus is. Focus and context-anchor are
+    // independent.
     const user = userEvent.setup();
     render(<LogExplorer lines={wideFixture} />);
     applyErrorFilter();
     listbox().focus();
 
-    // Open context on l25 at ±20.
     fireEvent.click(liFor(/row l25 error anchor/));
     await user.keyboard("e");
     expect(visibleLineCount()).toBe(41);
 
-    // Move focus away to a non-anchor line. Use ArrowDown so we don't
-    // depend on which line is closest to l25 in the visible set.
+    // Move focus away to a non-anchor line.
     await user.keyboard("{ArrowDown}");
 
     // shift+e should still grow l25's window despite focus being
@@ -575,7 +581,7 @@ describe("LogExplorer — shift+e expands the most-recent context by a fixed ste
     expect(visibleLineCount()).toBe(51);
   });
 
-  it("is a no-op at the file boundary (window already covers all lines from the anchor)", async () => {
+  it("is a no-op once both file edges are covered by the window", async () => {
     const user = userEvent.setup();
     render(<LogExplorer lines={wideFixture} />);
     applyErrorFilter();
@@ -583,7 +589,7 @@ describe("LogExplorer — shift+e expands the most-recent context by a fixed ste
 
     fireEvent.click(liFor(/row l25 error anchor/));
     await user.keyboard("e"); // ±20
-    await user.keyboard("{Shift>}e{/Shift}"); // ±25 (clamped, covers all)
+    await user.keyboard("{Shift>}e{/Shift}"); // ±40 — past both edges
     expect(visibleLineCount()).toBe(51);
 
     // Subsequent presses can't grow further. Visible count stays put.
@@ -607,6 +613,88 @@ describe("LogExplorer — shift+e expands the most-recent context by a fixed ste
       "false",
     );
     expect(visibleLineCount()).toBe(1); // just the anchor itself
+  });
+});
+
+describe("LogExplorer — contextual legend (top-right toolbar)", () => {
+  const listbox = () => screen.getByRole("listbox", { name: /log lines/i });
+
+  /**
+   * Helper: read the entry's accessible content (caps + label) from
+   * the legend toolbar. Returns concatenated text so we can assert
+   * "what does the entry say right now" in one expression.
+   */
+  const legendText = () =>
+    screen.getByRole("toolbar", { name: /Keyboard hints/ }).textContent ?? "";
+
+  it("shows the ? for-all-shortcuts entry by default (no contexts open)", () => {
+    render(<LogExplorer lines={fixture} />);
+    expect(legendText()).toContain("?");
+    expect(legendText()).toMatch(/for all shortcuts/i);
+    // And it's clickable — replaces the old FAB.
+    expect(
+      screen.getByRole("button", { name: /Open keyboard shortcuts/ }),
+    ).toBeInTheDocument();
+  });
+
+  it("swaps to Shift+E Expand context when a context is open with room to grow", async () => {
+    // Visible feedback on each press is delivered via the legend's
+    // mount-animation pulse (re-keyed by LogExplorer on every
+    // successful expansion) — not via a numeric counter, which
+    // proved confusing in early demos because the number tracks
+    // file-extent rather than visible-content progress.
+    const user = userEvent.setup();
+    render(<LogExplorer lines={wideFixture} />);
+    applyErrorFilter();
+    listbox().focus();
+
+    fireEvent.click(liFor(/row l25 error anchor/));
+    await user.keyboard("e"); // open context at ±20 (room to grow to ±25)
+
+    expect(legendText()).toMatch(/expand context/i);
+    // No `?` keycap while a context-relevant hint is showing.
+    expect(legendText()).not.toMatch(/for all shortcuts/i);
+  });
+
+  it("swaps to Esc Close when the most-recent context can't expand further", async () => {
+    const user = userEvent.setup();
+    render(<LogExplorer lines={wideFixture} />);
+    applyErrorFilter();
+    listbox().focus();
+
+    fireEvent.click(liFor(/row l25 error anchor/));
+    await user.keyboard("e"); // ±20
+    await user.keyboard("{Shift>}e{/Shift}"); // ±25 — clamps at boundary
+
+    // Pivots from "what can I do to keep going?" to "what's the next
+    // useful action?" — Esc closes all contexts (spec §7).
+    expect(legendText()).toMatch(/close/i);
+    // Disambiguate the toolbar by accessible name (scenario-chips
+    // also uses role="toolbar").
+    const legendToolbar = screen.getByRole("toolbar", {
+      name: /Keyboard hints/,
+    });
+    const capTexts = Array.from(legendToolbar.querySelectorAll("kbd")).map(
+      (k) => k.textContent,
+    );
+    expect(capTexts).toEqual(["Esc"]);
+  });
+
+  it("falls back to the ? entry when all contexts are closed", async () => {
+    // Uses wideFixture so opening at ±20 produces the active "Expand
+    // context" hint rather than immediately hitting the boundary
+    // (which would happen on the 5-line `fixture`).
+    const user = userEvent.setup();
+    render(<LogExplorer lines={wideFixture} />);
+    applyErrorFilter();
+    listbox().focus();
+
+    fireEvent.click(liFor(/row l25 error anchor/));
+    await user.keyboard("e"); // open context (room to grow → "Expand context")
+    expect(legendText()).toMatch(/expand context/i);
+
+    await user.keyboard("{Escape}"); // clears all contexts (spec §7)
+    expect(legendText()).toMatch(/for all shortcuts/i);
   });
 });
 
@@ -888,7 +976,7 @@ describe("LogExplorer — ? opens the shortcut sheet (spec §9.7)", () => {
     expect(liFor(/row one error/).getAttribute("data-selected")).toBe("true");
   });
 
-  it("clicking the floating ? button opens the sheet", async () => {
+  it("clicking the legend's ? entry opens the sheet (mouse path replaces the old FAB)", async () => {
     const user = userEvent.setup();
     render(<LogExplorer lines={fixture} />);
 

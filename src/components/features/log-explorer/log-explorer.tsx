@@ -10,19 +10,18 @@ import {
   useState,
 } from "react";
 
+import { Legend, type LegendItem } from "@/components/features/legend/legend";
 import { LogList } from "@/components/features/log-list/log-list";
 import { NewLinesPill } from "@/components/features/log-list/new-lines-pill";
 import { ScenarioChips } from "@/components/features/scenario-chips/scenario-chips";
-import {
-  ShortcutSheet,
-  ShortcutSheetTrigger,
-} from "@/components/features/shortcut-sheet/shortcut-sheet";
+import { ShortcutSheet } from "@/components/features/shortcut-sheet/shortcut-sheet";
 import { liveTailSeed } from "@/lib/mock-logs";
 import { useLiveTail } from "@/lib/use-live-tail";
 import { useStableCallback } from "@/lib/use-stable-callback";
 import {
+  CONTEXT_RANGE_STEP,
   DEFAULT_CONTEXT_RANGE,
-  nextRangeWithinBounds,
+  isAtFileBoundary,
   type OpenContext,
 } from "@/lib/context-state";
 import { formatLineForCopy } from "@/lib/copy-lines";
@@ -74,6 +73,7 @@ const AT_BOTTOM_TOLERANCE_PX = 50;
 const EMPTY_SELECTED_SET: ReadonlySet<string> = new Set();
 
 type AnchorSnapshot = { id: string; top: number };
+
 
 /**
  * Client wrapper that owns interactive state for the log view.
@@ -172,6 +172,14 @@ export function LogExplorer({
   // the sheet doesn't toggle on `?` (open-only); Esc / click-outside
   // do the closing via Radix Dialog's native behavior.
   const [sheetOpen, setSheetOpen] = useState(false);
+
+  // Counter that increments on every *successful* shift+e press.
+  // Used as a remount key on the legend's entry so a CSS keyframe
+  // animation re-fires each press — the user gets a visible flash
+  // even when the legend's text doesn't change. Without this, two
+  // back-to-back expansions look identical in the chrome and the
+  // user can't tell whether their key registered.
+  const [legendPulseKey, setLegendPulseKey] = useState(0);
 
   // Ref to the Radix Scroll Area viewport. The anchor mechanics below
   // read getBoundingClientRect on a target `<li>` and write scrollTop
@@ -686,14 +694,18 @@ export function LogExplorer({
       if (existingIndex === -1) return;
 
       const anchorIndex = lines.findIndex((l) => l.id === lineId);
-      const nextRange = nextRangeWithinBounds(
-        anchorIndex,
-        openContexts[existingIndex].range,
-        lines.length,
-      );
-      // null = already at file boundary; nothing to expand. The legend
-      // is what tells the user this — handler is silent.
-      if (nextRange === null) return;
+      const currentRange = openContexts[existingIndex].range;
+      // Boundary: window already covers both file edges from the
+      // anchor. See isAtFileBoundary for the "wait for both ends"
+      // rationale.
+      if (isAtFileBoundary(anchorIndex, currentRange, lines.length)) return;
+      const nextRange = currentRange + CONTEXT_RANGE_STEP;
+
+      // Successful expansion → bump the pulse key so the legend
+      // entry remounts and replays its mount animation. Gives the
+      // user a visible flash on each press, including consecutive
+      // presses where the legend's text is identical.
+      setLegendPulseKey((k) => k + 1);
 
       const anchor = captureAnchor(lineId);
 
@@ -1082,10 +1094,57 @@ export function LogExplorer({
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [openContexts.length, sheetOpen]);
 
+  /**
+   * Single-slot contextual legend in the top toolbar. Surfaces the
+   * most relevant keyboard shortcut for the current app state:
+   *
+   *   - Context open with room to grow → SHIFT+E EXPAND CONTEXT
+   *   - Context open but expansion exhausted → ESC CLOSE — pivots
+   *     from "what can I do to keep going?" to "what's the next
+   *     useful action?". At this state most users are either done
+   *     reading and want to close, or they need to navigate
+   *     elsewhere and Esc is the way out.
+   *   - Otherwise → ? FOR ALL SHORTCUTS, clickable to open the sheet
+   *     (the only mouse path to the sheet now that the FAB is gone)
+   *
+   * Reads the most-recent context's *saved* state from `openContexts`
+   * (not `effectiveSelectedContextLineIds`, which gates on filter
+   * match): a saved context whose accent is suppressed by a filter
+   * change is still the one shift+e would target if pressed, so the
+   * legend should reflect that.
+   */
+  const legendItems = useMemo<readonly LegendItem[]>(() => {
+    const mostRecent = openContexts[openContexts.length - 1];
+    if (mostRecent) {
+      const anchorIndex = lines.findIndex(
+        (l) => l.id === mostRecent.selectedLineId,
+      );
+      if (isAtFileBoundary(anchorIndex, mostRecent.range, lines.length)) {
+        return [{ keys: ["Esc"], label: "Close" }];
+      }
+      return [{ keys: ["Shift", "E"], label: "Expand context" }];
+    }
+    return [
+      {
+        keys: ["?"],
+        label: "for all shortcuts",
+        ariaLabel: "Open keyboard shortcuts",
+        onClick: () => setSheetOpen(true),
+      },
+    ];
+  }, [openContexts, lines]);
+
   return (
     // prefers-reduced-motion is honored entirely in CSS now — see the
     // @media block in log-list.module.css. No JS bridge needed.
+    //
+    // Vertical layout: legend strip → scenario chips → log list. The
+    // legend lives above the chips because it's app-level chrome
+    // (keyboard shortcut hint that applies to everything below it).
+    // Stacking them as separate rows avoids the collision the old
+    // fixed-position legend caused on narrow viewports.
     <div className={styles.explorer}>
+      <Legend items={legendItems} pulseKey={legendPulseKey} />
       <ScenarioChips state={filterState} dispatch={dispatchFilter} />
       <LogList
         lines={derivedLines}
@@ -1101,7 +1160,6 @@ export function LogExplorer({
         transitionMode={transitionMode}
       />
       <NewLinesPill count={unreadCount} onClick={handleScrollToBottom} />
-      <ShortcutSheetTrigger onOpen={() => setSheetOpen(true)} />
       <ShortcutSheet open={sheetOpen} onOpenChange={setSheetOpen} />
     </div>
   );
