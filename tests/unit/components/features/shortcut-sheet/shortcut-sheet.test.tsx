@@ -1,5 +1,5 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { render, screen } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
 
 import { ShortcutSheet } from "@/components/features/shortcut-sheet/shortcut-sheet";
 
@@ -16,22 +16,22 @@ describe("ShortcutSheet — rendered modal", () => {
     render(<ShortcutSheet open={true} onOpenChange={() => {}} />);
     expect(screen.getByText("Navigation")).toBeInTheDocument();
     expect(screen.getByText("Actions")).toBeInTheDocument();
-    expect(screen.getByText("Contexts")).toBeInTheDocument();
+    expect(screen.getByText("Dismiss")).toBeInTheDocument();
     expect(screen.getByText("Help")).toBeInTheDocument();
   });
 
-  it("renders the dialog title 'Keyboard shortcuts'", () => {
+  it("renders the dialog title 'Keyboard Shortcuts'", () => {
     render(<ShortcutSheet open={true} onOpenChange={() => {}} />);
     expect(
-      screen.getByRole("heading", { name: /Keyboard shortcuts/ }),
+      screen.getByRole("heading", { name: /Keyboard Shortcuts/ }),
     ).toBeInTheDocument();
   });
 
   it("renders descriptions for known bindings", () => {
     render(<ShortcutSheet open={true} onOpenChange={() => {}} />);
-    expect(screen.getByText(/Next visible line/)).toBeInTheDocument();
-    expect(screen.getByText(/Toggle context on focused line/)).toBeInTheDocument();
-    expect(screen.getByText(/Open this shortcut sheet/)).toBeInTheDocument();
+    expect(screen.getByText(/Next Visible Line/)).toBeInTheDocument();
+    expect(screen.getByText(/Toggle Context on Focused Line/)).toBeInTheDocument();
+    expect(screen.getByText(/Open This Shortcut Sheet/)).toBeInTheDocument();
   });
 
   it("renders keycaps for the j/↓ alias as separate <kbd> elements", () => {
@@ -62,10 +62,12 @@ describe("ShortcutSheet — rendered modal", () => {
     expect(screen.queryByText("Navigation")).not.toBeInTheDocument();
   });
 
-  it("calls onOpenChange(false) when the close button is clicked", () => {
-    const onOpenChange = vi.fn();
-    render(<ShortcutSheet open={true} onOpenChange={onOpenChange} />);
-    fireEvent.click(screen.getByRole("button", { name: /Close/ }));
-    expect(onOpenChange).toHaveBeenCalledWith(false);
+  it("renders no in-modal close button (Esc + click-outside cover dismissal)", () => {
+    // The X close button was removed to reduce visual clutter — the
+    // sheet itself documents Esc as the dismiss binding.
+    render(<ShortcutSheet open={true} onOpenChange={() => {}} />);
+    expect(
+      screen.queryByRole("button", { name: /Close/i }),
+    ).not.toBeInTheDocument();
   });
 });

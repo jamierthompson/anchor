@@ -573,6 +573,20 @@ export function LogExplorer({
   );
 
   /**
+   * Stable handler for the "Esc Clear filter" path used by both the
+   * legend's mouse click and the document-level Esc key. Wrapping
+   * dispatchFilter in a useStableCallback gives a stable outer
+   * reference that always delegates to the latest dispatchFilter
+   * closure — and as a bonus, hides the ref reads inside
+   * dispatchFilter from react-compiler's "passing a ref to a
+   * function may read its value during render" check, which would
+   * otherwise flag a useCallback-wrapped variant.
+   */
+  const handleClearFilter = useStableCallback(() =>
+    dispatchFilter({ type: "clear" }),
+  );
+
+  /**
    * Set of line ids whose context-anchor accent should render. Open
    * contexts are preserved across filter changes so that loosening a
    * filter restores the saved selection in place — but the accent
@@ -842,7 +856,7 @@ export function LogExplorer({
       const isLast = shiftKey && (key === "G" || key === "g");
       const isPrevBoundary = !shiftKey && key === "[";
       const isNextBoundary = !shiftKey && key === "]";
-      const isToggleContext = !shiftKey && key === "e";
+      const isToggleContext = !shiftKey && (key === "e" || key === "Enter");
       const isExpandContext = shiftKey && (key === "E" || key === "e");
 
       if (
@@ -859,15 +873,19 @@ export function LogExplorer({
       }
 
       // Context toggle on the focused line. Reuses the same handler
-      // that powers the cmd/ctrl-click modifier — same §3 gate
-      // (requires a filter active, not allowed on dimmed lines), same
-      // append/remove semantics, same scroll compensation. The
-      // keyboard binding is just a different input path into the same
-      // pipeline.
+      // that powers the click path — same §3 gate (requires a filter
+      // active, not allowed on dimmed lines), same append/remove
+      // semantics, same scroll compensation. The keyboard binding
+      // is just a different input path into the same pipeline.
+      //
+      // Both `e` and Enter map here. Enter mirrors a click on the
+      // focused line — accessible default for keyboard-only users
+      // who think of Enter as the universal "activate this thing"
+      // key.
       //
       // Bails silently if no line is focused — the binding has no
-      // target, but we still preventDefault so the bare `e` doesn't
-      // leak through to anything else.
+      // target, but we still preventDefault so the bare `e` / Enter
+      // don't leak through to anything else.
       if (isToggleContext) {
         event.preventDefault();
         if (effectiveFocusedLineId) {
@@ -1012,10 +1030,16 @@ export function LogExplorer({
    * across keyboard layouts and testing tools (same dual-form check
    * we use for shift+g and shift+e in the listbox handler).
    *
-   * Esc precedence per spec §7:
+   * Esc precedence:
    *   1. shortcut sheet open → close it     (handled by Radix Dialog)
-   *   2. any context open → close all       (this handler)
-   *   3. else: no-op
+   *   2. any context open    → close all    (this handler)
+   *   3. any filter active   → clear filter (this handler)
+   *   4. else: no-op
+   *
+   * The filter-clear step gives Esc something to do whenever the
+   * user has actively narrowed the view — matches the legend's
+   * "Esc Clear filter" entry. The cascade composes cleanly with
+   * the modal Esc via `defaultPrevented`.
    */
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -1023,9 +1047,16 @@ export function LogExplorer({
       if (event.metaKey || event.ctrlKey || event.altKey) return;
 
       if (event.key === "Escape") {
-        if (openContexts.length === 0) return;
-        event.preventDefault();
-        setOpenContexts([]);
+        if (openContexts.length > 0) {
+          event.preventDefault();
+          setOpenContexts([]);
+          return;
+        }
+        if (hasAnyFilter(filterState)) {
+          event.preventDefault();
+          handleClearFilter();
+          return;
+        }
         return;
       }
 
@@ -1053,40 +1084,72 @@ export function LogExplorer({
 
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, [openContexts.length, sheetOpen]);
+  }, [openContexts.length, sheetOpen, filterState, handleClearFilter]);
 
   /**
-   * Contextual legend below the log list. Surfaces the most relevant
-   * keyboard shortcuts for the current app state — and doubles as
-   * the mouse path for those actions. Every entry is clickable; the
-   * keycaps document the keyboard equivalent.
+   * Contextual legend at the top of the explorer. Surfaces the
+   * actions the user can take right now — and doubles as the mouse
+   * path for each one. Every entry is clickable; the keycaps document
+   * the keyboard equivalent.
    *
-   * State → entries (left → right):
+   * Items are pushed in left → right order, building up as state makes
+   * each action applicable:
    *
-   *   - No contexts open → [`? FOR ALL SHORTCUTS`]. Click opens
-   *     the shortcut sheet (the only mouse path now that the FAB
-   *     is gone).
-   *   - Context open with room to grow → [`SHIFT+E EXPAND CONTEXT`,
-   *     `ESC CLOSE`]. Esc is rightmost and stays put; Shift+E sits
-   *     to its left while expansion is still possible.
-   *   - Context open at file boundary → [`ESC CLOSE`]. Shift+E
-   *     entry disappears so the only meaningful next action is the
-   *     visible one.
+   *   1. `E VIEW CONTEXT` / `E HIDE CONTEXT` — when a line is focused
+   *      AND `e` would fire on it. "Hide" when the focused line is the
+   *      anchor of an open context (so e closes it); "View" otherwise
+   *      (gate passes → e opens a new context). Click triggers the
+   *      same toggle as `e` on the focused line.
+   *   2. `SHIFT+E EXPAND CONTEXT` — when the most-recently-opened
+   *      context still has room to grow. Click expands by one
+   *      CONTEXT_RANGE_STEP, same as the keyboard binding.
+   *   3. `ESC CLOSE` — when at least one context is open. Click
+   *      clears all open contexts. Stable rightmost slot once any
+   *      context is open.
+   *   4. `? FOR ALL SHORTCUTS` — fallback when none of the above
+   *      apply. Click opens the shortcut sheet.
    *
-   * Esc's React key is stable (label-based) across the with-room ↔
-   * boundary transition, so removing Shift+E doesn't remount Esc
-   * (no flash on the entry that didn't change). The Shift+E entry's
-   * `pulseKey` is bumped on every successful expansion so that
-   * specific entry replays its mount animation — visible "your
-   * keypress registered" feedback.
+   * The fallback `?` only shows when nothing else does — once any
+   * stateful action is available, the legend reads as "here's what
+   * to do next" rather than "here's where to find the help."
    *
    * Reads the most-recent context's *saved* state from `openContexts`
    * (not `effectiveSelectedContextLineIds`, which gates on filter
    * match): a saved context whose accent is suppressed by a filter
    * change is still the one shift+e would target if pressed, so the
-   * legend should reflect that.
+   * legend should reflect that. Same logic for the focused line's
+   * "anchor of an open context" check — uses openContexts directly.
+   *
+   * Esc's React key is stable (label-based) across with-room ↔
+   * boundary transitions so removing Shift+E doesn't remount Esc.
+   * The Shift+E entry's `pulseKey` is bumped on every successful
+   * expansion so that specific entry replays its mount animation —
+   * visible "your keypress registered" feedback even when the text
+   * doesn't change.
    */
   const legendItems = useMemo<readonly LegendItem[]>(() => {
+    const items: LegendItem[] = [];
+
+    // Whether the focused line is the anchor of a saved open context.
+    // Cheaper than scanning `effectiveSelectedContextLineIds` and
+    // captures the same intent — "would `e` close vs. open?"
+    const focusedIsAnchor =
+      effectiveFocusedLineId !== null &&
+      openContexts.some((c) => c.selectedLineId === effectiveFocusedLineId);
+
+    // Recompute the §3 gate on the focused line. Mirrors the inline
+    // computation in LogList — kept local here so we don't have to
+    // pass `canToggleContext` per-line back up through props.
+    const focusedLine = effectiveFocusedLineId
+      ? derivedLines.find((l) => l.id === effectiveFocusedLineId)
+      : null;
+    const focusedCanToggle =
+      hasAnyFilter(filterState) &&
+      !!focusedLine?.isVisible &&
+      !focusedLine.isDimmed;
+
+    // 1. Shift+E (Expand context) — leftmost when applicable, so the
+    //    "growth" action is the first thing the user reads.
     const mostRecent = openContexts[openContexts.length - 1];
     if (mostRecent) {
       const anchorIndex = lines.findIndex(
@@ -1097,7 +1160,6 @@ export function LogExplorer({
         mostRecent.range,
         lines.length,
       );
-      const items: LegendItem[] = [];
       if (!atBoundary) {
         items.push({
           keys: ["Shift", "E"],
@@ -1106,23 +1168,70 @@ export function LogExplorer({
           pulseKey: legendPulseKey,
         });
       }
+    }
+
+    // 2. E (View / Hide context on the focused line) — middle slot.
+    //    "Hide" when the focused line is the anchor of an open
+    //    context (e closes it); "View" otherwise (gate passes →
+    //    e opens a new context).
+    if (effectiveFocusedLineId && (focusedCanToggle || focusedIsAnchor)) {
+      items.push({
+        keys: ["E"],
+        label: focusedIsAnchor ? "Hide context" : "View context",
+        ariaLabel: focusedIsAnchor
+          ? "Hide context on focused line"
+          : "View context on focused line",
+        onClick: () => handleToggleContext(effectiveFocusedLineId),
+      });
+    }
+
+    // 3. Esc — rightmost. Cascade priority drives the label and
+    //    behaviour:
+    //      contexts open → "Close" (clears all open contexts)
+    //      else filter active → "Clear filter" (resets to empty)
+    //      else → not shown; nothing for Esc to do
+    //
+    //    Same precedence as the document-level Esc handler so the
+    //    legend's mouse path and the keyboard binding stay in sync.
+    if (openContexts.length > 0) {
       items.push({
         keys: ["Esc"],
         label: "Close",
         ariaLabel: "Close all open contexts",
         onClick: () => setOpenContexts([]),
       });
-      return items;
+    } else if (hasAnyFilter(filterState)) {
+      items.push({
+        keys: ["Esc"],
+        label: "Clear filter",
+        ariaLabel: "Clear active filter",
+        onClick: handleClearFilter,
+      });
     }
-    return [
-      {
+
+    // Fallback to the help entry only when nothing actionable has
+    // been pushed — the legend should always say *something*.
+    if (items.length === 0) {
+      items.push({
         keys: ["?"],
         label: "for all shortcuts",
         ariaLabel: "Open keyboard shortcuts",
         onClick: () => setSheetOpen(true),
-      },
-    ];
-  }, [openContexts, lines, handleExpandContext, legendPulseKey]);
+      });
+    }
+
+    return items;
+  }, [
+    openContexts,
+    lines,
+    derivedLines,
+    filterState,
+    effectiveFocusedLineId,
+    handleToggleContext,
+    handleExpandContext,
+    handleClearFilter,
+    legendPulseKey,
+  ]);
 
   return (
     // prefers-reduced-motion is honored entirely in CSS now — see the

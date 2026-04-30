@@ -599,31 +599,33 @@ describe("LogExplorer — contextual legend (top-right toolbar)", () => {
     ).toBeInTheDocument();
   });
 
-  it("shows both Shift+E and Esc entries when a context is open with room to grow", () => {
-    // Esc is always present alongside Shift+E so the user has a
-    // visible mouse path to close at any time. Shift+E sits to its
-    // left while expansion is still possible; once at boundary the
-    // Shift+E entry is removed.
+  it("shows Shift+E + E (hide context) + Esc when a context is open with room to grow", () => {
+    // Click-to-expand also focuses the anchor line, so the legend's
+    // E entry resolves to "Hide context" (focused line is the anchor
+    // of an open context). Shift+E (expand) and Esc (close) are
+    // both applicable too — three actions are available simultaneously.
+    // Order left → right: Shift+E (growth) → E (per-line) → Esc (dismiss).
     render(<LogExplorer lines={wideFixture} />);
     applyErrorFilter();
 
     fireEvent.click(liFor(/row l25 error anchor/)); // open at ±20
 
+    expect(legendText()).toMatch(/hide context/i);
     expect(legendText()).toMatch(/expand context/i);
     expect(legendText()).toMatch(/close/i);
     // No `?` keycap while context-relevant hints are showing.
     expect(legendText()).not.toMatch(/for all shortcuts/i);
-    // Visible cap order: Shift+E to the left, Esc to the right.
+    // Visible cap order: Shift+E (expand) → E (hide) → Esc (close).
     const legendToolbar = screen.getByRole("toolbar", {
       name: /Keyboard hints/,
     });
     const capTexts = Array.from(legendToolbar.querySelectorAll("kbd")).map(
       (k) => k.textContent,
     );
-    expect(capTexts).toEqual(["Shift", "E", "Esc"]);
+    expect(capTexts).toEqual(["Shift", "E", "E", "Esc"]);
   });
 
-  it("swaps to Esc Close when the most-recent context can't expand further", async () => {
+  it("drops Shift+E when the most-recent context can't expand further (E hide + Esc remain)", async () => {
     const user = userEvent.setup();
     render(<LogExplorer lines={wideFixture} />);
     applyErrorFilter();
@@ -632,18 +634,19 @@ describe("LogExplorer — contextual legend (top-right toolbar)", () => {
     fireEvent.click(liFor(/row l25 error anchor/)); // open at ±20
     await user.keyboard("{Shift>}e{/Shift}"); // ±40 — clamps at boundary
 
-    // Pivots from "what can I do to keep going?" to "what's the next
-    // useful action?" — Esc closes all contexts (spec §7).
+    // Shift+E goes away; the remaining actions are "hide this context"
+    // (focused line is still the anchor) and "close all" via Esc.
+    expect(legendText()).toMatch(/hide context/i);
     expect(legendText()).toMatch(/close/i);
-    // Disambiguate the toolbar by accessible name (scenario-chips
-    // also uses role="toolbar").
+    expect(legendText()).not.toMatch(/expand context/i);
+    // Cap order: E (hide) → Esc (close).
     const legendToolbar = screen.getByRole("toolbar", {
       name: /Keyboard hints/,
     });
     const capTexts = Array.from(legendToolbar.querySelectorAll("kbd")).map(
       (k) => k.textContent,
     );
-    expect(capTexts).toEqual(["Esc"]);
+    expect(capTexts).toEqual(["E", "Esc"]);
   });
 
   it("clicking the Shift+E entry expands the context (mouse path matches keyboard binding)", async () => {
@@ -670,7 +673,7 @@ describe("LogExplorer — contextual legend (top-right toolbar)", () => {
     );
   });
 
-  it("clicking the Esc entry at the boundary clears all open contexts", async () => {
+  it("clicking the Esc entry at the boundary clears all open contexts and the legend follows", async () => {
     const user = userEvent.setup();
     render(<LogExplorer lines={wideFixture} />);
     applyErrorFilter();
@@ -686,24 +689,97 @@ describe("LogExplorer — contextual legend (top-right toolbar)", () => {
 
     // All contexts cleared — same effect as pressing Esc.
     expect(document.querySelector('li[data-selected="true"]')).toBeNull();
-    // Legend swaps back to the default ? entry.
+    // Esc / Shift+E entries are gone; only the focused-line E binding
+    // is still applicable (the line stays focused after closing and
+    // still passes the §3 gate as a filter-matched ERROR).
+    expect(legendText()).not.toMatch(/close/i);
+    expect(legendText()).not.toMatch(/expand context/i);
+    expect(legendText()).toMatch(/view context/i);
+  });
+
+  it("falls back to the ? entry when nothing is actionable (no filter, no focus, no contexts)", () => {
+    // The legend always says *something* — when no filter is active
+    // and no line is focused, the fallback is the entry to the
+    // shortcut sheet. Once any state is engaged (filter, focus,
+    // context) the relevant E / Esc entries take over.
+    render(<LogExplorer lines={wideFixture} />);
+
     expect(legendText()).toMatch(/for all shortcuts/i);
   });
 
-  it("falls back to the ? entry when all contexts are closed", async () => {
-    // Uses wideFixture so opening at ±20 produces the active "Expand
-    // context" hint rather than immediately hitting the boundary
-    // (which would happen on the 5-line `fixture`).
+  it("shows Esc 'Clear filter' when a filter is active and nothing else is in play", () => {
+    // Filter-active, no focus, no context: Esc has work to do (clear
+    // the filter), so the legend offers it as the primary action.
+    render(<LogExplorer lines={wideFixture} />);
+    applyErrorFilter();
+
+    expect(legendText()).toMatch(/clear filter/i);
+    const legendToolbar = screen.getByRole("toolbar", {
+      name: /Keyboard hints/,
+    });
+    const capTexts = Array.from(legendToolbar.querySelectorAll("kbd")).map(
+      (k) => k.textContent,
+    );
+    expect(capTexts).toEqual(["Esc"]);
+  });
+
+  it("pressing Esc with a filter active and no contexts open clears the filter", async () => {
+    const user = userEvent.setup();
+    render(<LogExplorer lines={fixture} />);
+    applyErrorFilter();
+
+    expect(
+      screen.getByRole("button", { name: /Errors only/ }).getAttribute(
+        "aria-pressed",
+      ),
+    ).toBe("true");
+
+    await user.keyboard("{Escape}");
+
+    expect(
+      screen.getByRole("button", { name: /Errors only/ }).getAttribute(
+        "aria-pressed",
+      ),
+    ).toBe("false");
+  });
+
+  it("shows E (view context) + Esc (clear filter) when a filter-matched line is focused", async () => {
+    // Focused + filter-active, no context: both E (view context) and
+    // Esc (clear filter) are applicable, so both surface.
     const user = userEvent.setup();
     render(<LogExplorer lines={wideFixture} />);
     applyErrorFilter();
     listbox().focus();
 
-    fireEvent.click(liFor(/row l25 error anchor/)); // open context (room to grow)
-    expect(legendText()).toMatch(/expand context/i);
+    await user.keyboard("g"); // focus l25 (only visible filter-matched line)
 
-    await user.keyboard("{Escape}"); // clears all contexts (spec §7)
-    expect(legendText()).toMatch(/for all shortcuts/i);
+    expect(legendText()).toMatch(/view context/i);
+    expect(legendText()).toMatch(/clear filter/i);
+    // Cap order: E (view) → Esc (clear filter).
+    const legendToolbar = screen.getByRole("toolbar", {
+      name: /Keyboard hints/,
+    });
+    const capTexts = Array.from(legendToolbar.querySelectorAll("kbd")).map(
+      (k) => k.textContent,
+    );
+    expect(capTexts).toEqual(["E", "Esc"]);
+  });
+
+  it("clicking the legend's E entry opens a context on the focused line", async () => {
+    const user = userEvent.setup();
+    render(<LogExplorer lines={wideFixture} />);
+    applyErrorFilter();
+    listbox().focus();
+
+    await user.keyboard("g"); // focus l25
+
+    await user.click(
+      screen.getByRole("button", { name: /View context on focused line/ }),
+    );
+
+    expect(liFor(/row l25 error anchor/).getAttribute("data-selected")).toBe(
+      "true",
+    );
   });
 });
 
@@ -728,19 +804,22 @@ describe("LogExplorer — global shortcuts (Esc and ?)", () => {
     expect(document.querySelector('li[data-selected="true"]')).toBeNull();
   });
 
-  it("Esc with no open contexts is a no-op", async () => {
+  it("Esc with no contexts and no filter is a no-op", async () => {
     const user = userEvent.setup();
     render(<LogExplorer lines={fixture} />);
-    applyErrorFilter();
     screen.getByRole("listbox", { name: /log lines/i }).focus();
 
     await user.keyboard("{Escape}");
 
+    // Nothing was open / active to dismiss.
     expect(document.querySelector('li[data-selected="true"]')).toBeNull();
   });
 
-  it("Esc preserves the filter — only contexts clear", async () => {
-    // Spec §7: "Filters require explicit removal." Esc doesn't touch them.
+  it("Esc cascade: closes contexts first, leaving the filter intact", async () => {
+    // Esc precedence: contexts before filter. Pressing Esc while a
+    // context is open should dismiss the context but leave the
+    // active scenario chip pressed; a second Esc would clear the
+    // filter.
     const user = userEvent.setup();
     render(<LogExplorer lines={fixture} />);
     applyErrorFilter();
@@ -751,14 +830,24 @@ describe("LogExplorer — global shortcuts (Esc and ?)", () => {
 
     await user.keyboard("{Escape}");
 
-    // The active scenario chip is still pressed.
+    // The active scenario chip is still pressed — context was the
+    // dismissable thing.
     expect(
       screen
         .getByRole("button", { name: /Errors only/ })
         .getAttribute("aria-pressed"),
     ).toBe("true");
-    // l0 is hidden again (filter excludes it; context that revealed it is gone).
+    // l0 hidden again — filter excludes it; the context that revealed
+    // it is gone.
     expect(liFor(/row zero info/).getAttribute("data-visible")).toBe("false");
+
+    // A second Esc clears the filter.
+    await user.keyboard("{Escape}");
+    expect(
+      screen
+        .getByRole("button", { name: /Errors only/ })
+        .getAttribute("aria-pressed"),
+    ).toBe("false");
   });
 });
 
@@ -809,12 +898,12 @@ describe("LogExplorer — line-row affordances (gutter anchor + clickable rows)"
 describe("LogExplorer — ? opens the shortcut sheet (spec §9.7)", () => {
   it("opens the sheet when ? is pressed from anywhere on the page", () => {
     render(<LogExplorer lines={fixture} />);
-    expect(screen.queryByText("Keyboard shortcuts")).not.toBeInTheDocument();
+    expect(screen.queryByText("Keyboard Shortcuts")).not.toBeInTheDocument();
 
     fireEvent.keyDown(document, { key: "?" });
 
     expect(
-      screen.getByRole("heading", { name: /Keyboard shortcuts/ }),
+      screen.getByRole("heading", { name: /Keyboard Shortcuts/ }),
     ).toBeInTheDocument();
   });
 
@@ -824,7 +913,7 @@ describe("LogExplorer — ? opens the shortcut sheet (spec §9.7)", () => {
     fireEvent.keyDown(document, { key: "/", shiftKey: true });
 
     expect(
-      screen.getByRole("heading", { name: /Keyboard shortcuts/ }),
+      screen.getByRole("heading", { name: /Keyboard Shortcuts/ }),
     ).toBeInTheDocument();
   });
 
@@ -832,13 +921,13 @@ describe("LogExplorer — ? opens the shortcut sheet (spec §9.7)", () => {
     render(<LogExplorer lines={fixture} />);
     fireEvent.keyDown(document, { key: "?" });
     expect(
-      screen.getByRole("heading", { name: /Keyboard shortcuts/ }),
+      screen.getByRole("heading", { name: /Keyboard Shortcuts/ }),
     ).toBeInTheDocument();
 
     fireEvent.keyDown(document, { key: "Escape" });
 
     expect(
-      screen.queryByRole("heading", { name: /Keyboard shortcuts/ }),
+      screen.queryByRole("heading", { name: /Keyboard Shortcuts/ }),
     ).not.toBeInTheDocument();
   });
 
@@ -855,7 +944,7 @@ describe("LogExplorer — ? opens the shortcut sheet (spec §9.7)", () => {
 
     // Sheet closed, context still open.
     expect(
-      screen.queryByRole("heading", { name: /Keyboard shortcuts/ }),
+      screen.queryByRole("heading", { name: /Keyboard Shortcuts/ }),
     ).not.toBeInTheDocument();
     expect(liFor(/row one error/).getAttribute("data-selected")).toBe("true");
   });
@@ -869,7 +958,7 @@ describe("LogExplorer — ? opens the shortcut sheet (spec §9.7)", () => {
     );
 
     expect(
-      screen.getByRole("heading", { name: /Keyboard shortcuts/ }),
+      screen.getByRole("heading", { name: /Keyboard Shortcuts/ }),
     ).toBeInTheDocument();
   });
 
@@ -888,7 +977,7 @@ describe("LogExplorer — ? opens the shortcut sheet (spec §9.7)", () => {
     fireEvent.keyDown(input, { key: "?" });
 
     expect(
-      screen.queryByRole("heading", { name: /Keyboard shortcuts/ }),
+      screen.queryByRole("heading", { name: /Keyboard Shortcuts/ }),
     ).not.toBeInTheDocument();
   });
 });

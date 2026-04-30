@@ -22,8 +22,11 @@ import styles from "./shortcut-sheet.module.css";
  *   - Open via the `?` keyboard shortcut OR by clicking the legend's
  *     `?` entry in the top-right toolbar (see `Legend` in
  *     components/features/legend).
- *   - Close via Esc, click outside, or the modal's own X button —
- *     all handled natively by Radix Dialog.
+ *   - Close via Esc or click-outside — both handled natively by
+ *     Radix Dialog. There's no in-modal close affordance: the sheet
+ *     itself documents Esc as the dismissal binding, and removing
+ *     the X reduces visual clutter inside an already help-dense
+ *     surface.
  *
  * Open state is OWNED by LogExplorer (controlled). The keyboard
  * shortcut needs to flip state from outside the dialog tree, so a
@@ -51,7 +54,7 @@ export function ShortcutSheet({
         <Dialog.Overlay className={styles.overlay} />
         <Dialog.Content className={styles.content} aria-describedby={undefined}>
           <Dialog.Title className={styles.title}>
-            Keyboard shortcuts
+            Keyboard Shortcuts
           </Dialog.Title>
           <div className={styles.groups}>
             {KEYBOARD_SHORTCUTS.map((group) => (
@@ -64,14 +67,7 @@ export function ShortcutSheet({
                       className={styles.shortcutRow}
                     >
                       <span className={styles.description}>
-                        {shortcut.icon ? (
-                          <shortcut.icon
-                            aria-hidden="true"
-                            size={14}
-                            className={styles.descriptionIcon}
-                          />
-                        ) : null}
-                        <span>{shortcut.description}</span>
+                        {shortcut.description}
                       </span>
                       <KeyCapDisplay caps={shortcut.caps} />
                     </li>
@@ -80,9 +76,6 @@ export function ShortcutSheet({
               </section>
             ))}
           </div>
-          <Dialog.Close className={styles.closeButton} aria-label="Close">
-            <CloseIcon />
-          </Dialog.Close>
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>
@@ -118,20 +111,3 @@ function KeyCapDisplay({ caps }: { caps: KeyCapType }) {
   );
 }
 
-/** Inline X icon for the close button — kept local to avoid an icon import for one usage. */
-function CloseIcon() {
-  return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 14 14"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.6"
-      strokeLinecap="round"
-      aria-hidden="true"
-    >
-      <path d="M3 3l8 8M11 3l-8 8" />
-    </svg>
-  );
-}

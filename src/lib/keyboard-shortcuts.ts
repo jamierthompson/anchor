@@ -16,17 +16,6 @@
  * a bug; keep this list aligned when adding new bindings.
  */
 
-import type { LucideIcon } from "lucide-react";
-import {
-  ArrowDownToLine,
-  ArrowUpToLine,
-  Bookmark,
-  ListChevronsUpDown,
-  MoveDown,
-  MoveUp,
-  X,
-} from "lucide-react";
-
 /**
  * One physical key cap to render in the sheet.
  *
@@ -57,13 +46,6 @@ export type Shortcut = {
   caps: KeyCap;
   /** Short user-facing description of what the binding does. */
   description: string;
-  /**
-   * Optional icon to render alongside the description — gives the
-   * sheet visual rhythm and reinforces the action's meaning. Skipped
-   * when the action is more abstract (e.g. clear contexts) or has no
-   * obvious icon.
-   */
-  icon?: LucideIcon;
 };
 
 export type ShortcutGroup = {
@@ -87,31 +69,27 @@ export const KEYBOARD_SHORTCUTS: readonly ShortcutGroup[] = [
     shortcuts: [
       {
         caps: { keys: ["J"], aliases: [["↓"]] },
-        description: "Next visible line",
-        icon: MoveDown,
+        description: "Next Visible Line",
       },
       {
         caps: { keys: ["K"], aliases: [["↑"]] },
-        description: "Previous visible line",
-        icon: MoveUp,
+        description: "Previous Visible Line",
       },
       {
         caps: { keys: ["G"] },
-        description: "First visible line",
-        icon: ArrowUpToLine,
+        description: "First Visible Line",
       },
       {
         caps: { keys: ["Shift", "G"] },
-        description: "Last visible line",
-        icon: ArrowDownToLine,
+        description: "Last Visible Line",
       },
       {
         caps: { keys: ["["] },
-        description: "Previous deploy boundary",
+        description: "Previous Deploy Boundary",
       },
       {
         caps: { keys: ["]"] },
-        description: "Next deploy boundary",
+        description: "Next Deploy Boundary",
       },
     ],
   },
@@ -119,24 +97,21 @@ export const KEYBOARD_SHORTCUTS: readonly ShortcutGroup[] = [
     title: "Actions",
     shortcuts: [
       {
-        caps: { keys: ["E"] },
-        description: "Toggle context on focused line",
-        icon: Bookmark,
+        caps: { keys: ["E"], aliases: [["Enter"]] },
+        description: "Toggle Context on Focused Line",
       },
       {
         caps: { keys: ["Shift", "E"] },
-        description: "Expand context (±20 lines)",
-        icon: ListChevronsUpDown,
+        description: "Expand Context (±20 Lines)",
       },
     ],
   },
   {
-    title: "Contexts",
+    title: "Dismiss",
     shortcuts: [
       {
         caps: { keys: ["Esc"] },
-        description: "Clear all open contexts",
-        icon: X,
+        description: "Close / Clear",
       },
     ],
   },
@@ -145,7 +120,7 @@ export const KEYBOARD_SHORTCUTS: readonly ShortcutGroup[] = [
     shortcuts: [
       {
         caps: { keys: ["?"] },
-        description: "Open this shortcut sheet",
+        description: "Open This Shortcut Sheet",
       },
     ],
   },

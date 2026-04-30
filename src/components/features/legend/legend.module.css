@@ -140,7 +140,7 @@ button.entry:focus-visible {
   min-width: 18px;
   height: 18px;
   padding: 0 5px;
-  border-radius: 4px;
+  border-radius: 3px;
   background:
     linear-gradient(
       180deg,

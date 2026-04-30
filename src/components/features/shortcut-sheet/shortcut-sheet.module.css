@@ -56,12 +56,23 @@
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: min(640px, calc(100vw - var(--space-8)));
+  /*
+   * Narrower panel since the four sections now stack vertically
+   * instead of running in a 2-column grid — the natural width is
+   * "wide enough for one row of description + caps" rather than
+   * "wide enough for two columns side by side."
+   */
+  width: min(440px, calc(100vw - var(--space-8)));
   max-height: calc(100vh - var(--space-8));
   overflow-y: auto;
-  padding: var(--space-6);
+  padding: var(--space-8);
   border: 1px solid var(--color-border);
-  border-radius: 12px;
+  /*
+   * Restrained corner radius — the modal reads as a deliberate
+   * surface rather than a soft, app-store style card. 4px is just
+   * enough to soften the corners without any of the bubble feel.
+   */
+  border-radius: 4px;
   background: var(--color-bg-elevated);
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.04) inset,
@@ -102,26 +113,27 @@
   margin: 0 0 var(--space-6);
   color: var(--color-fg);
   font-family: var(--font-sans);
-  font-size: 18px;
+  /*
+   * 14px reads as a clear surface header — small enough to keep
+   * the sheet feeling like supporting chrome, big enough to have
+   * obvious priority over the 11px Title Case items below.
+   */
+  font-size: 14px;
   font-weight: var(--font-weight-medium);
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
 }
 
 /*
- * Two-column layout for the four sections. Falls back to single-
- * column on narrow screens. minmax(0, 1fr) prevents long
- * descriptions from blowing out the column width.
+ * Single-column vertical stack for the four sections. Reads top-
+ * to-bottom (Navigation → Actions → Dismiss → Help) like a
+ * conventional cheat sheet, and avoids the awkward column wrap
+ * the previous two-column grid produced when descriptions ran
+ * long.
  */
 .groups {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-6) var(--space-8);
-}
-
-@media (max-width: 540px) {
-  .groups {
-    grid-template-columns: 1fr;
-  }
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
 }
 
 .group {
@@ -145,7 +157,15 @@
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  /*
+   * Tight-but-readable row spacing. 9px sits between the prior
+   * 12px (too airy for the small Title Case items) and the 6px
+   * test (too cramped — caps started visually colliding row to
+   * row). The bigger gap between section headers and their first
+   * row, set on .group via .groupTitle's margin, gives the
+   * section breaks more breathing room than the row stack needs.
+   */
+  gap: 9px;
 }
 
 .shortcutRow {
@@ -153,15 +173,20 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
-  min-height: 28px;
+  min-height: 20px;
 }
 
 .description {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
   color: var(--color-fg);
-  font-size: 13px;
+  /*
+   * 11px reads as supporting / reference text — appropriate for a
+   * cheat sheet whose primary visual hierarchy is the keycaps
+   * themselves. Title Case at this size feels deliberate without
+   * shouting.
+   */
+  font-size: 11px;
   /*
    * Keep descriptions on one line. If a description ever needs
    * wrapping, we'll bump min-height accordingly — for now the
@@ -170,11 +195,6 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.descriptionIcon {
-  flex-shrink: 0;
-  color: var(--color-fg-muted);
 }
 
 /*
@@ -216,28 +236,31 @@
 }
 
 /*
- * Physical keycap. The dimensionality comes from layered shadows:
+ * Physical keycap. Mirrors the legend's `.cap` dimensions and
+ * shadow recipe so the two surfaces read as the same physical
+ * object — the sheet just shows more of them at once.
+ *
+ * Dimensionality comes from layered shadows:
  *   - Inset top highlight (the cap's "rim" catching light)
  *   - Inset bottom inner shadow (the keycap's slight concavity)
  *   - Outer 1px translucent border (cap edge)
- *   - Outer 2px solid bottom shadow (the gap between cap and base)
+ *   - Outer 1px solid bottom shadow (the gap between cap and base)
  *   - Outer drop shadow (the keycap's lift off the keyboard plane)
  *
  * Linear-gradient on background creates the "top is slightly
- * brighter" cue that makes the cap read as facing up.
- *
- * Active state (:active) shrinks the bottom shadow + nudges the cap
- * down 1px, mimicking a key being pressed. This is animated below
- * so the press has a tactile feel.
+ * brighter" cue that makes the cap read as facing up. Background
+ * uses --color-bg (one step darker than the sheet's elevated
+ * surface) so the cap pops off the panel; the legend uses
+ * --color-bg-elevated for the same reason against the page bg.
  */
 .keyCap {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 28px;
-  height: 28px;
-  padding: 0 8px;
-  border-radius: 6px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 3px;
   background:
     linear-gradient(
       180deg,
@@ -248,24 +271,16 @@
     var(--color-bg);
   color: var(--color-fg);
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 10px;
   font-weight: var(--font-weight-medium);
   line-height: 1;
   letter-spacing: 0;
-  /*
-   * Stacked shadows in order:
-   *   1. inset top white = rim highlight (cap face catching light)
-   *   2. inset bottom black = slight cap dip
-   *   3. outer 0 0 0 1px = cap-edge border
-   *   4. outer 2px down black = gap between cap and base
-   *   5. outer drop = lift off the keyboard
-   */
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    inset 0 -2px 0 rgba(0, 0, 0, 0.25),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.25),
     0 0 0 1px rgba(255, 255, 255, 0.06),
-    0 2px 0 rgba(0, 0, 0, 0.4),
-    0 4px 6px rgba(0, 0, 0, 0.3);
+    0 1px 0 rgba(0, 0, 0, 0.4),
+    0 2px 4px rgba(0, 0, 0, 0.3);
   transition:
     transform 80ms var(--ease-standard),
     box-shadow 80ms var(--ease-standard);
@@ -278,34 +293,4 @@
  * relying on min-width auto-expand from padding works for
  * everything in the registry today.
  */
-
-.closeButton {
-  position: absolute;
-  top: var(--space-3);
-  right: var(--space-3);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--color-fg-muted);
-  cursor: pointer;
-  transition:
-    color 100ms var(--ease-standard),
-    background 100ms var(--ease-standard);
-}
-
-.closeButton:hover {
-  background: var(--color-bg);
-  color: var(--color-fg);
-}
-
-.closeButton:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 1px;
-}
 
