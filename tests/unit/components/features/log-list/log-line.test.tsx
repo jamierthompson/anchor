@@ -252,85 +252,26 @@ describe("LogLine — line actions (spec §8 — hover-revealed icon row)", () =
     expect(onToggleContext).toHaveBeenCalledWith(baseLine.id);
   });
 
-  it("renders the Expand context button when isSelected and contextRange < max", () => {
+  it("does not render Expand or Less context buttons (keyboard-only via shift+e)", () => {
+    // Spec: range expansion is keyboard-only. The mouse buttons used
+    // to live in the action row but were removed because expanding
+    // context naturally pulls the user's scroll position away from
+    // the anchor — they shouldn't have to scroll back to find an
+    // in-row button. shift+e works wherever focus is.
     render(
       <LogLine
         line={baseLine}
         onToggleContext={() => {}}
-        onExpandContext={() => {}}
-        onLessContext={() => {}}
         canToggleContext
         isSelected
-        contextRange={50}
       />,
     );
-    expect(
-      screen.getByRole("button", { name: /Expand context/ }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: /Less context/ }),
-    ).toBeInTheDocument();
-  });
-
-  it("hides Expand at the cycle max (±100) and Less at the cycle min (±20)", () => {
-    const { rerender } = render(
-      <LogLine
-        line={baseLine}
-        onToggleContext={() => {}}
-        onExpandContext={() => {}}
-        onLessContext={() => {}}
-        canToggleContext
-        isSelected
-        contextRange={20}
-      />,
-    );
-    // ±20 — only Expand is meaningful; Less is hidden.
-    expect(
-      screen.getByRole("button", { name: /Expand context/ }),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: /Less context/ }),
-    ).not.toBeInTheDocument();
-
-    rerender(
-      <LogLine
-        line={baseLine}
-        onToggleContext={() => {}}
-        onExpandContext={() => {}}
-        onLessContext={() => {}}
-        canToggleContext
-        isSelected
-        contextRange={100}
-      />,
-    );
-    // ±100 — only Less is meaningful; Expand is hidden.
     expect(
       screen.queryByRole("button", { name: /Expand context/ }),
     ).not.toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: /Less context/ }),
-    ).toBeInTheDocument();
-  });
-
-  it("Expand and Less buttons fire their respective callbacks with the line id", async () => {
-    const user = userEvent.setup();
-    const onExpandContext = vi.fn();
-    const onLessContext = vi.fn();
-    render(
-      <LogLine
-        line={baseLine}
-        onToggleContext={() => {}}
-        onExpandContext={onExpandContext}
-        onLessContext={onLessContext}
-        canToggleContext
-        isSelected
-        contextRange={50}
-      />,
-    );
-    await user.click(screen.getByRole("button", { name: /Expand context/ }));
-    expect(onExpandContext).toHaveBeenCalledWith(baseLine.id);
-    await user.click(screen.getByRole("button", { name: /Less context/ }));
-    expect(onLessContext).toHaveBeenCalledWith(baseLine.id);
+      screen.queryByRole("button", { name: /Less context/ }),
+    ).not.toBeInTheDocument();
   });
 
   it("Copy button fires onCopyLine with the line id", async () => {

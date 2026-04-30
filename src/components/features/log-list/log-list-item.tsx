@@ -56,7 +56,6 @@ type LogListItemProps = {
   isStreamed: boolean;
   isSelected: boolean;
   isFocused: boolean;
-  contextRange: number | undefined;
   /**
    * §3 gate for the View/Hide context action. Pre-resolved in LogList
    * so this row doesn't need FilterState shape.
@@ -64,8 +63,6 @@ type LogListItemProps = {
   canToggleContext: boolean;
   onLineFocus?: (lineId: string) => void;
   onToggleContext?: (lineId: string) => void;
-  onExpandContext?: (lineId: string) => void;
-  onLessContext?: (lineId: string) => void;
   onCopyLine?: (lineId: string) => void;
 };
 
@@ -75,12 +72,9 @@ function LogListItemImpl({
   isStreamed,
   isSelected,
   isFocused,
-  contextRange,
   canToggleContext,
   onLineFocus,
   onToggleContext,
-  onExpandContext,
-  onLessContext,
   onCopyLine,
 }: LogListItemProps) {
   // Plain click on the <li> sets focus on this line. LogLine still
@@ -112,11 +106,8 @@ function LogListItemImpl({
           isVisible={line.isVisible}
           isDimmed={line.isDimmed}
           isSelected={isSelected}
-          contextRange={contextRange}
           canToggleContext={canToggleContext}
           onToggleContext={onToggleContext}
-          onExpandContext={onExpandContext}
-          onLessContext={onLessContext}
           onCopyLine={onCopyLine}
         />
       </div>
@@ -138,12 +129,9 @@ function arePropsEqual(prev: LogListItemProps, next: LogListItemProps) {
     prev.isStreamed === next.isStreamed &&
     prev.isSelected === next.isSelected &&
     prev.isFocused === next.isFocused &&
-    prev.contextRange === next.contextRange &&
     prev.canToggleContext === next.canToggleContext &&
     prev.onLineFocus === next.onLineFocus &&
     prev.onToggleContext === next.onToggleContext &&
-    prev.onExpandContext === next.onExpandContext &&
-    prev.onLessContext === next.onLessContext &&
     prev.onCopyLine === next.onCopyLine
   );
 }

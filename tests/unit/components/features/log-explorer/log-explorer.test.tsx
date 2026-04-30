@@ -519,37 +519,63 @@ describe("LogExplorer — e toggles context on the focused line", () => {
   });
 });
 
-describe("LogExplorer — shift+e cycles context size on the focused line", () => {
-  // Uses the module-level wideFixture (51 lines, anchor at index 25)
-  // — sized so each cycle range reveals a distinguishable set of
-  // surrounding lines. The 5-line `fixture` would be entirely covered
-  // by even a ±20 window, so visibility flips couldn't differentiate.
+describe("LogExplorer — shift+e expands the most-recent context by a fixed step", () => {
+  // Uses the module-level wideFixture (51 lines, anchor at index 25).
+  // Anchor-to-edge max distance is 25, so:
+  //   - ±20 covers indices 5..45 → 41 visible lines
+  //   - ±25 (single step beyond ±20, clamped to the boundary) covers
+  //     all 51 lines
+  // The 5-line `fixture` would be entirely covered by ±20, so it
+  // can't differentiate step sizes — wideFixture is necessary.
   const listbox = () => screen.getByRole("listbox", { name: /log lines/i });
 
   /** Helper: count visible <li>s in the rendered list. */
   const visibleLineCount = () =>
     document.querySelectorAll('li[data-visible="true"]').length;
 
-  it("expands the window on shift+e (±20 → ±50)", async () => {
+  it("grows the most-recent context's window by CONTEXT_RANGE_STEP (clamped to file boundary)", async () => {
     const user = userEvent.setup();
     render(<LogExplorer lines={wideFixture} />);
-
-    // Apply ERROR filter via the chip bar.
     applyErrorFilter();
     listbox().focus();
 
-    // Focus and open context at default ±20 — covers indices 5..45 (41 lines).
+    // Open context at default ±20 — covers indices 5..45 (41 lines).
     fireEvent.click(liFor(/row l25 error anchor/));
     await user.keyboard("e");
-    const at20 = visibleLineCount();
-    expect(at20).toBe(41);
+    expect(visibleLineCount()).toBe(41);
 
-    // shift+e → ±50 — fixture is only 51 wide, so the window covers everything.
+    // shift+e: +20 step would be ±40, but the anchor's farther edge is
+    // 25 lines away, so it clamps there. ±25 covers everything.
     await user.keyboard("{Shift>}e{/Shift}");
     expect(visibleLineCount()).toBe(51);
   });
 
-  it("wraps the cycle 100 → 20 after three presses", async () => {
+  it("targets the most-recent context, not the focused line", async () => {
+    // Behaviour change vs the old cycle: shift+e used to operate on
+    // whichever line was focused, which silently no-op'd or hit the
+    // wrong window when focus had moved away from the anchor. Now it
+    // always grows "the thing I just opened."
+    const user = userEvent.setup();
+    render(<LogExplorer lines={wideFixture} />);
+    applyErrorFilter();
+    listbox().focus();
+
+    // Open context on l25 at ±20.
+    fireEvent.click(liFor(/row l25 error anchor/));
+    await user.keyboard("e");
+    expect(visibleLineCount()).toBe(41);
+
+    // Move focus away to a non-anchor line. Use ArrowDown so we don't
+    // depend on which line is closest to l25 in the visible set.
+    await user.keyboard("{ArrowDown}");
+
+    // shift+e should still grow l25's window despite focus being
+    // elsewhere — the most-recent context wins.
+    await user.keyboard("{Shift>}e{/Shift}");
+    expect(visibleLineCount()).toBe(51);
+  });
+
+  it("is a no-op at the file boundary (window already covers all lines from the anchor)", async () => {
     const user = userEvent.setup();
     render(<LogExplorer lines={wideFixture} />);
     applyErrorFilter();
@@ -557,39 +583,30 @@ describe("LogExplorer — shift+e cycles context size on the focused line", () =
 
     fireEvent.click(liFor(/row l25 error anchor/));
     await user.keyboard("e"); // ±20
-    await user.keyboard("{Shift>}e{/Shift}"); // ±50
-    await user.keyboard("{Shift>}e{/Shift}"); // ±100
-    await user.keyboard("{Shift>}e{/Shift}"); // wraps to ±20
-    expect(visibleLineCount()).toBe(41); // back to ±20 width
+    await user.keyboard("{Shift>}e{/Shift}"); // ±25 (clamped, covers all)
+    expect(visibleLineCount()).toBe(51);
+
+    // Subsequent presses can't grow further. Visible count stays put.
+    await user.keyboard("{Shift>}e{/Shift}");
+    await user.keyboard("{Shift>}e{/Shift}");
+    expect(visibleLineCount()).toBe(51);
   });
 
-  it("is a no-op when the focused line has no context open (strict semantics)", async () => {
+  it("is a no-op when no contexts are open", async () => {
     const user = userEvent.setup();
     render(<LogExplorer lines={wideFixture} />);
     applyErrorFilter();
     listbox().focus();
 
+    // Focus a line but don't press `e` — no context is open. shift+e
+    // must not implicitly open a context.
     fireEvent.click(liFor(/row l25 error anchor/));
-    // No `e` first — focused line has NO context. shift+e should not
-    // implicitly open a context at ±50.
     await user.keyboard("{Shift>}e{/Shift}");
 
     expect(liFor(/row l25 error anchor/).getAttribute("data-selected")).toBe(
       "false",
     );
-    // And the surrounding lines remain hidden (filter-only state).
     expect(visibleLineCount()).toBe(1); // just the anchor itself
-  });
-
-  it("is a no-op when no line is focused", async () => {
-    const user = userEvent.setup();
-    render(<LogExplorer lines={wideFixture} />);
-    applyErrorFilter();
-    listbox().focus();
-
-    await user.keyboard("{Shift>}e{/Shift}");
-
-    expect(document.querySelector('[data-selected="true"]')).toBeNull();
   });
 });
 
@@ -766,39 +783,30 @@ describe("LogExplorer — line-action integration (spec §8 — hover icon row)"
     ).not.toBeNull();
   });
 
-  it("Expand / Less buttons appear and step the range on click", async () => {
+  it("does not render Expand or Less context buttons in the action row (keyboard-only via shift+e)", async () => {
     const user = userEvent.setup();
     render(<LogExplorer lines={wideFixture} />);
     applyErrorFilter();
 
-    // Open context at default ±20.
+    // Open context at default ±20 via the anchor button.
     await user.click(
       liFor(/row l25 error anchor/).querySelector<HTMLButtonElement>(
         'button[aria-label="View context"]',
       )!,
     );
-    // ±20 — Expand visible, Less hidden.
+
+    // Anchor button flips to "Hide context" but no resize buttons
+    // ever appear in the action row.
     const anchorRow = liFor(/row l25 error anchor/);
     expect(
-      anchorRow.querySelector('button[aria-label="Expand context"]'),
+      anchorRow.querySelector('button[aria-label="Hide context"]'),
     ).not.toBeNull();
+    expect(
+      anchorRow.querySelector('button[aria-label="Expand context"]'),
+    ).toBeNull();
     expect(
       anchorRow.querySelector('button[aria-label="Less context"]'),
     ).toBeNull();
-
-    // Step up — visible-line count grows from 41 (±20) to 51 (±50, full
-    // fixture). Less should now appear.
-    await user.click(
-      anchorRow.querySelector<HTMLButtonElement>(
-        'button[aria-label="Expand context"]',
-      )!,
-    );
-    expect(
-      document.querySelectorAll('li[data-visible="true"]').length,
-    ).toBe(51);
-    expect(
-      anchorRow.querySelector('button[aria-label="Less context"]'),
-    ).not.toBeNull();
   });
 
   it("Copy button writes a formatted line to navigator.clipboard", () => {

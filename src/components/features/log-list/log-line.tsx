@@ -1,6 +1,5 @@
 import type { MouseEvent as ReactMouseEvent } from "react";
 
-import { DEFAULT_CONTEXT_RANGE } from "@/lib/context-state";
 import type { LogLine as LogLineType, Level } from "@/types/log";
 
 import { LineActions } from "./line-actions";
@@ -70,24 +69,7 @@ type LogLineProps = {
    * Spec §8: "hide items that don't apply rather than show disabled."
    */
   canToggleContext?: boolean;
-  /**
-   * The current ±N range of the open context on this line, if any.
-   * Drives whether Expand / Less buttons render and which icons each
-   * uses (the buttons hide at the endpoints of CONTEXT_RANGE_CYCLE).
-   * Only meaningful when `isSelected` is true.
-   */
-  contextRange?: number;
   onToggleContext?: (lineId: string) => void;
-  /**
-   * Steps the open context's range to the next entry in
-   * CONTEXT_RANGE_CYCLE. Bound to the "Expand context" icon button.
-   */
-  onExpandContext?: (lineId: string) => void;
-  /**
-   * Steps the open context's range to the previous entry in
-   * CONTEXT_RANGE_CYCLE. Bound to the "Less context" icon button.
-   */
-  onLessContext?: (lineId: string) => void;
   /**
    * Copies a plain-text representation of this line to the clipboard.
    * Bound to the "Copy line" icon button.
@@ -124,10 +106,7 @@ export function LogLine({
   isDimmed,
   isSelected,
   canToggleContext,
-  contextRange,
   onToggleContext,
-  onExpandContext,
-  onLessContext,
   onCopyLine,
 }: LogLineProps) {
   if (line.isDeployBoundary) {
@@ -189,10 +168,7 @@ export function LogLine({
           isVisible={isVisible ?? true}
           isSelected={isSelected ?? false}
           canToggleContext={canToggleContext ?? false}
-          contextRange={contextRange ?? DEFAULT_CONTEXT_RANGE}
           onToggleContext={onToggleContext}
-          onExpandContext={onExpandContext}
-          onLessContext={onLessContext}
           onCopyLine={onCopyLine}
         />
       ) : null}

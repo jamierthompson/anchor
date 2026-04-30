@@ -109,19 +109,18 @@ describe("LogList", () => {
     expect(items[1].getAttribute("data-dimmed")).toBe("false");
   });
 
-  it("marks every line whose id is in selectedContextRangesById via data-selected (multi-context support)", () => {
-    // The Map carries both the boolean ("is this line selected?" via
-    // `.has`) and the per-line range used by the action row. Two
-    // entries → both matching <li>s carry the accent flag; the third
-    // stays unselected.
-    const selectedContextRangesById = new Map([
-      [sampleLines[0].id, 20],
-      [sampleLines[1].id, 50],
+  it("marks every line whose id is in selectedContextLineIds via data-selected (multi-context support)", () => {
+    // The Set carries the "is this line selected?" check used to drive
+    // the selection accent. Two entries → both matching <li>s carry
+    // the accent flag; the third stays unselected.
+    const selectedContextLineIds = new Set([
+      sampleLines[0].id,
+      sampleLines[1].id,
     ]);
     const { container } = render(
       <LogList
         lines={sampleLines}
-        selectedContextRangesById={selectedContextRangesById}
+        selectedContextLineIds={selectedContextLineIds}
       />,
     );
     const items = Array.from(container.querySelectorAll("li"));

@@ -126,7 +126,7 @@ export const KEYBOARD_SHORTCUTS: readonly ShortcutGroup[] = [
       },
       {
         caps: { keys: ["Shift", "E"] },
-        description: "Cycle context size (±20 → ±50 → ±100)",
+        description: "Expand context (±20 lines)",
         icon: ListChevronsUpDown,
       },
       {
