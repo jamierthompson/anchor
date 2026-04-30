@@ -2,7 +2,6 @@
 
 import { memo, type MouseEvent as ReactMouseEvent } from "react";
 
-import type { FilterToggleTarget } from "@/lib/filter-state";
 import type { DerivedLogLine } from "@/types/log";
 
 import { LogLine } from "./log-line";
@@ -64,7 +63,6 @@ type LogListItemProps = {
    */
   canToggleContext: boolean;
   onLineFocus?: (lineId: string) => void;
-  onFilterToggle?: (target: FilterToggleTarget, sourceLineId: string) => void;
   onToggleContext?: (lineId: string) => void;
   onExpandContext?: (lineId: string) => void;
   onLessContext?: (lineId: string) => void;
@@ -80,7 +78,6 @@ function LogListItemImpl({
   contextRange,
   canToggleContext,
   onLineFocus,
-  onFilterToggle,
   onToggleContext,
   onExpandContext,
   onLessContext,
@@ -117,7 +114,6 @@ function LogListItemImpl({
           isSelected={isSelected}
           contextRange={contextRange}
           canToggleContext={canToggleContext}
-          onFilterToggle={onFilterToggle}
           onToggleContext={onToggleContext}
           onExpandContext={onExpandContext}
           onLessContext={onLessContext}
@@ -145,7 +141,6 @@ function arePropsEqual(prev: LogListItemProps, next: LogListItemProps) {
     prev.contextRange === next.contextRange &&
     prev.canToggleContext === next.canToggleContext &&
     prev.onLineFocus === next.onLineFocus &&
-    prev.onFilterToggle === next.onFilterToggle &&
     prev.onToggleContext === next.onToggleContext &&
     prev.onExpandContext === next.onExpandContext &&
     prev.onLessContext === next.onLessContext &&

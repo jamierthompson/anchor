@@ -11,20 +11,13 @@
  * The OR/AND rule itself lives in `derive-lines.ts` — this file only owns
  * the shape and the transitions.
  *
- * Actions are a discriminated union by action `type`. Each action carries
- * exactly the fields it needs so callers can't accidentally mismatch a
- * level value with the instances facet.
- *
- * Toggle (rather than separate add/remove) collapses three callsites onto
- * one shape: clicking a value in the popover, clicking an instance/level/
- * request-id badge inside a log line, and clicking the × on a chip all
- * end up calling the same action. The chip × case toggles a value that
- * is by definition present, which is correct.
+ * The user-facing filter UI is the scenario-chips bar (a small fixed set
+ * of preset filter states, mutually exclusive). Chips dispatch the full
+ * target FilterState atomically rather than composing per-facet toggles —
+ * the reducer here only needs to swap state wholesale or clear it.
  */
 
 import type { Level, LogLine } from "@/types/log";
-
-export type Facet = "instances" | "requestIds" | "levels";
 
 export type FilterState = {
   readonly instances: readonly string[];
@@ -39,57 +32,22 @@ export const initialFilterState: FilterState = {
 };
 
 export type FilterAction =
-  | { type: "toggleInstance"; value: string }
-  | { type: "toggleRequestId"; value: string }
-  | { type: "toggleLevel"; value: Level }
-  | { type: "clearFacet"; facet: Facet };
-
-/**
- * Target shape for click-to-filter from inside a log line.
- *
- * The log-line renderer doesn't know about the reducer — it just
- * announces "the user clicked an instance pill / level badge / request
- * id badge." Callers translate the target into a `FilterAction`. Keeps
- * the renderer decoupled from how filter state is stored.
- */
-export type FilterToggleTarget =
-  | { facet: "instance"; value: string }
-  | { facet: "requestId"; value: string }
-  | { facet: "level"; value: Level };
-
-/** Convenience translator from a click target to its matching reducer action. */
-export function actionForTarget(target: FilterToggleTarget): FilterAction {
-  switch (target.facet) {
-    case "instance":
-      return { type: "toggleInstance", value: target.value };
-    case "requestId":
-      return { type: "toggleRequestId", value: target.value };
-    case "level":
-      return { type: "toggleLevel", value: target.value };
-  }
-}
-
-/** Add `value` if absent, remove it if present. Returns the same array reference when no-op-equivalent isn't possible — we always return a new array on change so React sees the update. */
-function toggle<T>(values: readonly T[], value: T): readonly T[] {
-  return values.includes(value)
-    ? values.filter((v) => v !== value)
-    : [...values, value];
-}
+  | { type: "setFilter"; state: FilterState }
+  | { type: "clear" };
 
 export function filterReducer(
-  state: FilterState,
+  _state: FilterState,
   action: FilterAction,
 ): FilterState {
+  // Both transitions replace the prior state wholesale — there's nothing
+  // to merge in from `_state`. Underscore-prefixed to satisfy
+  // noUnusedParameters while preserving the (state, action) signature
+  // useReducer requires.
   switch (action.type) {
-    case "toggleInstance":
-      return { ...state, instances: toggle(state.instances, action.value) };
-    case "toggleRequestId":
-      return { ...state, requestIds: toggle(state.requestIds, action.value) };
-    case "toggleLevel":
-      return { ...state, levels: toggle(state.levels, action.value) };
-    case "clearFacet":
-      // Used by cmd/ctrl + click on a chip — wipes every value of that facet.
-      return { ...state, [action.facet]: [] };
+    case "setFilter":
+      return action.state;
+    case "clear":
+      return initialFilterState;
   }
 }
 
@@ -100,6 +58,28 @@ export function hasAnyFilter(state: FilterState): boolean {
     state.requestIds.length > 0 ||
     state.levels.length > 0
   );
+}
+
+/**
+ * Whether two filter states represent the same active filter. Used by
+ * the scenario chip bar to decide which preset is currently "on" without
+ * having to track an extra "active chip" state alongside the filter
+ * itself — single source of truth lives in FilterState.
+ */
+export function filterStatesEqual(a: FilterState, b: FilterState): boolean {
+  return (
+    arraysEqual(a.instances, b.instances) &&
+    arraysEqual(a.requestIds, b.requestIds) &&
+    arraysEqual(a.levels, b.levels)
+  );
+}
+
+function arraysEqual<T>(a: readonly T[], b: readonly T[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) return false;
+  }
+  return true;
 }
 
 /**

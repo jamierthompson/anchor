@@ -3,7 +3,6 @@
 import * as ScrollArea from "@radix-ui/react-scroll-area";
 import type { KeyboardEvent as ReactKeyboardEvent, Ref } from "react";
 
-import type { FilterToggleTarget } from "@/lib/filter-state";
 import type { DerivedLogLine } from "@/types/log";
 
 import { LogListItem } from "./log-list-item";
@@ -43,7 +42,6 @@ const lineDomId = (lineId: string) => `${LINE_DOM_ID_PREFIX}${lineId}`;
 export function LogList({
   lines,
   viewportRef,
-  onFilterToggle,
   onToggleContext,
   onExpandContext,
   onLessContext,
@@ -65,7 +63,6 @@ export function LogList({
    * its own ref through.
    */
   viewportRef?: Ref<HTMLDivElement>;
-  onFilterToggle?: (target: FilterToggleTarget, sourceLineId: string) => void;
   onToggleContext?: (lineId: string) => void;
   /** Steps the open context's range up one cycle entry. */
   onExpandContext?: (lineId: string) => void;
@@ -182,7 +179,6 @@ export function LogList({
                 contextRange={contextRange}
                 canToggleContext={canToggleContext}
                 onLineFocus={onLineFocus}
-                onFilterToggle={onFilterToggle}
                 onToggleContext={onToggleContext}
                 onExpandContext={onExpandContext}
                 onLessContext={onLessContext}

@@ -13,11 +13,16 @@ import type { LogLine } from "@/types/log";
  * make sure the spec's modifier shortcut, gating rules, and auto-
  * collapse behavior actually surface as the expected DOM state.
  *
+ * Filtering is applied here through the scenario chip bar (the prototype
+ * doesn't ship per-line click-to-filter or a dropdown filter builder).
+ * Tests drive scenarios via the chip labels rather than hand-crafting
+ * filter state, so they exercise the same path the user does.
+ *
  * The fixture is intentionally tiny (5 lines) so every assertion can
- * name a specific line by its message text without ambiguity. Range
- * is DEFAULT_CONTEXT_RANGE (±20) and the fixture is much smaller, so
- * any open context's window covers every line — what we assert is
- * which lines end up matched vs context-revealed.
+ * name a specific line by its message text without ambiguity. Range is
+ * DEFAULT_CONTEXT_RANGE (±20) and the fixture is much smaller, so any
+ * open context's window covers every line — what we assert is which
+ * lines end up matched vs context-revealed.
  */
 
 const T = (offset: number) => Date.UTC(2026, 3, 27, 14, 0, offset);
@@ -61,12 +66,14 @@ const liFor = (textFragment: string | RegExp): HTMLElement => {
   return el as HTMLElement;
 };
 
-/** Click any one of the ERROR level badges to set `level: error` as the active filter. */
+/**
+ * The scenario chip bar's "Errors only" preset filters to levels=[ERROR].
+ * Both fixtures here are entirely on instance i1/i2 with mixed levels,
+ * so this preset is the only one that produces the same level-only
+ * filter the old click-to-filter path used.
+ */
 const applyErrorFilter = () => {
-  const errorBadges = screen.getAllByRole("button", {
-    name: /Filter by level ERROR/,
-  });
-  fireEvent.click(errorBadges[0]);
+  fireEvent.click(screen.getByRole("button", { name: /Errors only/ }));
 };
 
 describe("LogExplorer — View Context toggle", () => {
@@ -171,8 +178,7 @@ describe("LogExplorer — View Context toggle", () => {
     });
 
     // No line should be selected.
-    const { container } = { container: document.body };
-    expect(container.querySelector('[data-selected="true"]')).toBeNull();
+    expect(document.querySelector('[data-selected="true"]')).toBeNull();
   });
 
   it("cmd + click on a context-revealed (dimmed) line is a no-op (no nested context)", () => {
@@ -208,23 +214,10 @@ describe("LogExplorer — View Context toggle", () => {
     expect(liFor(/row one error/).getAttribute("data-selected")).toBe("false");
   });
 
-  it("cmd + click on an instance pill adds a filter without opening a context (stopPropagation)", () => {
-    render(<LogExplorer lines={fixture} />);
-    applyErrorFilter();
-
-    // Two ERROR lines visible; pick the first instance pill button on l1.
-    const pill = liFor(/row one error/).querySelector(
-      'button[aria-label^="Filter by instance"]',
-    );
-    fireEvent.click(pill!, { metaKey: true });
-
-    // Instance filter chip should now be in the bar.
-    expect(screen.getByText("instance: i1")).toBeInTheDocument();
-    // And no line was selected for context.
-    expect(document.querySelector('[data-selected="true"]')).toBeNull();
-  });
-
-  it("auto-collapses the context when a filter change excludes the selected line (spec §5)", () => {
+  it("auto-collapses the context when the filter clears so the selected line no longer matches (spec §5)", () => {
+    // Filter changes are atomic at the chip level — clearing the active
+    // chip wipes the level filter, so the previously-selected ERROR line
+    // no longer matches and its surrounding context reveals collapse.
     render(<LogExplorer lines={fixture} />);
     applyErrorFilter();
 
@@ -234,61 +227,13 @@ describe("LogExplorer — View Context toggle", () => {
     });
     expect(liFor(/row zero info/).getAttribute("data-visible")).toBe("true");
 
-    // Add a WARN filter on top of ERROR — l1 still matches, no collapse.
-    const warnBadge = screen.getByRole("button", {
-      name: /Filter by level WARN/,
-    });
-    fireEvent.click(warnBadge);
-    expect(liFor(/row one error/).getAttribute("data-visible")).toBe("true");
+    // Click the active chip again to clear the filter — l1 still
+    // technically matches (no filter == every line matches), but the §3
+    // gate (filter active) is now false, so the accent suppresses and
+    // surrounding dimmed reveals collapse since no filter is active.
+    fireEvent.click(screen.getByRole("button", { name: /Errors only/ }));
 
-    // Now remove the ERROR chip — only WARN remains, l1 no longer matches.
-    fireEvent.click(
-      screen.getByRole("button", { name: "Remove filter: level: error" }),
-    );
-
-    // l1 itself is filter-hidden, and the surrounding context-only reveals
-    // collapse back to hidden too. Only the WARN line stays visible.
-    expect(liFor(/row two warn/).getAttribute("data-visible")).toBe("true");
-    // l0 (INFO) was previously visible-dimmed via the context window — now
-    // hidden because the context went dormant.
-    expect(liFor(/row zero info/).getAttribute("data-visible")).toBe("false");
-    expect(liFor(/row four info/).getAttribute("data-visible")).toBe("false");
-  });
-
-  it("hides the accent when a filter change excludes the selected line, restores it when the filter loosens (spec §5)", () => {
-    // The saved selection persists in state behind the scenes — only
-    // the visual accent is gated on (filter active AND selected line
-    // still matches). Re-adding a filter that re-includes the line
-    // brings the accent (and the surrounding context window) back in
-    // place without the user re-opening it.
-    render(<LogExplorer lines={fixture} />);
-    applyErrorFilter();
-
-    fireEvent.click(liFor(/row one error/).querySelector("[data-level]")!, {
-      metaKey: true,
-    });
-    expect(liFor(/row one error/).getAttribute("data-selected")).toBe("true");
-
-    // Switch the filter so l1 (ERROR) no longer matches.
-    fireEvent.click(
-      screen.getByRole("button", { name: /Filter by level WARN/ }),
-    );
-    fireEvent.click(
-      screen.getByRole("button", { name: "Remove filter: level: error" }),
-    );
-
-    // Accent suppressed — gate fails because l1 no longer matches.
     expect(liFor(/row one error/).getAttribute("data-selected")).toBe("false");
-
-    // Re-add ERROR — l1 matches again, gate passes, accent returns.
-    fireEvent.click(
-      screen.getAllByRole("button", { name: /Filter by level ERROR/ })[0],
-    );
-    expect(liFor(/row one error/).getAttribute("data-selected")).toBe("true");
-    // Surrounding context lines come back dimmed too — the window is
-    // active again because the saved state was preserved.
-    expect(liFor(/row zero info/).getAttribute("data-visible")).toBe("true");
-    expect(liFor(/row zero info/).getAttribute("data-dimmed")).toBe("true");
   });
 
   it("hides the accent when all filters are removed, restores it when a matching filter is re-added", () => {
@@ -304,18 +249,14 @@ describe("LogExplorer — View Context toggle", () => {
     });
     expect(liFor(/row one error/).getAttribute("data-selected")).toBe("true");
 
-    // Remove the only filter chip — filter state is now empty.
-    fireEvent.click(
-      screen.getByRole("button", { name: "Remove filter: level: error" }),
-    );
+    // Toggle the chip off — filter state is now empty.
+    fireEvent.click(screen.getByRole("button", { name: /Errors only/ }));
 
     // Accent suppressed — gate fails because no filter is active.
     expect(liFor(/row one error/).getAttribute("data-selected")).toBe("false");
 
-    // Re-apply ERROR — saved selection re-emerges.
-    fireEvent.click(
-      screen.getAllByRole("button", { name: /Filter by level ERROR/ })[0],
-    );
+    // Re-apply ERRORS — saved selection re-emerges.
+    applyErrorFilter();
     expect(liFor(/row one error/).getAttribute("data-selected")).toBe("true");
   });
 });
@@ -566,9 +507,7 @@ describe("LogExplorer — e toggles context on the focused line", () => {
     await user.keyboard("e");
     expect(liFor(/row zero info/).getAttribute("data-dimmed")).toBe("true");
 
-    // Click l0 to focus it (j won't reach it because it's dimmed but still
-    // visible — actually j WILL hop onto it because it's visible). To make
-    // the test deterministic regardless, click directly.
+    // Click l0 to focus it.
     fireEvent.click(liFor(/row zero info/));
     await user.keyboard("e");
 
@@ -595,8 +534,8 @@ describe("LogExplorer — shift+e cycles context size on the focused line", () =
     const user = userEvent.setup();
     render(<LogExplorer lines={wideFixture} />);
 
-    // Apply ERROR filter via the only ERROR badge.
-    fireEvent.click(screen.getByRole("button", { name: /Filter by level ERROR/ }));
+    // Apply ERROR filter via the chip bar.
+    applyErrorFilter();
     listbox().focus();
 
     // Focus and open context at default ±20 — covers indices 5..45 (41 lines).
@@ -613,7 +552,7 @@ describe("LogExplorer — shift+e cycles context size on the focused line", () =
   it("wraps the cycle 100 → 20 after three presses", async () => {
     const user = userEvent.setup();
     render(<LogExplorer lines={wideFixture} />);
-    fireEvent.click(screen.getByRole("button", { name: /Filter by level ERROR/ }));
+    applyErrorFilter();
     listbox().focus();
 
     fireEvent.click(liFor(/row l25 error anchor/));
@@ -627,7 +566,7 @@ describe("LogExplorer — shift+e cycles context size on the focused line", () =
   it("is a no-op when the focused line has no context open (strict semantics)", async () => {
     const user = userEvent.setup();
     render(<LogExplorer lines={wideFixture} />);
-    fireEvent.click(screen.getByRole("button", { name: /Filter by level ERROR/ }));
+    applyErrorFilter();
     listbox().focus();
 
     fireEvent.click(liFor(/row l25 error anchor/));
@@ -645,7 +584,7 @@ describe("LogExplorer — shift+e cycles context size on the focused line", () =
   it("is a no-op when no line is focused", async () => {
     const user = userEvent.setup();
     render(<LogExplorer lines={wideFixture} />);
-    fireEvent.click(screen.getByRole("button", { name: /Filter by level ERROR/ }));
+    applyErrorFilter();
     listbox().focus();
 
     await user.keyboard("{Shift>}e{/Shift}");
@@ -696,45 +635,8 @@ describe("LogExplorer — c copies the focused line", () => {
   });
 });
 
-describe("LogExplorer — global shortcuts (/ and Esc)", () => {
-  it("/ focuses the Add filter trigger from anywhere on the page", async () => {
-    const user = userEvent.setup();
-    render(<LogExplorer lines={fixture} />);
-
-    // Focus body so we're not on the listbox.
-    document.body.focus();
-    expect(document.activeElement).toBe(document.body);
-
-    await user.keyboard("/");
-
-    const trigger = document.getElementById("add-filter-trigger");
-    expect(trigger).toBeTruthy();
-    expect(document.activeElement).toBe(trigger);
-  });
-
-  it("/ does NOT intercept when focus is in a text input — user can type a literal '/'", async () => {
-    const user = userEvent.setup();
-    // Mount LogExplorer with a sibling input to simulate "user typing somewhere."
-    const { container } = render(
-      <>
-        <input data-testid="external" defaultValue="" />
-        <LogExplorer lines={fixture} />
-      </>,
-    );
-
-    const input = container.querySelector<HTMLInputElement>(
-      '[data-testid="external"]',
-    )!;
-    input.focus();
-    await user.keyboard("/");
-
-    // Trigger NOT focused — the input is.
-    expect(document.activeElement).toBe(input);
-    // And the input received the literal slash.
-    expect(input.value).toBe("/");
-  });
-
-  it("Esc clears all open contexts (spec §7 precedence #3)", async () => {
+describe("LogExplorer — global shortcuts (Esc and ?)", () => {
+  it("Esc clears all open contexts (spec §7 precedence)", async () => {
     const user = userEvent.setup();
     render(<LogExplorer lines={fixture} />);
     applyErrorFilter();
@@ -754,9 +656,7 @@ describe("LogExplorer — global shortcuts (/ and Esc)", () => {
     expect(document.querySelector('li[data-selected="true"]')).toBeNull();
   });
 
-  it("Esc with no open contexts is a no-op (doesn't preventDefault, doesn't fight the OS)", async () => {
-    // No assertion on browser behavior — we just exercise the path
-    // and confirm no contexts get created/changed.
+  it("Esc with no open contexts is a no-op", async () => {
     const user = userEvent.setup();
     render(<LogExplorer lines={fixture} />);
     applyErrorFilter();
@@ -768,8 +668,7 @@ describe("LogExplorer — global shortcuts (/ and Esc)", () => {
   });
 
   it("Esc preserves the filter — only contexts clear", async () => {
-    // Spec §7 explicitly: "Filters require explicit removal." Esc
-    // doesn't touch them.
+    // Spec §7: "Filters require explicit removal." Esc doesn't touch them.
     const user = userEvent.setup();
     render(<LogExplorer lines={fixture} />);
     applyErrorFilter();
@@ -780,10 +679,148 @@ describe("LogExplorer — global shortcuts (/ and Esc)", () => {
 
     await user.keyboard("{Escape}");
 
-    // The ERROR filter chip is still there.
-    expect(screen.getByText("level: error")).toBeInTheDocument();
+    // The active scenario chip is still pressed.
+    expect(
+      screen
+        .getByRole("button", { name: /Errors only/ })
+        .getAttribute("aria-pressed"),
+    ).toBe("true");
     // l0 is hidden again (filter excludes it; context that revealed it is gone).
     expect(liFor(/row zero info/).getAttribute("data-visible")).toBe("false");
+  });
+});
+
+describe("LogExplorer — line-action integration (spec §8 — hover icon row)", () => {
+  it("View context button opens a context (toggle pipeline reuse)", async () => {
+    const user = userEvent.setup();
+    render(<LogExplorer lines={fixture} />);
+    applyErrorFilter();
+
+    const l1Row = liFor(/row one error/);
+    const viewBtn = l1Row.querySelector<HTMLButtonElement>(
+      'button[aria-label="View context"]',
+    );
+    expect(viewBtn).not.toBeNull();
+    await user.click(viewBtn!);
+
+    expect(l1Row.getAttribute("data-selected")).toBe("true");
+    // Surrounding non-matching line revealed dimmed via the window.
+    expect(liFor(/row zero info/).getAttribute("data-dimmed")).toBe("true");
+  });
+
+  it("Hide context button (active anchor) closes the open context", async () => {
+    const user = userEvent.setup();
+    render(<LogExplorer lines={fixture} />);
+    applyErrorFilter();
+
+    // Open via cmd+click for variety, then verify the row now offers Hide.
+    fireEvent.click(liFor(/row one error/).querySelector("[data-level]")!, {
+      metaKey: true,
+    });
+    expect(liFor(/row one error/).getAttribute("data-selected")).toBe("true");
+
+    const hideBtn = liFor(/row one error/).querySelector<HTMLButtonElement>(
+      'button[aria-label="Hide context"]',
+    );
+    expect(hideBtn).not.toBeNull();
+    expect(hideBtn?.getAttribute("data-active")).toBe("true");
+    await user.click(hideBtn!);
+
+    expect(liFor(/row one error/).getAttribute("data-selected")).toBe("false");
+  });
+
+  it("action row is empty (no toggle/copy buttons) on lines that fail the §3 gate when no filter is active", () => {
+    render(<LogExplorer lines={fixture} />);
+
+    // No filter — no line should expose View context / Hide context.
+    expect(
+      document.querySelectorAll('button[aria-label="View context"]'),
+    ).toHaveLength(0);
+    expect(
+      document.querySelectorAll('button[aria-label="Hide context"]'),
+    ).toHaveLength(0);
+  });
+
+  it("dimmed (context-revealed) lines hide the View context button but keep Copy", async () => {
+    const user = userEvent.setup();
+    render(<LogExplorer lines={fixture} />);
+    applyErrorFilter();
+
+    // Open a context on l1 — l0 becomes visible-but-dimmed.
+    await user.click(
+      liFor(/row one error/).querySelector<HTMLButtonElement>(
+        'button[aria-label="View context"]',
+      )!,
+    );
+    expect(liFor(/row zero info/).getAttribute("data-dimmed")).toBe("true");
+
+    // §3 gate refuses View context on dimmed lines (no nested context).
+    expect(
+      liFor(/row zero info/).querySelector('button[aria-label="View context"]'),
+    ).toBeNull();
+    // Copy is universal — it must work on any visible line, including
+    // context-revealed dimmed ones, so a user can grab the surrounding
+    // context text.
+    expect(
+      liFor(/row zero info/).querySelector('button[aria-label="Copy line"]'),
+    ).not.toBeNull();
+  });
+
+  it("Expand / Less buttons appear and step the range on click", async () => {
+    const user = userEvent.setup();
+    render(<LogExplorer lines={wideFixture} />);
+    applyErrorFilter();
+
+    // Open context at default ±20.
+    await user.click(
+      liFor(/row l25 error anchor/).querySelector<HTMLButtonElement>(
+        'button[aria-label="View context"]',
+      )!,
+    );
+    // ±20 — Expand visible, Less hidden.
+    const anchorRow = liFor(/row l25 error anchor/);
+    expect(
+      anchorRow.querySelector('button[aria-label="Expand context"]'),
+    ).not.toBeNull();
+    expect(
+      anchorRow.querySelector('button[aria-label="Less context"]'),
+    ).toBeNull();
+
+    // Step up — visible-line count grows from 41 (±20) to 51 (±50, full
+    // fixture). Less should now appear.
+    await user.click(
+      anchorRow.querySelector<HTMLButtonElement>(
+        'button[aria-label="Expand context"]',
+      )!,
+    );
+    expect(
+      document.querySelectorAll('li[data-visible="true"]').length,
+    ).toBe(51);
+    expect(
+      anchorRow.querySelector('button[aria-label="Less context"]'),
+    ).not.toBeNull();
+  });
+
+  it("Copy button writes a formatted line to navigator.clipboard", () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal("navigator", { ...navigator, clipboard: { writeText } });
+
+    render(<LogExplorer lines={fixture} />);
+    applyErrorFilter();
+
+    const copyBtn = liFor(/row one error/).querySelector<HTMLButtonElement>(
+      'button[aria-label="Copy line"]',
+    );
+    expect(copyBtn).not.toBeNull();
+    fireEvent.click(copyBtn!);
+
+    expect(writeText).toHaveBeenCalledTimes(1);
+    const text = writeText.mock.calls[0][0] as string;
+    expect(text).toContain("[i1]");
+    expect(text).toContain("ERROR");
+    expect(text).toContain("row one error");
+
+    vi.unstubAllGlobals();
   });
 });
 
@@ -876,142 +913,6 @@ describe("LogExplorer — ? opens the shortcut sheet (spec §9.7)", () => {
   });
 });
 
-describe("LogExplorer — line-action integration (spec §8 — hover icon row)", () => {
-  it("View context button opens a context (toggle pipeline reuse)", async () => {
-    const user = userEvent.setup();
-    render(<LogExplorer lines={fixture} />);
-    applyErrorFilter();
-
-    const l1Row = liFor(/row one error/);
-    const viewBtn = l1Row.querySelector<HTMLButtonElement>(
-      'button[aria-label="View context"]',
-    );
-    expect(viewBtn).not.toBeNull();
-    await user.click(viewBtn!);
-
-    expect(l1Row.getAttribute("data-selected")).toBe("true");
-    // Surrounding non-matching line revealed dimmed via the window.
-    expect(liFor(/row zero info/).getAttribute("data-dimmed")).toBe("true");
-  });
-
-  it("Hide context button (active anchor) closes the open context", async () => {
-    const user = userEvent.setup();
-    render(<LogExplorer lines={fixture} />);
-    applyErrorFilter();
-
-    // Open via cmd+click for variety, then verify the row now offers Hide.
-    fireEvent.click(liFor(/row one error/).querySelector("[data-level]")!, {
-      metaKey: true,
-    });
-    expect(liFor(/row one error/).getAttribute("data-selected")).toBe("true");
-
-    const hideBtn = liFor(/row one error/).querySelector<HTMLButtonElement>(
-      'button[aria-label="Hide context"]',
-    );
-    expect(hideBtn).not.toBeNull();
-    expect(hideBtn?.getAttribute("data-active")).toBe("true");
-    await user.click(hideBtn!);
-
-    expect(liFor(/row one error/).getAttribute("data-selected")).toBe("false");
-  });
-
-  it("action row is empty (no toggle/copy buttons) on lines that fail the §3 gate when no filter is active", () => {
-    render(<LogExplorer lines={fixture} />);
-
-    // No filter — no line should expose View context / Hide context.
-    expect(
-      document.querySelectorAll('button[aria-label="View context"]'),
-    ).toHaveLength(0);
-    expect(
-      document.querySelectorAll('button[aria-label="Hide context"]'),
-    ).toHaveLength(0);
-  });
-
-  it("dimmed (context-revealed) lines hide the View context button but keep Copy", async () => {
-    const user = userEvent.setup();
-    render(<LogExplorer lines={fixture} />);
-    applyErrorFilter();
-
-    // Open a context on l1 — l0 becomes visible-but-dimmed.
-    await user.click(
-      liFor(/row one error/).querySelector<HTMLButtonElement>(
-        'button[aria-label="View context"]',
-      )!,
-    );
-    expect(liFor(/row zero info/).getAttribute("data-dimmed")).toBe("true");
-
-    // §3 gate refuses View context on dimmed lines (no nested context).
-    expect(
-      liFor(/row zero info/).querySelector('button[aria-label="View context"]'),
-    ).toBeNull();
-    // Copy is universal — it must work on any visible line, including
-    // context-revealed dimmed ones, so a user can grab the surrounding
-    // context text.
-    expect(
-      liFor(/row zero info/).querySelector('button[aria-label="Copy line"]'),
-    ).not.toBeNull();
-  });
-
-  it("Expand / Less buttons appear and step the range on click", async () => {
-    const user = userEvent.setup();
-    render(<LogExplorer lines={wideFixture} />);
-    fireEvent.click(
-      screen.getByRole("button", { name: /Filter by level ERROR/ }),
-    );
-
-    // Open context at default ±20.
-    await user.click(
-      liFor(/row l25 error anchor/).querySelector<HTMLButtonElement>(
-        'button[aria-label="View context"]',
-      )!,
-    );
-    // ±20 — Expand visible, Less hidden.
-    const anchorRow = liFor(/row l25 error anchor/);
-    expect(
-      anchorRow.querySelector('button[aria-label="Expand context"]'),
-    ).not.toBeNull();
-    expect(
-      anchorRow.querySelector('button[aria-label="Less context"]'),
-    ).toBeNull();
-
-    // Step up — visible-line count grows from 41 (±20) to 51 (±50, full
-    // fixture). Less should now appear.
-    await user.click(
-      anchorRow.querySelector<HTMLButtonElement>(
-        'button[aria-label="Expand context"]',
-      )!,
-    );
-    expect(
-      document.querySelectorAll('li[data-visible="true"]').length,
-    ).toBe(51);
-    expect(
-      anchorRow.querySelector('button[aria-label="Less context"]'),
-    ).not.toBeNull();
-  });
-
-  it("Copy button writes a formatted line to navigator.clipboard", () => {
-    const writeText = vi.fn().mockResolvedValue(undefined);
-    vi.stubGlobal("navigator", { ...navigator, clipboard: { writeText } });
-
-    render(<LogExplorer lines={fixture} />);
-    applyErrorFilter();
-
-    const copyBtn = liFor(/row one error/).querySelector<HTMLButtonElement>(
-      'button[aria-label="Copy line"]',
-    );
-    expect(copyBtn).not.toBeNull();
-    fireEvent.click(copyBtn!);
-
-    expect(writeText).toHaveBeenCalledTimes(1);
-    const text = writeText.mock.calls[0][0] as string;
-    expect(text).toContain("[i1]");
-    expect(text).toContain("ERROR");
-    expect(text).toContain("row one error");
-
-    vi.unstubAllGlobals();
-  });
-});
-
 describe("LogExplorer — deploy-boundary navigation ([ / ])", () => {
   /**
    * Fixture with two deploy boundaries so [ and ] have somewhere to
@@ -1098,5 +999,4 @@ describe("LogExplorer — deploy-boundary navigation ([ / ])", () => {
 
     expect(liFor(/srv-i1@a3f2c1/).getAttribute("data-focused")).toBe("true");
   });
-
 });
