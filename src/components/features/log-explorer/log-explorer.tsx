@@ -16,6 +16,7 @@ import {
   FilterBar,
 } from "@/components/features/filter-bar/filter-bar";
 import { LogList } from "@/components/features/log-list/log-list";
+import { NewLinesPill } from "@/components/features/log-list/new-lines-pill";
 import {
   ShortcutSheet,
   ShortcutSheetTrigger,
@@ -368,28 +369,79 @@ export function LogExplorer({
   }, []);
 
   /**
-   * Live-tail at-bottom auto-follow (spec §9.8 / §10.2). When a new
-   * streamed line is appended AND the user is at the bottom of the
-   * list, kick off the existing scrollTop = max rAF loop. As Motion
-   * animates the new line's height from 0 → auto, the document grows
-   * underneath, and the rAF loop tracks the new bottom each frame so
-   * the user stays glued to the most-recent line.
+   * Unread count for the "↓ N new lines" pill (spec §9.8). Increments
+   * when a streamed line arrives AND the user is scrolled away from
+   * the bottom. Resets to 0 when:
+   *   - The user clicks the pill (smooth-scrolls to bottom + reset).
+   *   - The user organically scrolls to the bottom of the list (the
+   *     scroll-listener effect below detects this).
+   * Filter-hidden streamed lines aren't counted — the pill only
+   * surfaces lines the user could currently see if they scrolled.
+   */
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  /**
+   * Live-tail line-arrival handler (spec §9.8 / §10.2). Two branches
+   * on every append, gated by whether the user is at the bottom:
    *
-   * Tracks the previous lines length in a ref to detect appends
-   * without diffing arrays. useLayoutEffect (not useEffect) so the
-   * scroll adjustment commits synchronously before paint — avoids a
-   * one-frame flash where the document has grown but scrollTop hasn't
-   * caught up yet.
+   *   - At-bottom → kick off `startStickToBottom`. As Motion grows
+   *     the new line's height from 0 → auto, the document grows
+   *     underneath, and the rAF loop tracks `scrollHeight -
+   *     clientHeight` each frame so the user stays glued to the
+   *     most-recent line.
+   *   - Scrolled-up → increment `unreadCount` so the pill surfaces.
+   *     The newly-appended line is invisible-below-the-fold; the
+   *     pill is the user's "I'm missing things" signal.
    *
-   * Scrolled-up users get the pill (next commit) instead.
+   * useLayoutEffect (not useEffect) so the scroll adjustment commits
+   * synchronously before paint — avoids a one-frame flash where the
+   * document has grown but scrollTop hasn't caught up yet.
    */
   const prevLinesLengthRef = useRef(lines.length);
   useLayoutEffect(() => {
-    const grew = lines.length > prevLinesLengthRef.current;
+    const delta = lines.length - prevLinesLengthRef.current;
     prevLinesLengthRef.current = lines.length;
-    if (!grew) return;
-    if (isAtBottom()) startStickToBottom();
+    if (delta <= 0) return;
+    if (isAtBottom()) {
+      startStickToBottom();
+    } else {
+      setUnreadCount((c) => c + delta);
+    }
   }, [lines.length, isAtBottom, startStickToBottom]);
+
+  /**
+   * Reset the unread count when the user organically scrolls to the
+   * bottom of the list (without clicking the pill). Catches the case
+   * where the user manually drags the scrollbar to bottom — pill
+   * should disappear, count should reset.
+   */
+  useEffect(() => {
+    const v = viewportRef.current;
+    if (!v) return;
+    const onScroll = () => {
+      if (isAtBottom() && unreadCount !== 0) setUnreadCount(0);
+    };
+    v.addEventListener("scroll", onScroll, { passive: true });
+    return () => v.removeEventListener("scroll", onScroll);
+  }, [unreadCount, isAtBottom]);
+
+  /**
+   * Pill click handler — smooth-scroll to bottom + reset count.
+   * Uses native `scrollTo({ behavior: "smooth" })` rather than the
+   * rAF compensation loop because this is a USER-initiated jump
+   * (vs. animation tracking). Modern browsers handle smooth scroll
+   * via the platform's scroll engine, which composites correctly
+   * with whatever Motion animations are in flight.
+   */
+  const handleScrollToBottom = useCallback(() => {
+    const v = viewportRef.current;
+    if (!v) return;
+    v.scrollTo({
+      top: v.scrollHeight - v.clientHeight,
+      behavior: "smooth",
+    });
+    setUnreadCount(0);
+  }, []);
 
   // Live-tail convention: open at the bottom of the list. useLayoutEffect
   // runs after hydration commit but BEFORE the browser's next paint,
@@ -1058,6 +1110,7 @@ export function LogExplorer({
           hasAnyFilter={hasAnyFilter(filterState)}
           transitionMode={transitionMode}
         />
+        <NewLinesPill count={unreadCount} onClick={handleScrollToBottom} />
         <ShortcutSheetTrigger onOpen={() => setSheetOpen(true)} />
         <ShortcutSheet open={sheetOpen} onOpenChange={setSheetOpen} />
       </div>
