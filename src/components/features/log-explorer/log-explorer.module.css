@@ -1,7 +1,7 @@
 /*
- * Log explorer layout — vertical stack of the filter bar, future
- * toolbar slots, and the log list. The bar's bottom border serves
- * as the visual separator, so this container only handles flow.
+ * Log explorer layout — vertical stack of the legend, filter bar,
+ * and the log list. The bar's bottom border serves as the visual
+ * separator, so this container only handles flow.
  */
 
 .explorer {

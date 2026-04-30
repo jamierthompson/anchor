@@ -637,23 +637,31 @@ describe("LogExplorer — contextual legend (top-right toolbar)", () => {
     ).toBeInTheDocument();
   });
 
-  it("swaps to Shift+E Expand context when a context is open with room to grow", async () => {
-    // Visible feedback on each press is delivered via the legend's
-    // mount-animation pulse (re-keyed by LogExplorer on every
-    // successful expansion) — not via a numeric counter, which
-    // proved confusing in early demos because the number tracks
-    // file-extent rather than visible-content progress.
+  it("shows both Shift+E and Esc entries when a context is open with room to grow", async () => {
+    // Esc is always present alongside Shift+E so the user has a
+    // visible mouse path to close at any time. Shift+E sits to its
+    // left while expansion is still possible; once at boundary the
+    // Shift+E entry is removed.
     const user = userEvent.setup();
     render(<LogExplorer lines={wideFixture} />);
     applyErrorFilter();
     listbox().focus();
 
     fireEvent.click(liFor(/row l25 error anchor/));
-    await user.keyboard("e"); // open context at ±20 (room to grow to ±25)
+    await user.keyboard("e"); // open context at ±20 (room to grow)
 
     expect(legendText()).toMatch(/expand context/i);
-    // No `?` keycap while a context-relevant hint is showing.
+    expect(legendText()).toMatch(/close/i);
+    // No `?` keycap while context-relevant hints are showing.
     expect(legendText()).not.toMatch(/for all shortcuts/i);
+    // Visible cap order: Shift+E to the left, Esc to the right.
+    const legendToolbar = screen.getByRole("toolbar", {
+      name: /Keyboard hints/,
+    });
+    const capTexts = Array.from(legendToolbar.querySelectorAll("kbd")).map(
+      (k) => k.textContent,
+    );
+    expect(capTexts).toEqual(["Shift", "E", "Esc"]);
   });
 
   it("swaps to Esc Close when the most-recent context can't expand further", async () => {
@@ -678,6 +686,53 @@ describe("LogExplorer — contextual legend (top-right toolbar)", () => {
       (k) => k.textContent,
     );
     expect(capTexts).toEqual(["Esc"]);
+  });
+
+  it("clicking the Shift+E entry expands the context (mouse path matches keyboard binding)", async () => {
+    // The legend doubles as a mouse command center — clicking the
+    // Shift+E hint fires the same expand handler as pressing the
+    // keyboard shortcut. Confirms there's a non-keyboard path for
+    // every legend state.
+    const user = userEvent.setup();
+    render(<LogExplorer lines={wideFixture} />);
+    applyErrorFilter();
+    listbox().focus();
+
+    fireEvent.click(liFor(/row l25 error anchor/));
+    await user.keyboard("e"); // open at ±20 → 41 visible
+    expect(document.querySelectorAll('li[data-visible="true"]').length).toBe(
+      41,
+    );
+
+    // Click the legend's Shift+E entry instead of pressing the keys.
+    await user.click(
+      screen.getByRole("button", { name: /Expand context/ }),
+    );
+
+    expect(document.querySelectorAll('li[data-visible="true"]').length).toBe(
+      51,
+    );
+  });
+
+  it("clicking the Esc entry at the boundary clears all open contexts", async () => {
+    const user = userEvent.setup();
+    render(<LogExplorer lines={wideFixture} />);
+    applyErrorFilter();
+    listbox().focus();
+
+    // Open and expand to boundary so the legend shows the Esc entry.
+    fireEvent.click(liFor(/row l25 error anchor/));
+    await user.keyboard("e");
+    await user.keyboard("{Shift>}e{/Shift}");
+
+    await user.click(
+      screen.getByRole("button", { name: /Close all open contexts/ }),
+    );
+
+    // All contexts cleared — same effect as pressing Esc.
+    expect(document.querySelector('li[data-selected="true"]')).toBeNull();
+    // Legend swaps back to the default ? entry.
+    expect(legendText()).toMatch(/for all shortcuts/i);
   });
 
   it("falls back to the ? entry when all contexts are closed", async () => {

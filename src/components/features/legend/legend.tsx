@@ -38,52 +38,52 @@ export type LegendItem = {
    * shortcuts" reads better).
    */
   ariaLabel?: string;
+  /**
+   * Bumped by the parent to retrigger this specific entry's mount
+   * animation. The Legend includes pulseKey in the entry's React key,
+   * so a change forces a remount which replays the CSS keyframe.
+   *
+   * Per-item rather than per-Legend so that a multi-item layout
+   * (e.g. [Shift+E, Esc]) can pulse just the one entry whose action
+   * fired — the always-present Esc shouldn't flash every time the
+   * user expands.
+   */
+  pulseKey?: number;
 };
 
 /**
- * Top-right contextual legend for the log explorer.
+ * Top-of-page contextual legend for the log explorer.
  *
- * Single-slot in current usage — LogExplorer passes one item at a time
- * based on app state — but the API takes an array so future surfaces
- * (e.g. a multi-binding cheat strip) drop in without an API change.
+ * Dual purpose: surfaces the most relevant keyboard shortcut for the
+ * current app state (the keycaps document the binding), AND serves
+ * as the mouse path for that same action (every entry is a clickable
+ * button that fires the same handler the keyboard binding would). A
+ * legend that's also the mouse command center.
+ *
+ * Single-slot in current usage — LogExplorer passes one item at a
+ * time based on app state — but the API takes an array so future
+ * surfaces (e.g. a multi-binding cheat strip) drop in without an API
+ * change.
  *
  * Visual treatment: physical-looking keycaps (matching the shortcut
  * sheet's language) followed by a muted, all-caps label. The keycaps
  * carry meaning; the label is supporting copy.
- *
- * Why it replaces the bottom-right floating `?` FAB:
- *
- *   - The `?` binding still works keyboard-first, but the FAB had no
- *     other role to play and read as visual noise.
- *   - When app state suggests a *different* binding is more relevant
- *     (shift+e while a context is open), the legend swaps to that
- *     hint. A FAB couldn't serve that role.
- *   - When no context-relevant hint applies, the legend falls back to
- *     `? for all shortcuts` — same affordance the FAB used to be,
- *     just integrated into the toolbar instead of floating in a
- *     corner by itself.
  */
-export function Legend({
-  items,
-  pulseKey,
-}: {
-  items: readonly LegendItem[];
-  /**
-   * Bumped by the parent on every event the legend should visibly
-   * acknowledge (e.g. each successful shift+e expansion). Used as
-   * part of each entry's React key so React remounts the entry,
-   * which re-fires the CSS mount animation. Without this, two back-
-   * to-back actions where the legend's text is identical would look
-   * the same — the user couldn't tell their key registered.
-   */
-  pulseKey?: number;
-}) {
+export function Legend({ items }: { items: readonly LegendItem[] }) {
   if (items.length === 0) return null;
 
   return (
     <div className={styles.legend} role="toolbar" aria-label="Keyboard hints">
-      {items.map((item, idx) => (
-        <LegendEntry key={`${pulseKey ?? 0}-${idx}`} item={item} />
+      {items.map((item) => (
+        // Stable per-entry key (label-based) so an entry persists
+        // across state changes when its label is unchanged. Adding
+        // `pulseKey` to the key forces a remount only for the entry
+        // whose pulseKey just bumped — neighbouring entries stay
+        // mounted and don't replay the mount animation.
+        <LegendEntry
+          key={`${item.label}-${item.pulseKey ?? 0}`}
+          item={item}
+        />
       ))}
     </div>
   );

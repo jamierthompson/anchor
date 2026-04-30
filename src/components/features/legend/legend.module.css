@@ -1,13 +1,13 @@
 /*
- * Contextual legend — top-of-page strip that surfaces the most
- * relevant keyboard shortcut for the current app state. Visual
- * language matches the shortcut sheet's keycaps so the two surfaces
- * read as part of one system.
+ * Contextual legend — strip at the very top of the explorer column
+ * that surfaces the most relevant keyboard shortcut for the current
+ * app state. Visual language matches the shortcut sheet's keycaps
+ * so the two surfaces read as part of one system.
  *
- * Why a full-width strip instead of fixed top-right: on narrow
- * viewports a fixed-position legend collides with the scenario-chips
- * bar (which is also at the top). Putting the legend in flow as its
- * own row stacks them cleanly with no overlap and no wrapping.
+ * Right-aligned so the rightmost slot is the stable destination —
+ * Esc lives there once any context is open and stays put through
+ * the with-room ↔ boundary transition. Shift+E enters and exits
+ * to its left without disrupting Esc's position.
  */
 
 .legend {

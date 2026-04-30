@@ -11,14 +11,39 @@
  * across surfaces.
  */
 
+/*
+ * Section wrapper carries the padding, border, and elevated
+ * background. The eyebrow + chip row stack inside it. Putting these
+ * on the section (rather than the inner toolbar div) means the
+ * eyebrow sits inside the same visual block as the chips, not
+ * floating above an unrelated container.
+ */
+.section {
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg-elevated);
+}
+
+/*
+ * Eyebrow heading — same caps/10px/muted treatment as the legend's
+ * label so the two surfaces share a typographic vocabulary for
+ * "supporting copy that names a control."
+ */
+.eyebrow {
+  margin: 0 0 6px;
+  color: var(--color-fg-muted);
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: var(--font-weight-medium);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .bar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-3) var(--space-4);
-  border-bottom: 1px solid var(--color-border);
-  background: var(--color-bg-elevated);
   font-family: var(--font-mono);
   font-size: 13px;
 }

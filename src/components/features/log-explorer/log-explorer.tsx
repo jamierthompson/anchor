@@ -1095,17 +1095,29 @@ export function LogExplorer({
   }, [openContexts.length, sheetOpen]);
 
   /**
-   * Single-slot contextual legend in the top toolbar. Surfaces the
-   * most relevant keyboard shortcut for the current app state:
+   * Contextual legend below the log list. Surfaces the most relevant
+   * keyboard shortcuts for the current app state — and doubles as
+   * the mouse path for those actions. Every entry is clickable; the
+   * keycaps document the keyboard equivalent.
    *
-   *   - Context open with room to grow → SHIFT+E EXPAND CONTEXT
-   *   - Context open but expansion exhausted → ESC CLOSE — pivots
-   *     from "what can I do to keep going?" to "what's the next
-   *     useful action?". At this state most users are either done
-   *     reading and want to close, or they need to navigate
-   *     elsewhere and Esc is the way out.
-   *   - Otherwise → ? FOR ALL SHORTCUTS, clickable to open the sheet
-   *     (the only mouse path to the sheet now that the FAB is gone)
+   * State → entries (left → right):
+   *
+   *   - No contexts open → [`? FOR ALL SHORTCUTS`]. Click opens
+   *     the shortcut sheet (the only mouse path now that the FAB
+   *     is gone).
+   *   - Context open with room to grow → [`SHIFT+E EXPAND CONTEXT`,
+   *     `ESC CLOSE`]. Esc is rightmost and stays put; Shift+E sits
+   *     to its left while expansion is still possible.
+   *   - Context open at file boundary → [`ESC CLOSE`]. Shift+E
+   *     entry disappears so the only meaningful next action is the
+   *     visible one.
+   *
+   * Esc's React key is stable (label-based) across the with-room ↔
+   * boundary transition, so removing Shift+E doesn't remount Esc
+   * (no flash on the entry that didn't change). The Shift+E entry's
+   * `pulseKey` is bumped on every successful expansion so that
+   * specific entry replays its mount animation — visible "your
+   * keypress registered" feedback.
    *
    * Reads the most-recent context's *saved* state from `openContexts`
    * (not `effectiveSelectedContextLineIds`, which gates on filter
@@ -1119,10 +1131,27 @@ export function LogExplorer({
       const anchorIndex = lines.findIndex(
         (l) => l.id === mostRecent.selectedLineId,
       );
-      if (isAtFileBoundary(anchorIndex, mostRecent.range, lines.length)) {
-        return [{ keys: ["Esc"], label: "Close" }];
+      const atBoundary = isAtFileBoundary(
+        anchorIndex,
+        mostRecent.range,
+        lines.length,
+      );
+      const items: LegendItem[] = [];
+      if (!atBoundary) {
+        items.push({
+          keys: ["Shift", "E"],
+          label: "Expand context",
+          onClick: () => handleExpandContext(mostRecent.selectedLineId),
+          pulseKey: legendPulseKey,
+        });
       }
-      return [{ keys: ["Shift", "E"], label: "Expand context" }];
+      items.push({
+        keys: ["Esc"],
+        label: "Close",
+        ariaLabel: "Close all open contexts",
+        onClick: () => setOpenContexts([]),
+      });
+      return items;
     }
     return [
       {
@@ -1132,19 +1161,18 @@ export function LogExplorer({
         onClick: () => setSheetOpen(true),
       },
     ];
-  }, [openContexts, lines]);
+  }, [openContexts, lines, handleExpandContext, legendPulseKey]);
 
   return (
     // prefers-reduced-motion is honored entirely in CSS now — see the
     // @media block in log-list.module.css. No JS bridge needed.
     //
     // Vertical layout: legend strip → scenario chips → log list. The
-    // legend lives above the chips because it's app-level chrome
-    // (keyboard shortcut hint that applies to everything below it).
-    // Stacking them as separate rows avoids the collision the old
-    // fixed-position legend caused on narrow viewports.
+    // legend sits at the very top of the explorer column — top-of-
+    // page chrome that documents and acts on the app's keyboard
+    // shortcuts.
     <div className={styles.explorer}>
-      <Legend items={legendItems} pulseKey={legendPulseKey} />
+      <Legend items={legendItems} />
       <ScenarioChips state={filterState} dispatch={dispatchFilter} />
       <LogList
         lines={derivedLines}

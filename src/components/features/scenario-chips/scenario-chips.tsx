@@ -78,23 +78,26 @@ export function ScenarioChips({ state, dispatch }: ScenarioChipsProps) {
   };
 
   return (
-    <div className={styles.bar} role="toolbar" aria-label="Filter scenarios">
-      {SCENARIOS.map((scenario) => {
-        const isActive = filterStatesEqual(state, scenario.state);
-        return (
-          <button
-            key={scenario.id}
-            type="button"
-            className={styles.chip}
-            data-active={isActive}
-            aria-pressed={isActive}
-            onClick={() => handleClick(scenario)}
-          >
-            {scenario.label}
-          </button>
-        );
-      })}
-    </div>
+    <section className={styles.section}>
+      <h2 className={styles.eyebrow}>Pre-baked filters</h2>
+      <div className={styles.bar} role="toolbar" aria-label="Filter scenarios">
+        {SCENARIOS.map((scenario) => {
+          const isActive = filterStatesEqual(state, scenario.state);
+          return (
+            <button
+              key={scenario.id}
+              type="button"
+              className={styles.chip}
+              data-active={isActive}
+              aria-pressed={isActive}
+              onClick={() => handleClick(scenario)}
+            >
+              {scenario.label}
+            </button>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 
