@@ -21,12 +21,12 @@
  * No background / no top border: the section reads as plain
  * top-of-page chrome on the explorer's base bg. The bottom border
  * stays as the divider between this top region and the log list.
- * Margin pushes the log list down so the chips don't sit flush
- * against the first line.
+ * Slightly heavier bottom padding (16px vs 12px on the other
+ * sides) gives the chips a touch of breathing room above the
+ * border without pushing the log list down with extra margin.
  */
 .section {
-  padding: var(--space-3) var(--space-4);
-  margin-bottom: var(--space-3);
+  padding: var(--space-3) var(--space-4) var(--space-4);
   border-bottom: 1px solid var(--color-border);
 }
 

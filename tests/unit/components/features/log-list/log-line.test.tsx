@@ -1,6 +1,5 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { render, screen } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
 
 import { LogLine } from "@/components/features/log-list/log-line";
 import type { LogLine as LogLineType } from "@/types/log";
@@ -123,11 +122,7 @@ describe("LogLine — dim styling lives on the inner element", () => {
     expect(inner?.getAttribute("data-dimmed")).toBe("false");
   });
 
-  it("carries data-selected on the inner line element (drives action-row reveal CSS)", () => {
-    // .line[data-selected="true"] .actionRow keeps the row visible
-    // even without hover so the user can close an open context. The
-    // attribute has to live on the inner .line for the descendant
-    // selector to work — both the <li> and the inner div carry it.
+  it("carries data-selected on the inner line element when isSelected is set", () => {
     const { container, rerender } = render(<LogLine line={baseLine} />);
     const inner = container.querySelector("[data-level]");
     expect(inner?.getAttribute("data-selected")).toBe("false");
@@ -179,45 +174,17 @@ describe("LogLine — deploy boundaries", () => {
   });
 });
 
-describe("LogLine — line actions (spec §8 — hover-revealed icon row)", () => {
-  it("renders no actions when no onToggleContext is supplied (static-render path)", () => {
-    render(<LogLine line={baseLine} />);
-    expect(
-      screen.queryByRole("button", { name: /View context/ }),
-    ).not.toBeInTheDocument();
-  });
+describe("LogLine — no in-row action buttons", () => {
+  // The hover-revealed action row was retired with the move to
+  // click-to-expand. The anchor button moved into the left gutter as a
+  // non-interactive accent indicator (rendered by LogListItem, not
+  // LogLine), and the Copy button was removed entirely. LogLine itself
+  // should never render a <button> regardless of the flags it receives.
+  it("renders no buttons in any state", () => {
+    const { rerender } = render(<LogLine line={baseLine} />);
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
 
-  it("renders no actions when the §3 gate fails (no filter, no open context)", () => {
-    // canToggleContext=false AND isSelected=false → no action would
-    // make sense on this line, so the row hides entirely.
-    render(
-      <LogLine
-        line={baseLine}
-        onToggleContext={() => {}}
-        canToggleContext={false}
-        isSelected={false}
-      />,
-    );
-    expect(
-      screen.queryByRole("button", { name: /View context/ }),
-    ).not.toBeInTheDocument();
-  });
-
-  it("renders the View context action when the §3 gate passes", () => {
-    render(
-      <LogLine
-        line={baseLine}
-        onToggleContext={() => {}}
-        canToggleContext
-      />,
-    );
-    expect(
-      screen.getByRole("button", { name: /View context/ }),
-    ).toBeInTheDocument();
-  });
-
-  it("flips the toggle label to 'Hide context' and marks the button active when isSelected", () => {
-    render(
+    rerender(
       <LogLine
         line={baseLine}
         onToggleContext={() => {}}
@@ -225,67 +192,6 @@ describe("LogLine — line actions (spec §8 — hover-revealed icon row)", () =
         isSelected
       />,
     );
-    const toggle = screen.getByRole("button", { name: /Hide context/ });
-    expect(toggle).toBeInTheDocument();
-    expect(toggle.getAttribute("data-active")).toBe("true");
-    expect(toggle.getAttribute("aria-pressed")).toBe("true");
-  });
-
-  it("clicking the View/Hide context button calls onToggleContext with the line id", async () => {
-    const user = userEvent.setup();
-    const onToggleContext = vi.fn();
-    render(
-      <LogLine
-        line={baseLine}
-        onToggleContext={onToggleContext}
-        canToggleContext
-      />,
-    );
-    await user.click(screen.getByRole("button", { name: /View context/ }));
-    expect(onToggleContext).toHaveBeenCalledWith(baseLine.id);
-  });
-
-  it("does not render Expand or Less context buttons (keyboard-only via shift+e)", () => {
-    // Spec: range expansion is keyboard-only. The mouse buttons used
-    // to live in the action row but were removed because expanding
-    // context naturally pulls the user's scroll position away from
-    // the anchor — they shouldn't have to scroll back to find an
-    // in-row button. shift+e works wherever focus is.
-    render(
-      <LogLine
-        line={baseLine}
-        onToggleContext={() => {}}
-        canToggleContext
-        isSelected
-      />,
-    );
-    expect(
-      screen.queryByRole("button", { name: /Expand context/ }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: /Less context/ }),
-    ).not.toBeInTheDocument();
-  });
-
-});
-
-describe("LogLine — cmd/ctrl + click toggles context", () => {
-  it("cmd + click on the line body fires onToggleContext when the callback is supplied", () => {
-    const onToggleContext = vi.fn();
-    const { container } = render(
-      <LogLine line={baseLine} onToggleContext={onToggleContext} />,
-    );
-    const inner = container.querySelector("[data-level]")!;
-    fireEvent.click(inner, { metaKey: true });
-    expect(onToggleContext).toHaveBeenCalledWith(baseLine.id);
-  });
-
-  it("plain click (no modifier) does not fire onToggleContext", () => {
-    const onToggleContext = vi.fn();
-    const { container } = render(
-      <LogLine line={baseLine} onToggleContext={onToggleContext} />,
-    );
-    fireEvent.click(container.querySelector("[data-level]")!);
-    expect(onToggleContext).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 });

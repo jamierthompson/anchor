@@ -1,8 +1,4 @@
-import type { MouseEvent as ReactMouseEvent } from "react";
-
 import type { LogLine as LogLineType, Level } from "@/types/log";
-
-import { LineActions } from "./line-actions";
 
 import styles from "./log-line.module.css";
 
@@ -21,28 +17,17 @@ import styles from "./log-line.module.css";
  *
  * Per-line elements (instance pill, level badge, request id badge) are
  * non-interactive — filtering is applied via the scenario-chips bar
- * above the list. Pre-baked presets cover the demo scenarios this
- * prototype is built around (errors, trace one request, narrow to one
- * instance), and removing the click-to-filter affordance keeps the line
- * read-only at the row level.
- *
- * Click-to-toggle-context (spec §7 modifiers): when an `onToggleContext`
- * callback is supplied, cmd/ctrl + click anywhere on the line body
- * announces the line id to the parent, which decides whether to open or
- * close a context window.
- *
- * Hover-revealed line actions (spec §8): when `onToggleContext` is
- * supplied, a row of small icon buttons reveals at the right edge on
- * hover (or while the line is keyboard-focused). See LineActions.
+ * above the list. The line itself is a single click-target — the parent
+ * <li> handles the click (focus + optional context toggle); see
+ * LogListItem.
  */
 
 type LogLineProps = {
   line: LogLineType;
   /**
-   * Whether this line is currently rendered (vs collapsed by Motion to
-   * height: 0). Threads through to LineActions so the action row only
-   * renders for visible rows — rendering plain buttons for ~390 hidden
-   * lines is wasted React reconciliation work on every state change.
+   * Whether this line is currently rendered (vs collapsed to
+   * height: 0). Kept for symmetry with the other derived flags;
+   * currently unused inside LogLine itself.
    */
   isVisible?: boolean;
   /**
@@ -54,21 +39,19 @@ type LogLineProps = {
   isDimmed?: boolean;
   /**
    * Whether this line is currently anchoring an open View Context
-   * window. Drives the action-row label/icon flips ("View context" ↔
-   * "Hide context") and gates the visibility of the Expand/Less
-   * range-cycle buttons. The matching <li> also carries
-   * `data-selected="true"` (set by LogList) which paints the left-
-   * border accent.
+   * window. The matching <li> carries `data-selected="true"` to drive
+   * the left-border accent and the gutter anchor icon.
    */
   isSelected?: boolean;
   /**
-   * Whether the View context button should appear in the action row.
-   * The §3 gate (filter active + line currently filter-matched + not
-   * dimmed) is computed once in LogList and passed in pre-resolved;
-   * LogLine doesn't need to know FilterState shape.
-   * Spec §8: "hide items that don't apply rather than show disabled."
+   * Whether the §3 gate (filter active + filter-matched + not dimmed)
+   * passes for this line. Surfaced on the inner element so the CSS
+   * can drive a "this line is clickable to expand context" hint
+   * (cursor + hover bg) without LogLine needing to know FilterState
+   * shape.
    */
   canToggleContext?: boolean;
+  /** Currently unused inside LogLine — click is handled at the <li>. */
   onToggleContext?: (lineId: string) => void;
 };
 
@@ -97,11 +80,8 @@ function formatTime(timestamp: number): string {
 
 export function LogLine({
   line,
-  isVisible,
   isDimmed,
   isSelected,
-  canToggleContext,
-  onToggleContext,
 }: LogLineProps) {
   if (line.isDeployBoundary) {
     // Deploy boundaries don't participate in View Context — they're
@@ -120,21 +100,12 @@ export function LogLine({
   const messageClass =
     line.level === "DEBUG" ? styles.messageMuted : styles.message;
 
-  const handleLineClick = (event: ReactMouseEvent<HTMLDivElement>) => {
-    if (!onToggleContext) return;
-    if (event.metaKey || event.ctrlKey) {
-      event.preventDefault();
-      onToggleContext(line.id);
-    }
-  };
-
   return (
     <div
       className={styles.line}
       data-level={line.level}
       data-dimmed={isDimmed ?? false}
       data-selected={isSelected ?? false}
-      onClick={onToggleContext ? handleLineClick : undefined}
     >
       <time
         className={styles.time}
@@ -156,15 +127,6 @@ export function LogLine({
           <span className={styles.requestId}>{line.requestId}</span>
         )}
       </span>
-      {onToggleContext ? (
-        <LineActions
-          lineId={line.id}
-          isVisible={isVisible ?? true}
-          isSelected={isSelected ?? false}
-          canToggleContext={canToggleContext ?? false}
-          onToggleContext={onToggleContext}
-        />
-      ) : null}
     </div>
   );
 }

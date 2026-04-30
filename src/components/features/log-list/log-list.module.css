@@ -134,8 +134,28 @@
    * "Selected line's left border fades out"). Lives on the .item
    * because data-selected sits here; doesn't compete with the
    * grid-template-rows transition (different property).
+   *
+   * The hover-bg transition for clickable rows lives here too so
+   * pointer-in/out fades smoothly into the surface treatment.
    */
-  transition: border-left-color var(--duration-base) var(--ease-standard);
+  transition:
+    border-left-color var(--duration-base) var(--ease-standard),
+    background-color var(--duration-fast) var(--ease-standard);
+}
+
+/*
+ * Click affordance for rows that participate in the click-to-toggle
+ * interaction. `data-clickable` is set in LogListItem only for rows
+ * where a click would change app state (open/close a context) — non-
+ * eligible rows just move focus on click, which is too quiet to
+ * justify a pointer cursor + hover bg.
+ */
+.item[data-clickable="true"] {
+  cursor: pointer;
+}
+
+.item[data-clickable="true"]:hover {
+  background-color: var(--color-bg-elevated);
 }
 
 .inner {
