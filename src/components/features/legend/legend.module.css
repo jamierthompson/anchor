@@ -1,0 +1,150 @@
+/*
+ * Contextual legend — strip at the very top of the explorer column
+ * that surfaces the most relevant keyboard shortcut for the current
+ * app state. Visual language matches the shortcut sheet's keycaps
+ * so the two surfaces read as part of one system.
+ *
+ * Right-aligned so the rightmost slot is the stable destination —
+ * Esc lives there once any context is open and stays put through
+ * the with-room ↔ boundary transition. Shift+E enters and exits
+ * to its left without disrupting Esc's position.
+ */
+
+.legend {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 4px var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg);
+  /* Don't shrink in the explorer flex column. */
+  flex-shrink: 0;
+}
+
+/*
+ * One entry in the legend. Renders as either <div> (keyboard-only
+ * hint) or <button> (clickable affordance like ? for all shortcuts).
+ * Both share visuals; only the button carries hover/focus interaction.
+ */
+.entry {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 6px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  font-family: var(--font-sans);
+  cursor: default;
+  transition: background 120ms var(--ease-standard);
+  /*
+   * Plays on mount. The parent bumps `pulseKey` on each successful
+   * action (e.g. shift+e expansion) which forces React to remount
+   * the entry, which re-fires this animation. Result: a brief
+   * fade-in the user reads as "the text just redrew" — a stand-in
+   * for the real visual change you'd get if the label content had
+   * actually changed.
+   */
+  animation: legendPulse 180ms var(--ease-standard);
+}
+
+@keyframes legendPulse {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .entry {
+    animation: none;
+  }
+}
+
+button.entry {
+  cursor: pointer;
+}
+
+button.entry:hover {
+  background: var(--color-bg-elevated);
+}
+
+button.entry:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/*
+ * Cap container — flat sequence (no alias support, so simpler than
+ * the sheet's KeyCapDisplay). gap matches the sheet's keyCapPair gap
+ * so caps line up visually.
+ */
+.caps {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.capPair {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.plus {
+  color: var(--color-fg-subtle);
+  font-size: 11px;
+  font-family: var(--font-mono);
+}
+
+/*
+ * Compact keycap. Sized smaller than the sheet's caps because the
+ * legend is supporting chrome, not a primary surface. Same shadow
+ * recipe as the sheet so they read as the same physical object.
+ */
+.cap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 4px;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.04) 0%,
+      rgba(255, 255, 255, 0) 50%,
+      rgba(0, 0, 0, 0.05) 100%
+    ),
+    var(--color-bg-elevated);
+  color: var(--color-fg);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: var(--font-weight-medium);
+  line-height: 1;
+  letter-spacing: 0;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.25),
+    0 0 0 1px rgba(255, 255, 255, 0.06),
+    0 1px 0 rgba(0, 0, 0, 0.4),
+    0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+/*
+ * Label — uppercase + muted. The keycap carries the meaning; the
+ * label is supporting copy that explains what the binding does. Fixed
+ * letter-spacing keeps the all-caps text readable at small sizes.
+ */
+.label {
+  color: var(--color-fg-muted);
+  font-size: 10px;
+  font-weight: var(--font-weight-medium);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}

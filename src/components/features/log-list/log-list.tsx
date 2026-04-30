@@ -43,12 +43,10 @@ export function LogList({
   lines,
   viewportRef,
   onToggleContext,
-  onExpandContext,
-  onLessContext,
   onCopyLine,
   onLineFocus,
   onKeyDown,
-  selectedContextRangesById,
+  selectedContextLineIds,
   focusedLineId,
   streamedLineIds,
   hasAnyFilter = false,
@@ -64,10 +62,6 @@ export function LogList({
    */
   viewportRef?: Ref<HTMLDivElement>;
   onToggleContext?: (lineId: string) => void;
-  /** Steps the open context's range up one cycle entry. */
-  onExpandContext?: (lineId: string) => void;
-  /** Steps the open context's range down one cycle entry. */
-  onLessContext?: (lineId: string) => void;
   /** Copies a plain-text representation of the line to the clipboard. */
   onCopyLine?: (lineId: string) => void;
   /**
@@ -84,12 +78,14 @@ export function LogList({
    */
   onKeyDown?: (event: ReactKeyboardEvent<HTMLUListElement>) => void;
   /**
-   * Map of line id → currently-open context's ±range. Serves both as
-   * the "is this line selected?" check (via `.has()`) and the
-   * per-line range lookup (via `.get()`) that the action row uses to
-   * decide whether to render the Expand / Less context buttons.
+   * Set of line ids that are currently anchoring an open context
+   * window. Used to drive the selection accent (left-border + filled
+   * Anchor button) on each row. A Set is enough now that range
+   * expansion is keyboard-only — no per-line consumer needs the
+   * actual ±N value (the legend reads it from the OpenContext array
+   * in LogExplorer instead).
    */
-  selectedContextRangesById?: ReadonlyMap<string, number>;
+  selectedContextLineIds?: ReadonlySet<string>;
   /**
    * Id of the line that should appear focused. Drives the
    * aria-activedescendant on the <ul> and the data-focused attribute
@@ -153,14 +149,12 @@ export function LogList({
         >
           {lines.map((line) => {
             // Per-row primitives derived from the (potentially-fresh-
-            // every-render) Set/Map references. Computing them here
-            // means LogListItem receives stable boolean / number-or-
-            // undefined props and the React.memo wrapping it actually
-            // bites on the cases where it can — e.g., a tail tick that
-            // doesn't change THIS row's data.
-            const isSelected =
-              selectedContextRangesById?.has(line.id) ?? false;
-            const contextRange = selectedContextRangesById?.get(line.id);
+            // every-render) Set references. Computing them here means
+            // LogListItem receives stable boolean props and the
+            // React.memo wrapping it actually bites on the cases where
+            // it can — e.g., a tail tick that doesn't change THIS row's
+            // data.
+            const isSelected = selectedContextLineIds?.has(line.id) ?? false;
             const isFocused = line.id === focusedLineId;
             const isStreamed = streamedLineIds?.has(line.id) ?? false;
             // §3 gate for the View/Hide context toggle action. The Copy
@@ -176,12 +170,9 @@ export function LogList({
                 isStreamed={isStreamed}
                 isSelected={isSelected}
                 isFocused={isFocused}
-                contextRange={contextRange}
                 canToggleContext={canToggleContext}
                 onLineFocus={onLineFocus}
                 onToggleContext={onToggleContext}
-                onExpandContext={onExpandContext}
-                onLessContext={onLessContext}
                 onCopyLine={onCopyLine}
               />
             );

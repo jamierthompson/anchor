@@ -1,7 +1,6 @@
 "use client";
 
 import * as Dialog from "@radix-ui/react-dialog";
-import { CircleHelp } from "lucide-react";
 import type { Dispatch, SetStateAction } from "react";
 
 import {
@@ -20,8 +19,9 @@ import styles from "./shortcut-sheet.module.css";
  * dimensional without being kitsch.
  *
  * **Open / close model**:
- *   - Open via the `?` keyboard shortcut OR the bottom-right `?`
- *     trigger button (rendered by `ShortcutSheetTrigger` below).
+ *   - Open via the `?` keyboard shortcut OR by clicking the legend's
+ *     `?` entry in the top-right toolbar (see `Legend` in
+ *     components/features/legend).
  *   - Close via Esc, click outside, or the modal's own X button —
  *     all handled natively by Radix Dialog.
  *
@@ -86,25 +86,6 @@ export function ShortcutSheet({
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>
-  );
-}
-
-/**
- * Bottom-right floating `?` button. Renders as a sibling to the log
- * explorer at the layout-root level so it floats over content
- * regardless of scroll position. Visual treatment is a circular
- * elevated affordance — familiar "help corner" mental model.
- */
-export function ShortcutSheetTrigger({ onOpen }: { onOpen: () => void }) {
-  return (
-    <button
-      type="button"
-      className={styles.floatingTrigger}
-      aria-label="Open keyboard shortcuts"
-      onClick={onOpen}
-    >
-      <CircleHelp aria-hidden="true" size={18} />
-    </button>
   );
 }
 

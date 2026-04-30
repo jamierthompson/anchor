@@ -1,11 +1,4 @@
-import {
-  Anchor,
-  Copy,
-  ListChevronsDownUp,
-  ListChevronsUpDown,
-} from "lucide-react";
-
-import { CONTEXT_RANGE_CYCLE } from "@/lib/context-state";
+import { Anchor, Copy } from "lucide-react";
 
 import styles from "./log-line.module.css";
 
@@ -30,41 +23,28 @@ import styles from "./log-line.module.css";
  *      data-active flip on isSelected; CSS keys off data-active for
  *      the filled-accent style.
  *
- *   2. Expand context (ListChevronsUpDown) — only when isSelected AND
- *      the current range is below the cycle max. Hidden at ±100.
- *
- *   3. Less context (ListChevronsDownUp) — only when isSelected AND
- *      the current range is above the cycle min. Hidden at ±20.
- *
- *   4. Copy line — visible whenever the action row is visible. Copy
+ *   2. Copy line — visible whenever the action row is visible. Copy
  *      is universally available (no §3 gate) so users can copy any
  *      visible line at any time, including dimmed (context-revealed
  *      but not filter-matching) lines and lines under no filter.
  *
- * The row itself is rendered when ANY action would appear — gated on
- * line visibility (hidden lines never need actions, height: 0 hides
- * them anyway) and the presence of `onCopyLine` (universal action,
- * always-on signal that something is interactable on this line) OR
- * the toggle-state gate.
+ * Range expansion (the old Expand / Less buttons) is keyboard-only
+ * via shift+e — see `LogExplorer`'s key handler. The mouse buttons
+ * were removed because expanding context naturally pulls the user's
+ * scroll position away from the anchor line, and they shouldn't have
+ * to scroll back to find an in-row button to expand again. shift+e
+ * works wherever focus is.
  *
  * tabIndex={-1} on every button keeps Tab from walking the action row
- * line by line — keyboard equivalents (`e`, `shift+e`, `c`) cover the
- * primary actions; the buttons are mouse/pointer affordances.
- *
- * **Future refactor**: when more icon-button consumers exist (filter
- * chips, time-format toggle, density toggle), extract a shared
- * `<IconButton>` primitive into `components/ui/`. With one consumer
- * the abstraction is premature — the design API isn't stable yet.
+ * line by line — keyboard equivalents (`e`, `c`) cover the actions;
+ * the buttons are mouse/pointer affordances.
  */
 export function LineActions({
   lineId,
   isVisible,
   isSelected,
   canToggleContext,
-  contextRange,
   onToggleContext,
-  onExpandContext,
-  onLessContext,
   onCopyLine,
 }: {
   lineId: string;
@@ -77,10 +57,7 @@ export function LineActions({
   isVisible: boolean;
   isSelected: boolean;
   canToggleContext: boolean;
-  contextRange: number;
   onToggleContext: (lineId: string) => void;
-  onExpandContext?: (lineId: string) => void;
-  onLessContext?: (lineId: string) => void;
   onCopyLine?: (lineId: string) => void;
 }) {
   if (!isVisible) return null;
@@ -91,9 +68,6 @@ export function LineActions({
   const showAnchorButton = canToggleContext || isSelected;
   const showRow = showAnchorButton || !!onCopyLine;
   if (!showRow) return null;
-
-  const minRange = CONTEXT_RANGE_CYCLE[0];
-  const maxRange = CONTEXT_RANGE_CYCLE[CONTEXT_RANGE_CYCLE.length - 1];
 
   return (
     <div className={styles.actionRow}>
@@ -115,34 +89,6 @@ export function LineActions({
           }}
         >
           <Anchor aria-hidden="true" size={14} />
-        </button>
-      ) : null}
-      {isSelected && contextRange < maxRange && onExpandContext ? (
-        <button
-          type="button"
-          className={styles.actionButton}
-          tabIndex={-1}
-          aria-label="Expand context"
-          onClick={(event) => {
-            event.stopPropagation();
-            onExpandContext(lineId);
-          }}
-        >
-          <ListChevronsUpDown aria-hidden="true" size={14} />
-        </button>
-      ) : null}
-      {isSelected && contextRange > minRange && onLessContext ? (
-        <button
-          type="button"
-          className={styles.actionButton}
-          tabIndex={-1}
-          aria-label="Less context"
-          onClick={(event) => {
-            event.stopPropagation();
-            onLessContext(lineId);
-          }}
-        >
-          <ListChevronsDownUp aria-hidden="true" size={14} />
         </button>
       ) : null}
       {onCopyLine ? (

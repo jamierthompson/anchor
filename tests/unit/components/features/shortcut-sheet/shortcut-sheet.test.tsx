@@ -1,10 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import {
-  ShortcutSheet,
-  ShortcutSheetTrigger,
-} from "@/components/features/shortcut-sheet/shortcut-sheet";
+import { ShortcutSheet } from "@/components/features/shortcut-sheet/shortcut-sheet";
 
 /**
  * Coverage for the shortcut sheet's render shape and the trigger
@@ -71,23 +68,5 @@ describe("ShortcutSheet — rendered modal", () => {
     render(<ShortcutSheet open={true} onOpenChange={onOpenChange} />);
     fireEvent.click(screen.getByRole("button", { name: /Close/ }));
     expect(onOpenChange).toHaveBeenCalledWith(false);
-  });
-});
-
-describe("ShortcutSheetTrigger — bottom-right floating button", () => {
-  it("renders an accessible button labeled 'Open keyboard shortcuts'", () => {
-    render(<ShortcutSheetTrigger onOpen={() => {}} />);
-    expect(
-      screen.getByRole("button", { name: /Open keyboard shortcuts/ }),
-    ).toBeInTheDocument();
-  });
-
-  it("calls onOpen when clicked", () => {
-    const onOpen = vi.fn();
-    render(<ShortcutSheetTrigger onOpen={onOpen} />);
-    fireEvent.click(
-      screen.getByRole("button", { name: /Open keyboard shortcuts/ }),
-    );
-    expect(onOpen).toHaveBeenCalledTimes(1);
   });
 });
