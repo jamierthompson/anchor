@@ -63,7 +63,6 @@ type LogListItemProps = {
   canToggleContext: boolean;
   onLineFocus?: (lineId: string) => void;
   onToggleContext?: (lineId: string) => void;
-  onCopyLine?: (lineId: string) => void;
 };
 
 function LogListItemImpl({
@@ -75,16 +74,34 @@ function LogListItemImpl({
   canToggleContext,
   onLineFocus,
   onToggleContext,
-  onCopyLine,
 }: LogListItemProps) {
-  // Plain click on the <li> sets focus on this line. LogLine still
-  // owns the modifier-click (cmd/ctrl) for context toggle and stops
-  // propagation on its inner pill/badge buttons, so this only fires
-  // for non-button clicks landing on the line body.
+  // Plain click on the <li> drives the unified line interaction:
+  //   - If the line is currently the anchor of an open context, click
+  //     closes that context (matches the keyboard `e` toggle).
+  //   - Else if the §3 gate passes (filter active + filter-matched +
+  //     not dimmed), click opens a context.
+  //   - Otherwise click only moves focus — the line is still
+  //     keyboard-navigable but has no context to anchor.
+  //
+  // In all cases focus moves to the clicked line so subsequent
+  // keyboard nav (j/k, e, Esc) starts from where the user just was.
+  // Modifier keys are no longer special-cased — cmd/ctrl click went
+  // away with the move from "modifier-only context toggle" to
+  // "click anywhere expands."
   const handleClick = (event: ReactMouseEvent<HTMLLIElement>) => {
-    if (event.metaKey || event.ctrlKey) return;
+    if (event.metaKey || event.ctrlKey || event.altKey) return;
     onLineFocus?.(line.id);
+    if (isSelected || canToggleContext) {
+      onToggleContext?.(line.id);
+    }
   };
+
+  // Lines that participate in the click-to-toggle interaction get a
+  // pointer cursor and a hover surface. Deploy boundaries and lines
+  // that fail every gate stay as plain rows — clicking them only
+  // moves focus, which is a quiet enough action that pointer affordance
+  // would mislead the user into expecting more.
+  const isClickable = !line.isDeployBoundary && (isSelected || canToggleContext);
 
   return (
     <li
@@ -98,6 +115,7 @@ function LogListItemImpl({
       data-selected={isSelected}
       data-focused={isFocused}
       data-streamed={isStreamed}
+      data-clickable={isClickable}
       onClick={handleClick}
     >
       <div className={styles.inner}>
@@ -108,7 +126,6 @@ function LogListItemImpl({
           isSelected={isSelected}
           canToggleContext={canToggleContext}
           onToggleContext={onToggleContext}
-          onCopyLine={onCopyLine}
         />
       </div>
     </li>
@@ -131,8 +148,7 @@ function arePropsEqual(prev: LogListItemProps, next: LogListItemProps) {
     prev.isFocused === next.isFocused &&
     prev.canToggleContext === next.canToggleContext &&
     prev.onLineFocus === next.onLineFocus &&
-    prev.onToggleContext === next.onToggleContext &&
-    prev.onCopyLine === next.onCopyLine
+    prev.onToggleContext === next.onToggleContext
   );
 }
 

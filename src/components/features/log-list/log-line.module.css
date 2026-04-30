@@ -13,19 +13,10 @@
 .line {
   display: grid;
   /*
-   * Three columns:
-   *   1. auto — time column.
-   *   2. auto — instance pill.
-   *   3. 1fr  — message + request id badge.
-   *
-   * The hover-revealed action row (.actionRow / .actionButton below)
-   * is *absolutely* positioned at the right edge — it's not a grid
-   * cell. Putting it in the grid would shrink the message column on
-   * every line, which can tip longer messages onto extra wrap rows
-   * and make Motion's height-0 ↔ height-auto animation read as
-   * inconsistent (taller rows traverse more pixels in the same fixed
-   * duration). Absolute positioning keeps the message column at full
-   * width.
+   * Three columns: time / instance pill / message + request id.
+   * The action row that used to absolute-position over the right
+   * edge is gone — the line itself is the click target now, with
+   * the anchor icon moved to the left gutter on selected lines.
    */
   grid-template-columns: auto auto 1fr;
   align-items: baseline;
@@ -34,8 +25,6 @@
   font-family: var(--font-mono);
   font-size: 13px;
   line-height: 1.5;
-  /* Anchor for the absolutely-positioned .actionRow below. */
-  position: relative;
 }
 
 /*
@@ -92,21 +81,12 @@
 .message {
   color: var(--color-fg);
   word-break: break-word;
-  /*
-   * Reserve space for the action row. Up to three icon buttons
-   * (24px wide each + 4px gaps + 8px row padding ≈ 88px). With
-   * absolute-positioned .actionRow sitting in this padding zone, the
-   * request-id badge stops cleanly before the icons begin and never
-   * gets visually stacked under them.
-   */
-  padding-right: 92px;
 }
 
 /* DEBUG lines render at the subtle text color across the whole message. */
 .messageMuted {
   color: var(--color-fg-subtle);
   word-break: break-word;
-  padding-right: 92px;
 }
 
 .levelWARN {
@@ -128,91 +108,6 @@
   background: var(--color-bg-elevated);
   color: var(--color-fg-muted);
   font-size: 11px;
-}
-
-/*
- * Hover-revealed line actions (spec §8 — redesigned from the
- * originally-planned kebab menu). The row is absolutely positioned
- * at the right edge of the line so it doesn't compete with the
- * message column for grid space. Hidden at rest; revealed when:
- *
- *   - the line is hovered (`.line:hover .actionRow`)
- *   - the line is keyboard-focused (`.line[data-focused="true"]
- *     .actionRow`) — power users navigating with j/k see the
- *     affordances before mousing
- *   - the line is the anchor of an open context (selected) — the
- *     anchor button needs to stay clickable so the user can close
- *     the context without re-hovering
- *
- * Composing with Motion's animated parent <li> opacity: the
- * actionRow is INSIDE the .line, so during height-collapse the row
- * fades along with the line content (single source of opacity).
- */
-.actionRow {
-  position: absolute;
-  top: 50%;
-  right: var(--space-4);
-  transform: translateY(-50%);
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  opacity: 0;
-  transition: opacity var(--duration-fast) var(--ease-standard);
-  pointer-events: none;
-}
-
-.line:hover .actionRow,
-.line[data-focused="true"] .actionRow,
-.line[data-selected="true"] .actionRow {
-  opacity: 1;
-  pointer-events: auto;
-}
-
-.actionButton {
-  appearance: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  border-radius: 4px;
-  background: transparent;
-  color: var(--color-fg-muted);
-  cursor: pointer;
-  transition: background var(--duration-fast) var(--ease-standard),
-    color var(--duration-fast) var(--ease-standard);
-}
-
-.actionButton:hover {
-  background: var(--color-bg-elevated);
-  color: var(--color-fg);
-}
-
-.actionButton:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 1px;
-}
-
-/*
- * Active state — currently set on the Anchor button when the line is
- * the selected anchor of an open context. Filled background + accent
- * color make it read as "active toggle" without needing a separate
- * "anchor on / anchor off" icon set (Lucide doesn't ship AnchorOff).
- * Pairs with the left-border accent on the <li> for redundant
- * affordance.
- */
-.actionButton[data-active="true"] {
-  background: var(--color-accent);
-  color: var(--color-bg);
-}
-
-.actionButton[data-active="true"]:hover {
-  background: var(--color-accent);
-  color: var(--color-bg);
-  filter: brightness(1.1);
 }
 
 /* Deploy boundary: horizontal divider with the deploy event text inline. */

@@ -43,7 +43,6 @@ export function LogList({
   lines,
   viewportRef,
   onToggleContext,
-  onCopyLine,
   onLineFocus,
   onKeyDown,
   selectedContextLineIds,
@@ -62,8 +61,6 @@ export function LogList({
    */
   viewportRef?: Ref<HTMLDivElement>;
   onToggleContext?: (lineId: string) => void;
-  /** Copies a plain-text representation of the line to the clipboard. */
-  onCopyLine?: (lineId: string) => void;
   /**
    * Called with the line id when the user focuses a line via mouse
    * (plain click on the line body). The keyboard navigation path
@@ -157,9 +154,7 @@ export function LogList({
             const isSelected = selectedContextLineIds?.has(line.id) ?? false;
             const isFocused = line.id === focusedLineId;
             const isStreamed = streamedLineIds?.has(line.id) ?? false;
-            // §3 gate for the View/Hide context toggle action. The Copy
-            // action has its own (looser) gate — see LineActions; it
-            // shows on any visible line.
+            // §3 gate for the View/Hide context toggle action.
             const canToggleContext =
               hasAnyFilter && line.isVisible && !line.isDimmed;
             return (
@@ -173,7 +168,6 @@ export function LogList({
                 canToggleContext={canToggleContext}
                 onLineFocus={onLineFocus}
                 onToggleContext={onToggleContext}
-                onCopyLine={onCopyLine}
               />
             );
           })}

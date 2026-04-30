@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { LogExplorer } from "@/components/features/log-explorer/log-explorer";
 import type { LogLine } from "@/types/log";
@@ -84,17 +84,15 @@ const applyErrorFilter = () => {
   fireEvent.click(screen.getByRole("button", { name: /Errors only/ }));
 };
 
-describe("LogExplorer — View Context toggle", () => {
-  it("cmd + click on a matched line opens a context: selected line is accent-marked, surrounding non-matches reveal dimmed", () => {
+describe("LogExplorer — View Context toggle (click-to-expand)", () => {
+  it("clicking a matched line opens a context: selected line is accent-marked, surrounding non-matches reveal dimmed", () => {
     render(<LogExplorer lines={fixture} />);
     applyErrorFilter();
 
     // After filter: l0, l2, l4 are hidden; l1 and l3 are visible.
     expect(liFor(/row zero info/).getAttribute("data-visible")).toBe("false");
 
-    fireEvent.click(liFor(/row one error/).querySelector("[data-level]")!, {
-      metaKey: true,
-    });
+    fireEvent.click(liFor(/row one error/));
 
     // Selected line carries the accent marker.
     expect(liFor(/row one error/).getAttribute("data-selected")).toBe("true");
@@ -114,50 +112,40 @@ describe("LogExplorer — View Context toggle", () => {
     expect(l3.getAttribute("data-dimmed")).toBe("false");
   });
 
-  it("cmd + click on the same line again closes the context", () => {
+  it("clicking the same line again closes the context", () => {
     render(<LogExplorer lines={fixture} />);
     applyErrorFilter();
 
-    const body = liFor(/row one error/).querySelector("[data-level]")!;
-    fireEvent.click(body, { metaKey: true });
+    fireEvent.click(liFor(/row one error/));
     expect(liFor(/row one error/).getAttribute("data-selected")).toBe("true");
 
-    fireEvent.click(body, { metaKey: true });
+    fireEvent.click(liFor(/row one error/));
     expect(liFor(/row one error/).getAttribute("data-selected")).toBe("false");
     // Dimmed reveals collapse back to hidden.
     expect(liFor(/row zero info/).getAttribute("data-visible")).toBe("false");
   });
 
-  it("cmd + click on a different matched line opens an additional context — both stay selected", () => {
+  it("clicking a different matched line opens an additional context — both stay selected", () => {
     // Multi-context support (§14 task #6 / spec §4). Two simultaneous
     // contexts means both anchor lines render the selected accent;
     // earlier selections are no longer replaced by later ones.
     render(<LogExplorer lines={fixture} />);
     applyErrorFilter();
 
-    fireEvent.click(liFor(/row one error/).querySelector("[data-level]")!, {
-      metaKey: true,
-    });
-    fireEvent.click(liFor(/row three error/).querySelector("[data-level]")!, {
-      metaKey: true,
-    });
+    fireEvent.click(liFor(/row one error/));
+    fireEvent.click(liFor(/row three error/));
 
     expect(liFor(/row one error/).getAttribute("data-selected")).toBe("true");
     expect(liFor(/row three error/).getAttribute("data-selected")).toBe("true");
   });
 
   it("closing one of two open contexts leaves the other selected", () => {
-    // Closing the most-recently-opened context should NOT clear the
-    // earlier one — each entry tracks independently.
     render(<LogExplorer lines={fixture} />);
     applyErrorFilter();
 
-    const oneBody = liFor(/row one error/).querySelector("[data-level]")!;
-    const threeBody = liFor(/row three error/).querySelector("[data-level]")!;
-
-    fireEvent.click(oneBody, { metaKey: true });
-    fireEvent.click(threeBody, { metaKey: true });
-    fireEvent.click(threeBody, { metaKey: true }); // close l3
+    fireEvent.click(liFor(/row one error/));
+    fireEvent.click(liFor(/row three error/));
+    fireEvent.click(liFor(/row three error/)); // close l3
 
     expect(liFor(/row one error/).getAttribute("data-selected")).toBe("true");
     expect(liFor(/row three error/).getAttribute("data-selected")).toBe("false");
@@ -167,78 +155,59 @@ describe("LogExplorer — View Context toggle", () => {
     render(<LogExplorer lines={fixture} />);
     applyErrorFilter();
 
-    const oneBody = liFor(/row one error/).querySelector("[data-level]")!;
-    const threeBody = liFor(/row three error/).querySelector("[data-level]")!;
-
-    fireEvent.click(oneBody, { metaKey: true });
-    fireEvent.click(threeBody, { metaKey: true });
-    fireEvent.click(oneBody, { metaKey: true });
-    fireEvent.click(threeBody, { metaKey: true });
+    fireEvent.click(liFor(/row one error/));
+    fireEvent.click(liFor(/row three error/));
+    fireEvent.click(liFor(/row one error/));
+    fireEvent.click(liFor(/row three error/));
 
     expect(document.querySelector('[data-selected="true"]')).toBeNull();
   });
 
-  it("cmd + click is a no-op when no filter is active (spec §3 gate)", () => {
+  it("clicking a line is a no-op for context when no filter is active (spec §3 gate)", () => {
     render(<LogExplorer lines={fixture} />);
 
-    fireEvent.click(liFor(/row one error/).querySelector("[data-level]")!, {
-      metaKey: true,
-    });
+    fireEvent.click(liFor(/row one error/));
 
-    // No line should be selected.
+    // No line should be selected — gate fails with no filter active.
     expect(document.querySelector('[data-selected="true"]')).toBeNull();
+    // Click still moves focus.
+    expect(liFor(/row one error/).getAttribute("data-focused")).toBe("true");
   });
 
-  it("cmd + click on a context-revealed (dimmed) line is a no-op (no nested context)", () => {
-    render(<LogExplorer lines={fixture} />);
-    applyErrorFilter();
-
-    // Open a context on l1 — l0 becomes dimmed (revealed by context).
-    fireEvent.click(liFor(/row one error/).querySelector("[data-level]")!, {
-      metaKey: true,
-    });
-    expect(liFor(/row zero info/).getAttribute("data-dimmed")).toBe("true");
-
-    // cmd + click on the dimmed l0 must not steal the selection.
-    fireEvent.click(liFor(/row zero info/).querySelector("[data-level]")!, {
-      metaKey: true,
-    });
-    expect(liFor(/row one error/).getAttribute("data-selected")).toBe("true");
-    expect(liFor(/row zero info/).getAttribute("data-selected")).toBe("false");
-  });
-
-  it("plain click on a line body focuses that line (and does NOT open a context)", () => {
-    // Plain click is the mouse focus model from spec §7/§8: clicking a
-    // line body sets keyboard focus on that line. cmd/ctrl + click stays
-    // reserved for the context-toggle modifier (covered separately).
+  it("clicking a context-revealed (dimmed) line does not open a nested context", () => {
     render(<LogExplorer lines={fixture} />);
     applyErrorFilter();
 
     fireEvent.click(liFor(/row one error/));
+    expect(liFor(/row zero info/).getAttribute("data-dimmed")).toBe("true");
 
+    fireEvent.click(liFor(/row zero info/));
+
+    expect(liFor(/row one error/).getAttribute("data-selected")).toBe("true");
+    expect(liFor(/row zero info/).getAttribute("data-selected")).toBe("false");
+  });
+
+  it("clicking a line always moves focus, even when context toggle is gated off", () => {
+    // Plain click: focus moves regardless of whether the §3 gate
+    // would let context expansion happen. With no filter active the
+    // gate is closed but focus still tracks the click.
+    render(<LogExplorer lines={fixture} />);
+
+    fireEvent.click(liFor(/row one error/));
     expect(liFor(/row one error/).getAttribute("data-focused")).toBe("true");
-    // Selection accent must NOT have moved — focus and selection are
-    // independent states.
     expect(liFor(/row one error/).getAttribute("data-selected")).toBe("false");
   });
 
-  it("auto-collapses the context when the filter clears so the selected line no longer matches (spec §5)", () => {
+  it("auto-suppresses the accent when the filter clears so the selected line no longer matches (spec §5)", () => {
     // Filter changes are atomic at the chip level — clearing the active
     // chip wipes the level filter, so the previously-selected ERROR line
-    // no longer matches and its surrounding context reveals collapse.
+    // no longer satisfies the §3 gate and the accent disappears.
     render(<LogExplorer lines={fixture} />);
     applyErrorFilter();
 
-    // Open a context on l1 (an ERROR line).
-    fireEvent.click(liFor(/row one error/).querySelector("[data-level]")!, {
-      metaKey: true,
-    });
+    fireEvent.click(liFor(/row one error/));
     expect(liFor(/row zero info/).getAttribute("data-visible")).toBe("true");
 
-    // Click the active chip again to clear the filter — l1 still
-    // technically matches (no filter == every line matches), but the §3
-    // gate (filter active) is now false, so the accent suppresses and
-    // surrounding dimmed reveals collapse since no filter is active.
     fireEvent.click(screen.getByRole("button", { name: /Errors only/ }));
 
     expect(liFor(/row one error/).getAttribute("data-selected")).toBe("false");
@@ -252,18 +221,12 @@ describe("LogExplorer — View Context toggle", () => {
     render(<LogExplorer lines={fixture} />);
     applyErrorFilter();
 
-    fireEvent.click(liFor(/row one error/).querySelector("[data-level]")!, {
-      metaKey: true,
-    });
+    fireEvent.click(liFor(/row one error/));
     expect(liFor(/row one error/).getAttribute("data-selected")).toBe("true");
 
-    // Toggle the chip off — filter state is now empty.
     fireEvent.click(screen.getByRole("button", { name: /Errors only/ }));
-
-    // Accent suppressed — gate fails because no filter is active.
     expect(liFor(/row one error/).getAttribute("data-selected")).toBe("false");
 
-    // Re-apply ERRORS — saved selection re-emerges.
     applyErrorFilter();
     expect(liFor(/row one error/).getAttribute("data-selected")).toBe("true");
   });
@@ -549,9 +512,9 @@ describe("LogExplorer — shift+e expands the most-recent context by a fixed ste
     applyErrorFilter();
     listbox().focus();
 
-    // Open context at default ±20 — covers indices 5..45 (41 lines).
+    // Click the anchor line to open a context at default ±20 —
+    // covers indices 5..45 (41 lines).
     fireEvent.click(liFor(/row l25 error anchor/));
-    await user.keyboard("e");
     expect(visibleLineCount()).toBe(41);
 
     // shift+e: full +20 step, so ±40. Past both file edges → all 51.
@@ -569,7 +532,6 @@ describe("LogExplorer — shift+e expands the most-recent context by a fixed ste
     listbox().focus();
 
     fireEvent.click(liFor(/row l25 error anchor/));
-    await user.keyboard("e");
     expect(visibleLineCount()).toBe(41);
 
     // Move focus away to a non-anchor line.
@@ -587,8 +549,7 @@ describe("LogExplorer — shift+e expands the most-recent context by a fixed ste
     applyErrorFilter();
     listbox().focus();
 
-    fireEvent.click(liFor(/row l25 error anchor/));
-    await user.keyboard("e"); // ±20
+    fireEvent.click(liFor(/row l25 error anchor/)); // open at ±20
     await user.keyboard("{Shift>}e{/Shift}"); // ±40 — past both edges
     expect(visibleLineCount()).toBe(51);
 
@@ -604,9 +565,10 @@ describe("LogExplorer — shift+e expands the most-recent context by a fixed ste
     applyErrorFilter();
     listbox().focus();
 
-    // Focus a line but don't press `e` — no context is open. shift+e
-    // must not implicitly open a context.
-    fireEvent.click(liFor(/row l25 error anchor/));
+    // Focus the anchor line via keyboard (avoiding click — click would
+    // now open a context, defeating the test). g jumps focus to the
+    // first visible line, which is l25 with the error filter.
+    await user.keyboard("g");
     await user.keyboard("{Shift>}e{/Shift}");
 
     expect(liFor(/row l25 error anchor/).getAttribute("data-selected")).toBe(
@@ -637,55 +599,54 @@ describe("LogExplorer — contextual legend (top-right toolbar)", () => {
     ).toBeInTheDocument();
   });
 
-  it("shows both Shift+E and Esc entries when a context is open with room to grow", async () => {
-    // Esc is always present alongside Shift+E so the user has a
-    // visible mouse path to close at any time. Shift+E sits to its
-    // left while expansion is still possible; once at boundary the
-    // Shift+E entry is removed.
-    const user = userEvent.setup();
+  it("shows Shift+E + E (hide context) + Esc when a context is open with room to grow", () => {
+    // Click-to-expand also focuses the anchor line, so the legend's
+    // E entry resolves to "Hide context" (focused line is the anchor
+    // of an open context). Shift+E (expand) and Esc (close) are
+    // both applicable too — three actions are available simultaneously.
+    // Order left → right: Shift+E (growth) → E (per-line) → Esc (dismiss).
     render(<LogExplorer lines={wideFixture} />);
     applyErrorFilter();
-    listbox().focus();
 
-    fireEvent.click(liFor(/row l25 error anchor/));
-    await user.keyboard("e"); // open context at ±20 (room to grow)
+    fireEvent.click(liFor(/row l25 error anchor/)); // open at ±20
 
+    expect(legendText()).toMatch(/hide context/i);
     expect(legendText()).toMatch(/expand context/i);
     expect(legendText()).toMatch(/close/i);
     // No `?` keycap while context-relevant hints are showing.
     expect(legendText()).not.toMatch(/for all shortcuts/i);
-    // Visible cap order: Shift+E to the left, Esc to the right.
+    // Visible cap order: Shift+E (expand) → E (hide) → Esc (close).
     const legendToolbar = screen.getByRole("toolbar", {
       name: /Keyboard hints/,
     });
     const capTexts = Array.from(legendToolbar.querySelectorAll("kbd")).map(
       (k) => k.textContent,
     );
-    expect(capTexts).toEqual(["Shift", "E", "Esc"]);
+    expect(capTexts).toEqual(["Shift", "E", "E", "Esc"]);
   });
 
-  it("swaps to Esc Close when the most-recent context can't expand further", async () => {
+  it("drops Shift+E when the most-recent context can't expand further (E hide + Esc remain)", async () => {
     const user = userEvent.setup();
     render(<LogExplorer lines={wideFixture} />);
     applyErrorFilter();
     listbox().focus();
 
-    fireEvent.click(liFor(/row l25 error anchor/));
-    await user.keyboard("e"); // ±20
-    await user.keyboard("{Shift>}e{/Shift}"); // ±25 — clamps at boundary
+    fireEvent.click(liFor(/row l25 error anchor/)); // open at ±20
+    await user.keyboard("{Shift>}e{/Shift}"); // ±40 — clamps at boundary
 
-    // Pivots from "what can I do to keep going?" to "what's the next
-    // useful action?" — Esc closes all contexts (spec §7).
+    // Shift+E goes away; the remaining actions are "hide this context"
+    // (focused line is still the anchor) and "close all" via Esc.
+    expect(legendText()).toMatch(/hide context/i);
     expect(legendText()).toMatch(/close/i);
-    // Disambiguate the toolbar by accessible name (scenario-chips
-    // also uses role="toolbar").
+    expect(legendText()).not.toMatch(/expand context/i);
+    // Cap order: E (hide) → Esc (close).
     const legendToolbar = screen.getByRole("toolbar", {
       name: /Keyboard hints/,
     });
     const capTexts = Array.from(legendToolbar.querySelectorAll("kbd")).map(
       (k) => k.textContent,
     );
-    expect(capTexts).toEqual(["Esc"]);
+    expect(capTexts).toEqual(["E", "Esc"]);
   });
 
   it("clicking the Shift+E entry expands the context (mouse path matches keyboard binding)", async () => {
@@ -696,10 +657,8 @@ describe("LogExplorer — contextual legend (top-right toolbar)", () => {
     const user = userEvent.setup();
     render(<LogExplorer lines={wideFixture} />);
     applyErrorFilter();
-    listbox().focus();
 
-    fireEvent.click(liFor(/row l25 error anchor/));
-    await user.keyboard("e"); // open at ±20 → 41 visible
+    fireEvent.click(liFor(/row l25 error anchor/)); // open at ±20 → 41 visible
     expect(document.querySelectorAll('li[data-visible="true"]').length).toBe(
       41,
     );
@@ -714,7 +673,7 @@ describe("LogExplorer — contextual legend (top-right toolbar)", () => {
     );
   });
 
-  it("clicking the Esc entry at the boundary clears all open contexts", async () => {
+  it("clicking the Esc entry at the boundary clears all open contexts and the legend follows", async () => {
     const user = userEvent.setup();
     render(<LogExplorer lines={wideFixture} />);
     applyErrorFilter();
@@ -722,7 +681,6 @@ describe("LogExplorer — contextual legend (top-right toolbar)", () => {
 
     // Open and expand to boundary so the legend shows the Esc entry.
     fireEvent.click(liFor(/row l25 error anchor/));
-    await user.keyboard("e");
     await user.keyboard("{Shift>}e{/Shift}");
 
     await user.click(
@@ -731,67 +689,97 @@ describe("LogExplorer — contextual legend (top-right toolbar)", () => {
 
     // All contexts cleared — same effect as pressing Esc.
     expect(document.querySelector('li[data-selected="true"]')).toBeNull();
-    // Legend swaps back to the default ? entry.
+    // Esc / Shift+E entries are gone; only the focused-line E binding
+    // is still applicable (the line stays focused after closing and
+    // still passes the §3 gate as a filter-matched ERROR).
+    expect(legendText()).not.toMatch(/close/i);
+    expect(legendText()).not.toMatch(/expand context/i);
+    expect(legendText()).toMatch(/view context/i);
+  });
+
+  it("falls back to the ? entry when nothing is actionable (no filter, no focus, no contexts)", () => {
+    // The legend always says *something* — when no filter is active
+    // and no line is focused, the fallback is the entry to the
+    // shortcut sheet. Once any state is engaged (filter, focus,
+    // context) the relevant E / Esc entries take over.
+    render(<LogExplorer lines={wideFixture} />);
+
     expect(legendText()).toMatch(/for all shortcuts/i);
   });
 
-  it("falls back to the ? entry when all contexts are closed", async () => {
-    // Uses wideFixture so opening at ±20 produces the active "Expand
-    // context" hint rather than immediately hitting the boundary
-    // (which would happen on the 5-line `fixture`).
+  it("shows Esc 'Clear filter' when a filter is active and nothing else is in play", () => {
+    // Filter-active, no focus, no context: Esc has work to do (clear
+    // the filter), so the legend offers it as the primary action.
+    render(<LogExplorer lines={wideFixture} />);
+    applyErrorFilter();
+
+    expect(legendText()).toMatch(/clear filter/i);
+    const legendToolbar = screen.getByRole("toolbar", {
+      name: /Keyboard hints/,
+    });
+    const capTexts = Array.from(legendToolbar.querySelectorAll("kbd")).map(
+      (k) => k.textContent,
+    );
+    expect(capTexts).toEqual(["Esc"]);
+  });
+
+  it("pressing Esc with a filter active and no contexts open clears the filter", async () => {
+    const user = userEvent.setup();
+    render(<LogExplorer lines={fixture} />);
+    applyErrorFilter();
+
+    expect(
+      screen.getByRole("button", { name: /Errors only/ }).getAttribute(
+        "aria-pressed",
+      ),
+    ).toBe("true");
+
+    await user.keyboard("{Escape}");
+
+    expect(
+      screen.getByRole("button", { name: /Errors only/ }).getAttribute(
+        "aria-pressed",
+      ),
+    ).toBe("false");
+  });
+
+  it("shows E (view context) + Esc (clear filter) when a filter-matched line is focused", async () => {
+    // Focused + filter-active, no context: both E (view context) and
+    // Esc (clear filter) are applicable, so both surface.
     const user = userEvent.setup();
     render(<LogExplorer lines={wideFixture} />);
     applyErrorFilter();
     listbox().focus();
 
-    fireEvent.click(liFor(/row l25 error anchor/));
-    await user.keyboard("e"); // open context (room to grow → "Expand context")
-    expect(legendText()).toMatch(/expand context/i);
+    await user.keyboard("g"); // focus l25 (only visible filter-matched line)
 
-    await user.keyboard("{Escape}"); // clears all contexts (spec §7)
-    expect(legendText()).toMatch(/for all shortcuts/i);
-  });
-});
-
-describe("LogExplorer — c copies the focused line", () => {
-  const listbox = () => screen.getByRole("listbox", { name: /log lines/i });
-
-  it("writes the formatted line text to navigator.clipboard", () => {
-    const writeText = vi.fn().mockResolvedValue(undefined);
-    Object.defineProperty(navigator, "clipboard", {
-      value: { writeText },
-      configurable: true,
+    expect(legendText()).toMatch(/view context/i);
+    expect(legendText()).toMatch(/clear filter/i);
+    // Cap order: E (view) → Esc (clear filter).
+    const legendToolbar = screen.getByRole("toolbar", {
+      name: /Keyboard hints/,
     });
-
-    render(<LogExplorer lines={fixture} />);
-    const list = listbox();
-    list.focus();
-
-    // Land on l1 (row one error) by clicking it, then copy via `c`.
-    fireEvent.click(liFor(/row one error/));
-    fireEvent.keyDown(list, { key: "c" });
-
-    expect(writeText).toHaveBeenCalledTimes(1);
-    const text = writeText.mock.calls[0][0] as string;
-    expect(text).toContain("[i1]");
-    expect(text).toContain("ERROR");
-    expect(text).toContain("row one error");
+    const capTexts = Array.from(legendToolbar.querySelectorAll("kbd")).map(
+      (k) => k.textContent,
+    );
+    expect(capTexts).toEqual(["E", "Esc"]);
   });
 
-  it("is a no-op when no line is focused", () => {
-    const writeText = vi.fn().mockResolvedValue(undefined);
-    Object.defineProperty(navigator, "clipboard", {
-      value: { writeText },
-      configurable: true,
-    });
+  it("clicking the legend's E entry opens a context on the focused line", async () => {
+    const user = userEvent.setup();
+    render(<LogExplorer lines={wideFixture} />);
+    applyErrorFilter();
+    listbox().focus();
 
-    render(<LogExplorer lines={fixture} />);
-    const list = listbox();
-    list.focus();
+    await user.keyboard("g"); // focus l25
 
-    fireEvent.keyDown(list, { key: "c" });
+    await user.click(
+      screen.getByRole("button", { name: /View context on focused line/ }),
+    );
 
-    expect(writeText).not.toHaveBeenCalled();
+    expect(liFor(/row l25 error anchor/).getAttribute("data-selected")).toBe(
+      "true",
+    );
   });
 });
 
@@ -816,19 +804,22 @@ describe("LogExplorer — global shortcuts (Esc and ?)", () => {
     expect(document.querySelector('li[data-selected="true"]')).toBeNull();
   });
 
-  it("Esc with no open contexts is a no-op", async () => {
+  it("Esc with no contexts and no filter is a no-op", async () => {
     const user = userEvent.setup();
     render(<LogExplorer lines={fixture} />);
-    applyErrorFilter();
     screen.getByRole("listbox", { name: /log lines/i }).focus();
 
     await user.keyboard("{Escape}");
 
+    // Nothing was open / active to dismiss.
     expect(document.querySelector('li[data-selected="true"]')).toBeNull();
   });
 
-  it("Esc preserves the filter — only contexts clear", async () => {
-    // Spec §7: "Filters require explicit removal." Esc doesn't touch them.
+  it("Esc cascade: closes contexts first, leaving the filter intact", async () => {
+    // Esc precedence: contexts before filter. Pressing Esc while a
+    // context is open should dismiss the context but leave the
+    // active scenario chip pressed; a second Esc would clear the
+    // filter.
     const user = userEvent.setup();
     render(<LogExplorer lines={fixture} />);
     applyErrorFilter();
@@ -839,151 +830,80 @@ describe("LogExplorer — global shortcuts (Esc and ?)", () => {
 
     await user.keyboard("{Escape}");
 
-    // The active scenario chip is still pressed.
+    // The active scenario chip is still pressed — context was the
+    // dismissable thing.
     expect(
       screen
         .getByRole("button", { name: /Errors only/ })
         .getAttribute("aria-pressed"),
     ).toBe("true");
-    // l0 is hidden again (filter excludes it; context that revealed it is gone).
+    // l0 hidden again — filter excludes it; the context that revealed
+    // it is gone.
     expect(liFor(/row zero info/).getAttribute("data-visible")).toBe("false");
+
+    // A second Esc clears the filter.
+    await user.keyboard("{Escape}");
+    expect(
+      screen
+        .getByRole("button", { name: /Errors only/ })
+        .getAttribute("aria-pressed"),
+    ).toBe("false");
   });
 });
 
-describe("LogExplorer — line-action integration (spec §8 — hover icon row)", () => {
-  it("View context button opens a context (toggle pipeline reuse)", async () => {
-    const user = userEvent.setup();
+describe("LogExplorer — line-row affordances (gutter anchor + clickable rows)", () => {
+  it("the in-row anchor button is gone — no View/Hide context buttons render anywhere", async () => {
+    // The old hover-revealed anchor button moved to the left gutter
+    // as a non-interactive accent indicator. Confirm no <button> with
+    // those labels exists in any state.
     render(<LogExplorer lines={fixture} />);
     applyErrorFilter();
 
-    const l1Row = liFor(/row one error/);
-    const viewBtn = l1Row.querySelector<HTMLButtonElement>(
-      'button[aria-label="View context"]',
-    );
-    expect(viewBtn).not.toBeNull();
-    await user.click(viewBtn!);
+    expect(
+      document.querySelector('button[aria-label="View context"]'),
+    ).toBeNull();
 
-    expect(l1Row.getAttribute("data-selected")).toBe("true");
-    // Surrounding non-matching line revealed dimmed via the window.
-    expect(liFor(/row zero info/).getAttribute("data-dimmed")).toBe("true");
+    fireEvent.click(liFor(/row one error/));
+    expect(
+      document.querySelector('button[aria-label="Hide context"]'),
+    ).toBeNull();
   });
 
-  it("Hide context button (active anchor) closes the open context", async () => {
-    const user = userEvent.setup();
+  it("rows where the §3 gate passes are marked clickable (cursor + hover hint)", () => {
     render(<LogExplorer lines={fixture} />);
     applyErrorFilter();
 
-    // Open via cmd+click for variety, then verify the row now offers Hide.
-    fireEvent.click(liFor(/row one error/).querySelector("[data-level]")!, {
-      metaKey: true,
-    });
+    // l1 (error) is filter-matched and visible — clickable.
+    expect(liFor(/row one error/).getAttribute("data-clickable")).toBe("true");
+  });
+
+  it("rows where the §3 gate fails are NOT marked clickable (no cursor / hover hint)", () => {
+    // No filter active — no line meets the gate. Click still moves
+    // focus, but the affordance shouldn't lie about being expandable.
+    render(<LogExplorer lines={fixture} />);
+
+    expect(liFor(/row one error/).getAttribute("data-clickable")).toBe("false");
+  });
+
+  it("a selected row stays clickable so the user can click again to close", () => {
+    render(<LogExplorer lines={fixture} />);
+    applyErrorFilter();
+
+    fireEvent.click(liFor(/row one error/));
     expect(liFor(/row one error/).getAttribute("data-selected")).toBe("true");
-
-    const hideBtn = liFor(/row one error/).querySelector<HTMLButtonElement>(
-      'button[aria-label="Hide context"]',
-    );
-    expect(hideBtn).not.toBeNull();
-    expect(hideBtn?.getAttribute("data-active")).toBe("true");
-    await user.click(hideBtn!);
-
-    expect(liFor(/row one error/).getAttribute("data-selected")).toBe("false");
-  });
-
-  it("action row is empty (no toggle/copy buttons) on lines that fail the §3 gate when no filter is active", () => {
-    render(<LogExplorer lines={fixture} />);
-
-    // No filter — no line should expose View context / Hide context.
-    expect(
-      document.querySelectorAll('button[aria-label="View context"]'),
-    ).toHaveLength(0);
-    expect(
-      document.querySelectorAll('button[aria-label="Hide context"]'),
-    ).toHaveLength(0);
-  });
-
-  it("dimmed (context-revealed) lines hide the View context button but keep Copy", async () => {
-    const user = userEvent.setup();
-    render(<LogExplorer lines={fixture} />);
-    applyErrorFilter();
-
-    // Open a context on l1 — l0 becomes visible-but-dimmed.
-    await user.click(
-      liFor(/row one error/).querySelector<HTMLButtonElement>(
-        'button[aria-label="View context"]',
-      )!,
-    );
-    expect(liFor(/row zero info/).getAttribute("data-dimmed")).toBe("true");
-
-    // §3 gate refuses View context on dimmed lines (no nested context).
-    expect(
-      liFor(/row zero info/).querySelector('button[aria-label="View context"]'),
-    ).toBeNull();
-    // Copy is universal — it must work on any visible line, including
-    // context-revealed dimmed ones, so a user can grab the surrounding
-    // context text.
-    expect(
-      liFor(/row zero info/).querySelector('button[aria-label="Copy line"]'),
-    ).not.toBeNull();
-  });
-
-  it("does not render Expand or Less context buttons in the action row (keyboard-only via shift+e)", async () => {
-    const user = userEvent.setup();
-    render(<LogExplorer lines={wideFixture} />);
-    applyErrorFilter();
-
-    // Open context at default ±20 via the anchor button.
-    await user.click(
-      liFor(/row l25 error anchor/).querySelector<HTMLButtonElement>(
-        'button[aria-label="View context"]',
-      )!,
-    );
-
-    // Anchor button flips to "Hide context" but no resize buttons
-    // ever appear in the action row.
-    const anchorRow = liFor(/row l25 error anchor/);
-    expect(
-      anchorRow.querySelector('button[aria-label="Hide context"]'),
-    ).not.toBeNull();
-    expect(
-      anchorRow.querySelector('button[aria-label="Expand context"]'),
-    ).toBeNull();
-    expect(
-      anchorRow.querySelector('button[aria-label="Less context"]'),
-    ).toBeNull();
-  });
-
-  it("Copy button writes a formatted line to navigator.clipboard", () => {
-    const writeText = vi.fn().mockResolvedValue(undefined);
-    vi.stubGlobal("navigator", { ...navigator, clipboard: { writeText } });
-
-    render(<LogExplorer lines={fixture} />);
-    applyErrorFilter();
-
-    const copyBtn = liFor(/row one error/).querySelector<HTMLButtonElement>(
-      'button[aria-label="Copy line"]',
-    );
-    expect(copyBtn).not.toBeNull();
-    fireEvent.click(copyBtn!);
-
-    expect(writeText).toHaveBeenCalledTimes(1);
-    const text = writeText.mock.calls[0][0] as string;
-    expect(text).toContain("[i1]");
-    expect(text).toContain("ERROR");
-    expect(text).toContain("row one error");
-
-    vi.unstubAllGlobals();
+    expect(liFor(/row one error/).getAttribute("data-clickable")).toBe("true");
   });
 });
 
 describe("LogExplorer — ? opens the shortcut sheet (spec §9.7)", () => {
   it("opens the sheet when ? is pressed from anywhere on the page", () => {
     render(<LogExplorer lines={fixture} />);
-    expect(screen.queryByText("Keyboard shortcuts")).not.toBeInTheDocument();
+    expect(screen.queryByText("Keyboard Shortcuts")).not.toBeInTheDocument();
 
     fireEvent.keyDown(document, { key: "?" });
 
     expect(
-      screen.getByRole("heading", { name: /Keyboard shortcuts/ }),
+      screen.getByRole("heading", { name: /Keyboard Shortcuts/ }),
     ).toBeInTheDocument();
   });
 
@@ -993,7 +913,7 @@ describe("LogExplorer — ? opens the shortcut sheet (spec §9.7)", () => {
     fireEvent.keyDown(document, { key: "/", shiftKey: true });
 
     expect(
-      screen.getByRole("heading", { name: /Keyboard shortcuts/ }),
+      screen.getByRole("heading", { name: /Keyboard Shortcuts/ }),
     ).toBeInTheDocument();
   });
 
@@ -1001,13 +921,13 @@ describe("LogExplorer — ? opens the shortcut sheet (spec §9.7)", () => {
     render(<LogExplorer lines={fixture} />);
     fireEvent.keyDown(document, { key: "?" });
     expect(
-      screen.getByRole("heading", { name: /Keyboard shortcuts/ }),
+      screen.getByRole("heading", { name: /Keyboard Shortcuts/ }),
     ).toBeInTheDocument();
 
     fireEvent.keyDown(document, { key: "Escape" });
 
     expect(
-      screen.queryByRole("heading", { name: /Keyboard shortcuts/ }),
+      screen.queryByRole("heading", { name: /Keyboard Shortcuts/ }),
     ).not.toBeInTheDocument();
   });
 
@@ -1016,9 +936,7 @@ describe("LogExplorer — ? opens the shortcut sheet (spec §9.7)", () => {
     // sheet should close; the context should NOT also close.
     render(<LogExplorer lines={fixture} />);
     applyErrorFilter();
-    fireEvent.click(liFor(/row one error/).querySelector("[data-level]")!, {
-      metaKey: true,
-    });
+    fireEvent.click(liFor(/row one error/));
     expect(liFor(/row one error/).getAttribute("data-selected")).toBe("true");
 
     fireEvent.keyDown(document, { key: "?" });
@@ -1026,7 +944,7 @@ describe("LogExplorer — ? opens the shortcut sheet (spec §9.7)", () => {
 
     // Sheet closed, context still open.
     expect(
-      screen.queryByRole("heading", { name: /Keyboard shortcuts/ }),
+      screen.queryByRole("heading", { name: /Keyboard Shortcuts/ }),
     ).not.toBeInTheDocument();
     expect(liFor(/row one error/).getAttribute("data-selected")).toBe("true");
   });
@@ -1040,7 +958,7 @@ describe("LogExplorer — ? opens the shortcut sheet (spec §9.7)", () => {
     );
 
     expect(
-      screen.getByRole("heading", { name: /Keyboard shortcuts/ }),
+      screen.getByRole("heading", { name: /Keyboard Shortcuts/ }),
     ).toBeInTheDocument();
   });
 
@@ -1059,7 +977,7 @@ describe("LogExplorer — ? opens the shortcut sheet (spec §9.7)", () => {
     fireEvent.keyDown(input, { key: "?" });
 
     expect(
-      screen.queryByRole("heading", { name: /Keyboard shortcuts/ }),
+      screen.queryByRole("heading", { name: /Keyboard Shortcuts/ }),
     ).not.toBeInTheDocument();
   });
 });
