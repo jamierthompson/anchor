@@ -31,7 +31,6 @@ describe("ShortcutSheet — rendered modal", () => {
     render(<ShortcutSheet open={true} onOpenChange={() => {}} />);
     expect(screen.getByText(/Next visible line/)).toBeInTheDocument();
     expect(screen.getByText(/Toggle context on focused line/)).toBeInTheDocument();
-    expect(screen.getByText(/Copy focused line/)).toBeInTheDocument();
     expect(screen.getByText(/Open this shortcut sheet/)).toBeInTheDocument();
   });
 

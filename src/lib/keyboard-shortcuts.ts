@@ -21,7 +21,6 @@ import {
   ArrowDownToLine,
   ArrowUpToLine,
   Bookmark,
-  Copy,
   ListChevronsUpDown,
   MoveDown,
   MoveUp,
@@ -79,7 +78,7 @@ export type ShortcutGroup = {
  * matches user mental model of "how do I move around").
  *
  * Keep aligned with the bindings in:
- *   - LogExplorer.handleKeyDown (listbox-level: j/k/g/G/[/]/e/shift+e/c)
+ *   - LogExplorer.handleKeyDown (listbox-level: j/k/g/G/[/]/e/shift+e)
  *   - LogExplorer's document-level effect (Esc, ?)
  */
 export const KEYBOARD_SHORTCUTS: readonly ShortcutGroup[] = [
@@ -128,11 +127,6 @@ export const KEYBOARD_SHORTCUTS: readonly ShortcutGroup[] = [
         caps: { keys: ["Shift", "E"] },
         description: "Expand context (±20 lines)",
         icon: ListChevronsUpDown,
-      },
-      {
-        caps: { keys: ["C"] },
-        description: "Copy focused line",
-        icon: Copy,
       },
     ],
   },

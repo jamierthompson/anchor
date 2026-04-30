@@ -63,7 +63,6 @@ type LogListItemProps = {
   canToggleContext: boolean;
   onLineFocus?: (lineId: string) => void;
   onToggleContext?: (lineId: string) => void;
-  onCopyLine?: (lineId: string) => void;
 };
 
 function LogListItemImpl({
@@ -75,7 +74,6 @@ function LogListItemImpl({
   canToggleContext,
   onLineFocus,
   onToggleContext,
-  onCopyLine,
 }: LogListItemProps) {
   // Plain click on the <li> sets focus on this line. LogLine still
   // owns the modifier-click (cmd/ctrl) for context toggle and stops
@@ -108,7 +106,6 @@ function LogListItemImpl({
           isSelected={isSelected}
           canToggleContext={canToggleContext}
           onToggleContext={onToggleContext}
-          onCopyLine={onCopyLine}
         />
       </div>
     </li>
@@ -131,8 +128,7 @@ function arePropsEqual(prev: LogListItemProps, next: LogListItemProps) {
     prev.isFocused === next.isFocused &&
     prev.canToggleContext === next.canToggleContext &&
     prev.onLineFocus === next.onLineFocus &&
-    prev.onToggleContext === next.onToggleContext &&
-    prev.onCopyLine === next.onCopyLine
+    prev.onToggleContext === next.onToggleContext
   );
 }
 

@@ -70,11 +70,6 @@ type LogLineProps = {
    */
   canToggleContext?: boolean;
   onToggleContext?: (lineId: string) => void;
-  /**
-   * Copies a plain-text representation of this line to the clipboard.
-   * Bound to the "Copy line" icon button.
-   */
-  onCopyLine?: (lineId: string) => void;
 };
 
 const LEVEL_PREFIX: Record<Level, string | null> = {
@@ -107,7 +102,6 @@ export function LogLine({
   isSelected,
   canToggleContext,
   onToggleContext,
-  onCopyLine,
 }: LogLineProps) {
   if (line.isDeployBoundary) {
     // Deploy boundaries don't participate in View Context — they're
@@ -169,7 +163,6 @@ export function LogLine({
           isSelected={isSelected ?? false}
           canToggleContext={canToggleContext ?? false}
           onToggleContext={onToggleContext}
-          onCopyLine={onCopyLine}
         />
       ) : null}
     </div>

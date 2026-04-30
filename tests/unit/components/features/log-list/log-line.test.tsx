@@ -185,9 +185,6 @@ describe("LogLine — line actions (spec §8 — hover-revealed icon row)", () =
     expect(
       screen.queryByRole("button", { name: /View context/ }),
     ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: /Copy line/ }),
-    ).not.toBeInTheDocument();
   });
 
   it("renders no actions when the §3 gate fails (no filter, no open context)", () => {
@@ -206,20 +203,16 @@ describe("LogLine — line actions (spec §8 — hover-revealed icon row)", () =
     ).not.toBeInTheDocument();
   });
 
-  it("renders the View context + Copy actions when the §3 gate passes", () => {
+  it("renders the View context action when the §3 gate passes", () => {
     render(
       <LogLine
         line={baseLine}
         onToggleContext={() => {}}
-        onCopyLine={() => {}}
         canToggleContext
       />,
     );
     expect(
       screen.getByRole("button", { name: /View context/ }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: /Copy line/ }),
     ).toBeInTheDocument();
   });
 
@@ -274,20 +267,6 @@ describe("LogLine — line actions (spec §8 — hover-revealed icon row)", () =
     ).not.toBeInTheDocument();
   });
 
-  it("Copy button fires onCopyLine with the line id", async () => {
-    const user = userEvent.setup();
-    const onCopyLine = vi.fn();
-    render(
-      <LogLine
-        line={baseLine}
-        onToggleContext={() => {}}
-        onCopyLine={onCopyLine}
-        canToggleContext
-      />,
-    );
-    await user.click(screen.getByRole("button", { name: /Copy line/ }));
-    expect(onCopyLine).toHaveBeenCalledWith(baseLine.id);
-  });
 });
 
 describe("LogLine — cmd/ctrl + click toggles context", () => {

@@ -24,7 +24,6 @@ import {
   isAtFileBoundary,
   type OpenContext,
 } from "@/lib/context-state";
-import { formatLineForCopy } from "@/lib/copy-lines";
 import { deriveLines } from "@/lib/derive-lines";
 import {
   filterReducer,
@@ -733,30 +732,6 @@ export function LogExplorer({
   const handleExpandContext = useStableCallback(expandContextRange);
 
   /**
-   * Copy a plain-text representation of a single line to the
-   * clipboard. Bound to the Copy icon button and the `c` keyboard
-   * shortcut.
-   *
-   * Format: ISO timestamp + instance + level (when WARN/ERROR) +
-   * message + request id (when present). Mirrors what a developer
-   * would paste into a bug report — enough context to identify the
-   * line without needing to share the whole UI.
-   *
-   * Deploy-boundary lines copy their `message` as-is.
-   *
-   * Uses navigator.clipboard.writeText. Best-effort: on browsers that
-   * deny clipboard access (older or non-secure contexts), silently
-   * no-ops. The fallback case is rare in modern dev environments and
-   * a clipboard error UI isn't worth its weight in a prototype.
-   */
-  const handleCopyLine = useStableCallback((lineId: string) => {
-    const line = lines.find((l) => l.id === lineId);
-    if (!line) return;
-    const text = formatLineForCopy(line);
-    void navigator.clipboard?.writeText?.(text);
-  });
-
-  /**
    * Focus persistence rule (spec §7): the *saved* focus (`focusedLineId`)
    * is what the user explicitly set; the *effective* focus is what
    * actually renders. When the saved line is hidden by a filter change
@@ -869,7 +844,6 @@ export function LogExplorer({
       const isNextBoundary = !shiftKey && key === "]";
       const isToggleContext = !shiftKey && key === "e";
       const isExpandContext = shiftKey && (key === "E" || key === "e");
-      const isCopyLine = !shiftKey && key === "c";
 
       if (
         !isNext &&
@@ -879,8 +853,7 @@ export function LogExplorer({
         !isPrevBoundary &&
         !isNextBoundary &&
         !isToggleContext &&
-        !isExpandContext &&
-        !isCopyLine
+        !isExpandContext
       ) {
         return;
       }
@@ -924,17 +897,6 @@ export function LogExplorer({
         const mostRecent = openContexts[openContexts.length - 1];
         if (mostRecent) {
           handleExpandContext(mostRecent.selectedLineId);
-        }
-        return;
-      }
-
-      // c — copy the focused line to clipboard. Mirrors the action
-      // row's Copy button so every visible action has a keyboard
-      // equivalent. Bails silently when no line is focused.
-      if (isCopyLine) {
-        event.preventDefault();
-        if (effectiveFocusedLineId) {
-          handleCopyLine(effectiveFocusedLineId);
         }
         return;
       }
@@ -1023,7 +985,6 @@ export function LogExplorer({
       openContexts,
       handleToggleContext,
       handleExpandContext,
-      handleCopyLine,
     ],
   );
 
@@ -1036,7 +997,7 @@ export function LogExplorer({
    *   ?    — open the shortcut sheet
    *
    * The listbox-level handler covers in-list bindings (j/k/g/G/[/]/e/
-   * shift+e/c). Splitting them this way keeps each handler responsible
+   * shift+e). Splitting them this way keeps each handler responsible
    * for one focus context — no "is the listbox focused?" branching
    * inside individual bindings.
    *
@@ -1178,7 +1139,6 @@ export function LogExplorer({
         lines={derivedLines}
         viewportRef={viewportRef}
         onToggleContext={handleToggleContext}
-        onCopyLine={handleCopyLine}
         onLineFocus={setFocusedLineId}
         onKeyDown={handleKeyDown}
         selectedContextLineIds={effectiveSelectedContextLineIds}

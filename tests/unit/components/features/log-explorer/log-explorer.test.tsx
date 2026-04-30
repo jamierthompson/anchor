@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { LogExplorer } from "@/components/features/log-explorer/log-explorer";
 import type { LogLine } from "@/types/log";
@@ -753,48 +753,6 @@ describe("LogExplorer — contextual legend (top-right toolbar)", () => {
   });
 });
 
-describe("LogExplorer — c copies the focused line", () => {
-  const listbox = () => screen.getByRole("listbox", { name: /log lines/i });
-
-  it("writes the formatted line text to navigator.clipboard", () => {
-    const writeText = vi.fn().mockResolvedValue(undefined);
-    Object.defineProperty(navigator, "clipboard", {
-      value: { writeText },
-      configurable: true,
-    });
-
-    render(<LogExplorer lines={fixture} />);
-    const list = listbox();
-    list.focus();
-
-    // Land on l1 (row one error) by clicking it, then copy via `c`.
-    fireEvent.click(liFor(/row one error/));
-    fireEvent.keyDown(list, { key: "c" });
-
-    expect(writeText).toHaveBeenCalledTimes(1);
-    const text = writeText.mock.calls[0][0] as string;
-    expect(text).toContain("[i1]");
-    expect(text).toContain("ERROR");
-    expect(text).toContain("row one error");
-  });
-
-  it("is a no-op when no line is focused", () => {
-    const writeText = vi.fn().mockResolvedValue(undefined);
-    Object.defineProperty(navigator, "clipboard", {
-      value: { writeText },
-      configurable: true,
-    });
-
-    render(<LogExplorer lines={fixture} />);
-    const list = listbox();
-    list.focus();
-
-    fireEvent.keyDown(list, { key: "c" });
-
-    expect(writeText).not.toHaveBeenCalled();
-  });
-});
-
 describe("LogExplorer — global shortcuts (Esc and ?)", () => {
   it("Esc clears all open contexts (spec §7 precedence)", async () => {
     const user = userEvent.setup();
@@ -889,7 +847,7 @@ describe("LogExplorer — line-action integration (spec §8 — hover icon row)"
     expect(liFor(/row one error/).getAttribute("data-selected")).toBe("false");
   });
 
-  it("action row is empty (no toggle/copy buttons) on lines that fail the §3 gate when no filter is active", () => {
+  it("action row is empty on lines that fail the §3 gate when no filter is active", () => {
     render(<LogExplorer lines={fixture} />);
 
     // No filter — no line should expose View context / Hide context.
@@ -901,7 +859,7 @@ describe("LogExplorer — line-action integration (spec §8 — hover icon row)"
     ).toHaveLength(0);
   });
 
-  it("dimmed (context-revealed) lines hide the View context button but keep Copy", async () => {
+  it("dimmed (context-revealed) lines hide the View context button (§3 gate refuses nested contexts)", async () => {
     const user = userEvent.setup();
     render(<LogExplorer lines={fixture} />);
     applyErrorFilter();
@@ -914,16 +872,9 @@ describe("LogExplorer — line-action integration (spec §8 — hover icon row)"
     );
     expect(liFor(/row zero info/).getAttribute("data-dimmed")).toBe("true");
 
-    // §3 gate refuses View context on dimmed lines (no nested context).
     expect(
       liFor(/row zero info/).querySelector('button[aria-label="View context"]'),
     ).toBeNull();
-    // Copy is universal — it must work on any visible line, including
-    // context-revealed dimmed ones, so a user can grab the surrounding
-    // context text.
-    expect(
-      liFor(/row zero info/).querySelector('button[aria-label="Copy line"]'),
-    ).not.toBeNull();
   });
 
   it("does not render Expand or Less context buttons in the action row (keyboard-only via shift+e)", async () => {
@@ -952,27 +903,6 @@ describe("LogExplorer — line-action integration (spec §8 — hover icon row)"
     ).toBeNull();
   });
 
-  it("Copy button writes a formatted line to navigator.clipboard", () => {
-    const writeText = vi.fn().mockResolvedValue(undefined);
-    vi.stubGlobal("navigator", { ...navigator, clipboard: { writeText } });
-
-    render(<LogExplorer lines={fixture} />);
-    applyErrorFilter();
-
-    const copyBtn = liFor(/row one error/).querySelector<HTMLButtonElement>(
-      'button[aria-label="Copy line"]',
-    );
-    expect(copyBtn).not.toBeNull();
-    fireEvent.click(copyBtn!);
-
-    expect(writeText).toHaveBeenCalledTimes(1);
-    const text = writeText.mock.calls[0][0] as string;
-    expect(text).toContain("[i1]");
-    expect(text).toContain("ERROR");
-    expect(text).toContain("row one error");
-
-    vi.unstubAllGlobals();
-  });
 });
 
 describe("LogExplorer — ? opens the shortcut sheet (spec §9.7)", () => {
