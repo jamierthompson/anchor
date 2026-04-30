@@ -1,7 +1,6 @@
 import type { MouseEvent as ReactMouseEvent } from "react";
 
 import { DEFAULT_CONTEXT_RANGE } from "@/lib/context-state";
-import type { FilterToggleTarget } from "@/lib/filter-state";
 import type { LogLine as LogLineType, Level } from "@/types/log";
 
 import { LineActions } from "./line-actions";
@@ -21,27 +20,21 @@ import styles from "./log-line.module.css";
  *     color. Request IDs append as a small badge at the end of the
  *     message column.
  *
- * Click-to-filter (spec §8): when an `onFilterToggle` callback is
- * supplied, the instance pill, the WARN/ERROR level badge, and the
- * request-id badge each become buttons that announce a filter target
- * to the parent. With no callback, those elements render as plain
- * spans — the static-render path stays usable for tests, snapshots,
- * and any future read-only context.
+ * Per-line elements (instance pill, level badge, request id badge) are
+ * non-interactive — filtering is applied via the scenario-chips bar
+ * above the list. Pre-baked presets cover the demo scenarios this
+ * prototype is built around (errors, trace one request, narrow to one
+ * instance), and removing the click-to-filter affordance keeps the line
+ * read-only at the row level.
  *
  * Click-to-toggle-context (spec §7 modifiers): when an `onToggleContext`
  * callback is supplied, cmd/ctrl + click anywhere on the line body
- * (outside a pill or badge button) announces the line id to the parent,
- * which decides whether to open or close a context window. The
- * pill/badge button onClick handlers `stopPropagation` so a modifier
- * click on those still adds a filter rather than also opening a context.
+ * announces the line id to the parent, which decides whether to open or
+ * close a context window.
  *
- * Hover-revealed line actions (spec §8 — redesigned from the originally-
- * planned kebab menu): when `onToggleContext` is supplied, a row of
- * small icon buttons reveals at the right edge on hover (or while the
- * line is keyboard-focused). Plain `<button>` elements with no
- * dropdown / portal / open-state machinery — direct manipulation, no
- * Radix mount/unmount churn during context toggles. See the LineActions
- * component below.
+ * Hover-revealed line actions (spec §8): when `onToggleContext` is
+ * supplied, a row of small icon buttons reveals at the right edge on
+ * hover (or while the line is keyboard-focused). See LineActions.
  */
 
 type LogLineProps = {
@@ -84,13 +77,6 @@ type LogLineProps = {
    * Only meaningful when `isSelected` is true.
    */
   contextRange?: number;
-  /**
-   * `sourceLineId` lets the parent know which line the click originated
-   * from — used as the converging-wave anchor so the stagger radiates
-   * from the line the user actually interacted with. Always set to
-   * `line.id` when calling from a pill button.
-   */
-  onFilterToggle?: (target: FilterToggleTarget, sourceLineId: string) => void;
   onToggleContext?: (lineId: string) => void;
   /**
    * Steps the open context's range to the next entry in
@@ -139,7 +125,6 @@ export function LogLine({
   isSelected,
   canToggleContext,
   contextRange,
-  onFilterToggle,
   onToggleContext,
   onExpandContext,
   onLessContext,
@@ -170,17 +155,6 @@ export function LogLine({
     }
   };
 
-  // Pill / badge button clicks must not bubble — without stopPropagation
-  // a cmd + click on, say, an instance pill would both add a filter and
-  // toggle a context on the same gesture. Each click also passes the
-  // host line's id as the wave-anchor source — see LogList.
-  const stopAndFilter =
-    (target: FilterToggleTarget) =>
-    (event: ReactMouseEvent<HTMLButtonElement>) => {
-      event.stopPropagation();
-      onFilterToggle?.(target, line.id);
-    };
-
   return (
     <div
       className={styles.line}
@@ -195,63 +169,19 @@ export function LogLine({
       >
         {formatTime(line.timestamp)}
       </time>
-      {onFilterToggle ? (
-        <button
-          type="button"
-          className={`${styles.filterTrigger} ${styles.instance}`}
-          onClick={stopAndFilter({
-            facet: "instance",
-            value: line.instance,
-          })}
-          aria-label={`Filter by instance ${line.instance}`}
-        >
-          {line.instance}
-        </button>
-      ) : (
-        <span className={styles.instance}>{line.instance}</span>
-      )}
+      <span className={styles.instance}>{line.instance}</span>
       <span className={messageClass}>
-        {prefix &&
-          (onFilterToggle ? (
-            <button
-              type="button"
-              className={`${styles.filterTrigger} ${
-                LEVEL_PREFIX_CLASS[line.level as "WARN" | "ERROR"]
-              }`}
-              onClick={stopAndFilter({
-                facet: "level",
-                value: line.level,
-              })}
-              aria-label={`Filter by level ${prefix}`}
-            >
-              {prefix}
-            </button>
-          ) : (
-            <span
-              className={
-                LEVEL_PREFIX_CLASS[line.level as "WARN" | "ERROR"]
-              }
-            >
-              {prefix}
-            </span>
-          ))}
+        {prefix && (
+          <span
+            className={LEVEL_PREFIX_CLASS[line.level as "WARN" | "ERROR"]}
+          >
+            {prefix}
+          </span>
+        )}
         {prefix ? ` ${line.message}` : line.message}
-        {line.requestId &&
-          (onFilterToggle ? (
-            <button
-              type="button"
-              className={`${styles.filterTrigger} ${styles.requestId}`}
-              onClick={stopAndFilter({
-                facet: "requestId",
-                value: line.requestId,
-              })}
-              aria-label={`Filter by request id ${line.requestId}`}
-            >
-              {line.requestId}
-            </button>
-          ) : (
-            <span className={styles.requestId}>{line.requestId}</span>
-          ))}
+        {line.requestId && (
+          <span className={styles.requestId}>{line.requestId}</span>
+        )}
       </span>
       {onToggleContext ? (
         <LineActions
@@ -269,4 +199,3 @@ export function LogLine({
     </div>
   );
 }
-

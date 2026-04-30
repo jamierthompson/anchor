@@ -48,14 +48,14 @@ describe("KEYBOARD_SHORTCUTS registry", () => {
     }
   });
 
-  it("includes the four expected groups (Navigation / Actions / Filters / Help)", () => {
+  it("includes the four expected groups (Navigation / Actions / Contexts / Help)", () => {
     // Pinning the section names so the sheet's render and visual
     // grouping stay coherent — adding a fifth group would need a
     // deliberate test update + a layout review.
     expect(KEYBOARD_SHORTCUTS.map((g) => g.title)).toEqual([
       "Navigation",
       "Actions",
-      "Filters",
+      "Contexts",
       "Help",
     ]);
   });

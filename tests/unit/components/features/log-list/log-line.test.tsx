@@ -87,6 +87,23 @@ describe("LogLine — regular lines", () => {
     render(<LogLine line={baseLine} />);
     expect(screen.queryByText(/^req_/)).not.toBeInTheDocument();
   });
+
+  it("renders the instance, level prefix, and request-id badge as plain (non-interactive) spans", () => {
+    // Filtering moved to the scenario-chips bar above the list.
+    // Per-line elements are pure presentation — no click-to-filter
+    // buttons, no role="button", no aria-label="Filter by …".
+    render(
+      <LogLine
+        line={{ ...baseLine, level: "ERROR", requestId: "req_a3f9c2" }}
+      />,
+    );
+    expect(
+      screen.queryByRole("button", { name: /Filter by/ }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText("7tbsm").tagName).toBe("SPAN");
+    expect(screen.getByText("ERROR").tagName).toBe("SPAN");
+    expect(screen.getByText("req_a3f9c2").tagName).toBe("SPAN");
+  });
 });
 
 describe("LogLine — dim styling lives on the inner element", () => {
@@ -132,80 +149,6 @@ describe("LogLine — dim styling lives on the inner element", () => {
     );
     const sep = container.querySelector('[role="separator"]');
     expect(sep?.getAttribute("data-dimmed")).toBeNull();
-  });
-});
-
-describe("LogLine — click-to-filter", () => {
-  it("renders the instance pill as a button when onFilterToggle is supplied", () => {
-    render(<LogLine line={baseLine} onFilterToggle={() => {}} />);
-    expect(
-      screen.getByRole("button", { name: /Filter by instance 7tbsm/ }),
-    ).toBeInTheDocument();
-  });
-
-  it("renders the instance as a plain span when no callback is supplied", () => {
-    render(<LogLine line={baseLine} />);
-    expect(
-      screen.queryByRole("button", { name: /Filter by instance/ }),
-    ).not.toBeInTheDocument();
-    expect(screen.getByText("7tbsm").tagName).toBe("SPAN");
-  });
-
-  it("fires an instance toggle when the pill is clicked", () => {
-    const onFilterToggle = vi.fn();
-    render(<LogLine line={baseLine} onFilterToggle={onFilterToggle} />);
-    fireEvent.click(
-      screen.getByRole("button", { name: /Filter by instance 7tbsm/ }),
-    );
-    expect(onFilterToggle).toHaveBeenCalledWith(
-      { facet: "instance", value: "7tbsm" },
-      // Source line id is forwarded as the wave-anchor origin so the
-      // converging-wave stagger radiates from the line the user
-      // clicked on. See LogExplorer.dispatchFilter.
-      "log_0001",
-    );
-  });
-
-  it("fires a level toggle when an ERROR badge is clicked", () => {
-    const onFilterToggle = vi.fn();
-    render(
-      <LogLine
-        line={{ ...baseLine, level: "ERROR", message: "db refused" }}
-        onFilterToggle={onFilterToggle}
-      />,
-    );
-    fireEvent.click(
-      screen.getByRole("button", { name: /Filter by level ERROR/ }),
-    );
-    expect(onFilterToggle).toHaveBeenCalledWith(
-      { facet: "level", value: "ERROR" },
-      "log_0001",
-    );
-  });
-
-  it("does not render a level button for INFO lines (no badge)", () => {
-    const onFilterToggle = vi.fn();
-    render(<LogLine line={baseLine} onFilterToggle={onFilterToggle} />);
-    expect(
-      screen.queryByRole("button", { name: /Filter by level/ }),
-    ).not.toBeInTheDocument();
-  });
-
-  it("fires a request-id toggle when the request-id badge is clicked", () => {
-    const onFilterToggle = vi.fn();
-    render(
-      <LogLine
-        line={{ ...baseLine, requestId: "req_a3f9c2" }}
-        onFilterToggle={onFilterToggle}
-      />,
-    );
-    fireEvent.click(
-      screen.getByRole("button", { name: /Filter by request id req_a3f9c2/ }),
-    );
-    expect(onFilterToggle).toHaveBeenCalledWith(
-      { facet: "requestId", value: "req_a3f9c2" },
-      "log_0001",
-    );
   });
 });
 
@@ -403,5 +346,26 @@ describe("LogLine — line actions (spec §8 — hover-revealed icon row)", () =
     );
     await user.click(screen.getByRole("button", { name: /Copy line/ }));
     expect(onCopyLine).toHaveBeenCalledWith(baseLine.id);
+  });
+});
+
+describe("LogLine — cmd/ctrl + click toggles context", () => {
+  it("cmd + click on the line body fires onToggleContext when the callback is supplied", () => {
+    const onToggleContext = vi.fn();
+    const { container } = render(
+      <LogLine line={baseLine} onToggleContext={onToggleContext} />,
+    );
+    const inner = container.querySelector("[data-level]")!;
+    fireEvent.click(inner, { metaKey: true });
+    expect(onToggleContext).toHaveBeenCalledWith(baseLine.id);
+  });
+
+  it("plain click (no modifier) does not fire onToggleContext", () => {
+    const onToggleContext = vi.fn();
+    const { container } = render(
+      <LogLine line={baseLine} onToggleContext={onToggleContext} />,
+    );
+    fireEvent.click(container.querySelector("[data-level]")!);
+    expect(onToggleContext).not.toHaveBeenCalled();
   });
 });

@@ -19,7 +19,7 @@ describe("ShortcutSheet — rendered modal", () => {
     render(<ShortcutSheet open={true} onOpenChange={() => {}} />);
     expect(screen.getByText("Navigation")).toBeInTheDocument();
     expect(screen.getByText("Actions")).toBeInTheDocument();
-    expect(screen.getByText("Filters")).toBeInTheDocument();
+    expect(screen.getByText("Contexts")).toBeInTheDocument();
     expect(screen.getByText("Help")).toBeInTheDocument();
   });
 

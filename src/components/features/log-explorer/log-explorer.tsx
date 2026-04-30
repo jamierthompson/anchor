@@ -10,12 +10,9 @@ import {
   useState,
 } from "react";
 
-import {
-  ADD_FILTER_TRIGGER_ID,
-  FilterBar,
-} from "@/components/features/filter-bar/filter-bar";
 import { LogList } from "@/components/features/log-list/log-list";
 import { NewLinesPill } from "@/components/features/log-list/new-lines-pill";
+import { ScenarioChips } from "@/components/features/scenario-chips/scenario-chips";
 import {
   ShortcutSheet,
   ShortcutSheetTrigger,
@@ -32,13 +29,11 @@ import {
 import { formatLineForCopy } from "@/lib/copy-lines";
 import { deriveLines } from "@/lib/derive-lines";
 import {
-  actionForTarget,
   filterReducer,
   hasAnyFilter,
   initialFilterState,
   lineMatchesFilter,
   type FilterAction,
-  type FilterToggleTarget,
 } from "@/lib/filter-state";
 import type { LogLine } from "@/types/log";
 
@@ -600,15 +595,6 @@ export function LogExplorer({
     return byId;
   }, [openContexts, filterState, lines]);
 
-  // Stable identity so the memoized LogListItem doesn't re-render on
-  // every state change that touches dispatchFilter's deps. The latest
-  // closure (and therefore the latest dispatchFilter) is read at call
-  // time. See use-stable-callback.ts for the full rationale.
-  const handleFilterToggle = useStableCallback(
-    (target: FilterToggleTarget, sourceLineId: string) =>
-      dispatchFilter(actionForTarget(target), sourceLineId),
-  );
-
   /**
    * Toggle a View Context window on the given line.
    *
@@ -1030,11 +1016,10 @@ export function LogExplorer({
   );
 
   /**
-   * Document-level shortcuts. Three bindings need to work regardless
-   * of where focus currently is on the page (GitHub / Slack / Linear
+   * Document-level shortcuts. Two bindings need to work regardless of
+   * where focus currently is on the page (GitHub / Slack / Linear
    * convention):
    *
-   *   /    — focus the "+ Add filter" trigger
    *   Esc  — clear all open contexts (spec §7 precedence #3)
    *   ?    — open the shortcut sheet
    *
@@ -1043,16 +1028,11 @@ export function LogExplorer({
    * for one focus context — no "is the listbox focused?" branching
    * inside individual bindings.
    *
-   * All three bail when `event.defaultPrevented` is set so Radix
-   * Popover / Dialog primitives handling their own Escape (filter
-   * popover, shortcut sheet itself) don't double-fire as "clear
-   * contexts." Closeable surfaces consume their own dismiss before a
-   * global-clear runs — this is what makes the Esc precedence
-   * cascade compose for free.
-   *
-   * `/` additionally bails when focus is inside an input/textarea/
-   * contenteditable so typing a literal `/` in a filter input later
-   * (e.g. if a search box appears) doesn't get intercepted.
+   * Both bail when `event.defaultPrevented` is set so Radix Dialog
+   * handling its own Escape (the shortcut sheet itself) doesn't double-
+   * fire as "clear contexts." Closeable surfaces consume their own
+   * dismiss before a global-clear runs — this is what makes the Esc
+   * precedence cascade compose for free.
    *
    * `?` is shift+/ on US keyboards. Both `event.key === "?"` and the
    * shift+/ pair land here; we accept either form for robustness
@@ -1061,9 +1041,8 @@ export function LogExplorer({
    *
    * Esc precedence per spec §7:
    *   1. shortcut sheet open → close it     (handled by Radix Dialog)
-   *   2. kebab menu open → close it          (no kebab — task #8 redesigned)
-   *   3. any context open → close all       (this handler)
-   *   4. else: no-op
+   *   2. any context open → close all       (this handler)
+   *   3. else: no-op
    */
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -1074,24 +1053,6 @@ export function LogExplorer({
         if (openContexts.length === 0) return;
         event.preventDefault();
         setOpenContexts([]);
-        return;
-      }
-
-      if (event.key === "/" && !event.shiftKey) {
-        const target = event.target as HTMLElement | null;
-        // Don't intercept while the user is typing in any text input.
-        if (
-          target &&
-          (target.tagName === "INPUT" ||
-            target.tagName === "TEXTAREA" ||
-            target.isContentEditable)
-        ) {
-          return;
-        }
-        const trigger = document.getElementById(ADD_FILTER_TRIGGER_ID);
-        if (!trigger) return;
-        event.preventDefault();
-        trigger.focus();
         return;
       }
 
@@ -1125,11 +1086,10 @@ export function LogExplorer({
     // prefers-reduced-motion is honored entirely in CSS now — see the
     // @media block in log-list.module.css. No JS bridge needed.
     <div className={styles.explorer}>
-      <FilterBar state={filterState} dispatch={dispatchFilter} />
+      <ScenarioChips state={filterState} dispatch={dispatchFilter} />
       <LogList
         lines={derivedLines}
         viewportRef={viewportRef}
-        onFilterToggle={handleFilterToggle}
         onToggleContext={handleToggleContext}
         onExpandContext={handleExpandContext}
         onLessContext={handleLessContext}

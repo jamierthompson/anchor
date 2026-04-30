@@ -22,7 +22,6 @@ import {
   ArrowUpToLine,
   Bookmark,
   Copy,
-  Filter,
   ListChevronsUpDown,
   MoveDown,
   MoveUp,
@@ -81,8 +80,7 @@ export type ShortcutGroup = {
  *
  * Keep aligned with the bindings in:
  *   - LogExplorer.handleKeyDown (listbox-level: j/k/g/G/[/]/e/shift+e/c)
- *   - LogExplorer's document-level effect (/, Esc)
- *   - LogExplorer's `?` handler (this PR — opens the sheet itself)
+ *   - LogExplorer's document-level effect (Esc, ?)
  */
 export const KEYBOARD_SHORTCUTS: readonly ShortcutGroup[] = [
   {
@@ -139,13 +137,8 @@ export const KEYBOARD_SHORTCUTS: readonly ShortcutGroup[] = [
     ],
   },
   {
-    title: "Filters",
+    title: "Contexts",
     shortcuts: [
-      {
-        caps: { keys: ["/"] },
-        description: "Focus the Add filter trigger",
-        icon: Filter,
-      },
       {
         caps: { keys: ["Esc"] },
         description: "Clear all open contexts",
