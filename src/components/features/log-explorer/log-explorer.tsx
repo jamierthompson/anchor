@@ -402,12 +402,24 @@ export function LogExplorer({
     const delta = lines.length - prevLinesLengthRef.current;
     prevLinesLengthRef.current = lines.length;
     if (delta <= 0) return;
+    // Skip live-tail follow logic while a context-toggle slow
+    // animation is in flight. `startCompensation` and
+    // `startStickToBottom` share `rafRef` (only one rAF loop at a
+    // time); without this guard, a tail tick that arrives mid-
+    // toggle would call `startStickToBottom`, cancel the in-flight
+    // compensation rAF, and the anchor line would visibly drift.
+    // The user's deliberate context interaction wins for ~600ms;
+    // live-tail follow resumes on the next tick after slow mode
+    // clears. The newly-appended line still renders and animates
+    // in via @starting-style — only the scroll-side-effect is
+    // deferred.
+    if (transitionMode === "slow") return;
     if (isAtBottom()) {
       startStickToBottom();
     } else {
       setUnreadCount((c) => c + delta);
     }
-  }, [lines.length, isAtBottom, startStickToBottom]);
+  }, [lines.length, isAtBottom, startStickToBottom, transitionMode]);
 
   /**
    * Reset the unread count when the user organically scrolls to the
