@@ -1,0 +1,75 @@
+/*
+ * "↓ N new lines" floating pill (spec §9.8). Appears near the bottom
+ * of the log viewport when the user is scrolled away from the bottom
+ * and new lines have streamed in. Click smooth-scrolls to bottom.
+ *
+ * Positioning is `fixed` to the viewport (not the log scroll
+ * container) because the convention is to anchor the pill to the
+ * user's visible region. The pill stays in place as the user scrolls within the log feed.
+ *
+ * z-index 40 sits above the log content (auto) and below the
+ * floating `?` button (50) and the modal overlay (100) — the layer
+ * order matches the visual prominence: page content < transient
+ * affordances < permanent affordance < modal.
+ *
+ * Mount-time animation: subtle slide-up + fade-in. The pill is
+ * conditionally rendered (no DOM when count is 0), so React's
+ * natural mount cycle drives the entrance.
+ */
+.pill {
+  position: fixed;
+  bottom: var(--space-6);
+  left: 50%;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 32px;
+  padding: 0 var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-bg-elevated);
+  color: var(--color-fg);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  z-index: 40;
+  /*
+   * Stacked shadows mirror the keycap / `?` button styling so the
+   * three floating affordances feel like part of one design
+   * language.
+   */
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 4px 8px rgba(0, 0, 0, 0.4),
+    0 1px 2px rgba(0, 0, 0, 0.3);
+  animation: pillEnter 200ms var(--ease-standard);
+  transition:
+    transform 120ms var(--ease-standard),
+    box-shadow 120ms var(--ease-standard);
+}
+
+.pill:hover {
+  transform: translateX(-50%) translateY(-1px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 6px 12px rgba(0, 0, 0, 0.5),
+    0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.pill:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+@keyframes pillEnter {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}

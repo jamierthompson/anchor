@@ -99,6 +99,7 @@ export function LogList({
   onKeyDown,
   selectedContextRangesById,
   focusedLineId,
+  streamedLineIds,
   hasAnyFilter = false,
   transitionMode = "instant",
 }: {
@@ -145,6 +146,15 @@ export function LogList({
    * on the matching <li> (which CSS keys off for the outline).
    */
   focusedLineId?: string | null;
+  /**
+   * Ids of lines that streamed in via live tail (i.e. not present
+   * at component mount). Drives the per-line `initial` prop on
+   * `motion.li`: streamed lines animate from { height: 0,
+   * opacity: 0 } so they slide in from below; initial-fixture lines
+   * skip the animation (initial={false}) so the page-load render
+   * doesn't trigger 415 simultaneous mount-time animations.
+   */
+  streamedLineIds?: ReadonlySet<string>;
   /**
    * Whether at least one filter is currently active. Combined with
    * the per-line `isDimmed` flag (already on each derived line) this
@@ -222,11 +232,21 @@ export function LogList({
                   if (event.metaKey || event.ctrlKey) return;
                   onLineFocus?.(line.id);
                 }}
-                // initial={false} so the page load doesn't animate every
-                // line expanding from 0 — the first render uses the target
-                // values directly. All subsequent isVisible toggles
-                // animate.
-                initial={false}
+                // Per-line `initial`:
+                //   - Streamed lines (live tail) → animate from
+                //     { height: 0, opacity: 0 } so they slide in
+                //     from below with the same expand choreography
+                //     as context reveal (spec §10.2).
+                //   - Initial-fixture lines → initial={false} so the
+                //     page-load render uses target values directly
+                //     and doesn't trigger 415 simultaneous animations.
+                // After mount, isVisible toggles via `animate` only —
+                // initial doesn't apply on subsequent renders.
+                initial={
+                  streamedLineIds?.has(line.id)
+                    ? { height: 0, opacity: 0 }
+                    : false
+                }
                 animate={{
                   height: line.isVisible ? "auto" : 0,
                   opacity: line.isVisible ? 1 : 0,

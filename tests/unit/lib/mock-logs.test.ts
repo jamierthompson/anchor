@@ -4,6 +4,7 @@ import {
   INSTANCES,
   MOCK_START_MS,
   REQUEST_IDS,
+  liveTailSeed,
   mockLogs,
   type InstanceId,
 } from "@/lib/mock-logs";
@@ -146,5 +147,72 @@ describe("mockLogs — cross-instance interleaving", () => {
       offenders,
       `minutes lacking cross-instance interleaving: ${offenders.join(", ")}`,
     ).toEqual([]);
+  });
+});
+
+describe("liveTailSeed — streaming continuation of the story arc", () => {
+  it("contains a demo-friendly count of streamed lines", () => {
+    expect(liveTailSeed.length).toBeGreaterThanOrEqual(20);
+    expect(liveTailSeed.length).toBeLessThanOrEqual(60);
+  });
+
+  it("every entry has a unique id, none collide with mockLogs", () => {
+    const allIds = new Set([
+      ...mockLogs.map((l) => l.id),
+      ...liveTailSeed.map((l) => l.id),
+    ]);
+    expect(allIds.size).toBe(mockLogs.length + liveTailSeed.length);
+  });
+
+  it("timestamps continue past the end of mockLogs and are non-decreasing", () => {
+    const lastMockTs = mockLogs[mockLogs.length - 1].timestamp;
+    expect(liveTailSeed[0].timestamp).toBeGreaterThanOrEqual(lastMockTs);
+    for (let i = 1; i < liveTailSeed.length; i++) {
+      expect(liveTailSeed[i].timestamp).toBeGreaterThanOrEqual(
+        liveTailSeed[i - 1].timestamp,
+      );
+    }
+  });
+
+  it("delayMs values are within reasonable wall-clock cadence bounds", () => {
+    // Hand-curated cadence — bursts (~200-450ms) + quiet stretches
+    // (~1500-2500ms). Outside these bounds suggests a typo (e.g. 30000
+    // instead of 3000); inside is the curated rhythm.
+    for (const entry of liveTailSeed) {
+      expect(entry.delayMs).toBeGreaterThanOrEqual(150);
+      expect(entry.delayMs).toBeLessThanOrEqual(3000);
+    }
+  });
+
+  it("includes at least one cluster of close-together lines (a burst)", () => {
+    // Spec §10.2 calls for "bursts of activity, quiet periods" — make
+    // sure the curated cadence actually has at least one cluster of
+    // ≤500ms gaps in a row, not all-uniform timing.
+    const hasBurst = liveTailSeed.some(
+      (entry, i, arr) =>
+        i >= 2 &&
+        arr[i - 1].delayMs <= 500 &&
+        arr[i - 2].delayMs <= 500 &&
+        entry.delayMs <= 500,
+    );
+    expect(hasBurst).toBe(true);
+  });
+
+  it("includes at least one quiet stretch (a pause)", () => {
+    // And the inverse — at least one entry separated by a >=1500ms
+    // pause from its predecessor.
+    const hasPause = liveTailSeed.some((entry) => entry.delayMs >= 1500);
+    expect(hasPause).toBe(true);
+  });
+
+  it("uses only declared instance ids and request ids", () => {
+    const validInstances = new Set<string>(INSTANCES);
+    const validRequestIds = new Set<string>(Object.keys(REQUEST_IDS));
+    for (const entry of liveTailSeed) {
+      expect(validInstances.has(entry.instance)).toBe(true);
+      if (entry.requestId) {
+        expect(validRequestIds.has(entry.requestId)).toBe(true);
+      }
+    }
   });
 });
