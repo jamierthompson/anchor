@@ -22,6 +22,7 @@ import {
 } from "@/components/features/shortcut-sheet/shortcut-sheet";
 import { liveTailSeed } from "@/lib/mock-logs";
 import { useLiveTail } from "@/lib/use-live-tail";
+import { useStableCallback } from "@/lib/use-stable-callback";
 import {
   DEFAULT_CONTEXT_RANGE,
   nextContextRange,
@@ -562,10 +563,13 @@ export function LogExplorer({
     return byId;
   }, [openContexts, filterState, lines]);
 
-  const handleFilterToggle = useCallback(
+  // Stable identity so the memoized LogListItem doesn't re-render on
+  // every state change that touches dispatchFilter's deps. The latest
+  // closure (and therefore the latest dispatchFilter) is read at call
+  // time. See use-stable-callback.ts for the full rationale.
+  const handleFilterToggle = useStableCallback(
     (target: FilterToggleTarget, sourceLineId: string) =>
       dispatchFilter(actionForTarget(target), sourceLineId),
-    [dispatchFilter],
   );
 
   /**
@@ -589,7 +593,7 @@ export function LogExplorer({
    * each toggle resets `anchorLineId` to the line just acted on, so a
    * subsequent filter dispatch falls through to the right reference.
    */
-  const handleToggleContext = useCallback(
+  const handleToggleContext = useStableCallback(
     (lineId: string) => {
       if (!hasAnyFilter(filterState)) return;
       const target = derivedLines.find((l) => l.id === lineId);
@@ -633,7 +637,6 @@ export function LogExplorer({
 
       if (anchor) startCompensation(anchor);
     },
-    [filterState, derivedLines, anchorLineId, captureAnchor, startCompensation],
   );
 
   /**
@@ -701,14 +704,12 @@ export function LogExplorer({
   // ±100 so it never fires at that endpoint, while shift+e wraps
   // around to ±20. Both paths into one handler keeps invariants
   // consolidated.
-  const handleExpandContext = useCallback(
-    (lineId: string) => stepContextRange(lineId, "next"),
-    [stepContextRange],
+  const handleExpandContext = useStableCallback((lineId: string) =>
+    stepContextRange(lineId, "next"),
   );
 
-  const handleLessContext = useCallback(
-    (lineId: string) => stepContextRange(lineId, "prev"),
-    [stepContextRange],
+  const handleLessContext = useStableCallback((lineId: string) =>
+    stepContextRange(lineId, "prev"),
   );
 
   /**
@@ -728,15 +729,12 @@ export function LogExplorer({
    * no-ops. The fallback case is rare in modern dev environments and
    * a clipboard error UI isn't worth its weight in a prototype.
    */
-  const handleCopyLine = useCallback(
-    (lineId: string) => {
-      const line = lines.find((l) => l.id === lineId);
-      if (!line) return;
-      const text = formatLineForCopy(line);
-      void navigator.clipboard?.writeText?.(text);
-    },
-    [lines],
-  );
+  const handleCopyLine = useStableCallback((lineId: string) => {
+    const line = lines.find((l) => l.id === lineId);
+    if (!line) return;
+    const text = formatLineForCopy(line);
+    void navigator.clipboard?.writeText?.(text);
+  });
 
   /**
    * Focus persistence rule (spec §7): the *saved* focus (`focusedLineId`)
