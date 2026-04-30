@@ -292,6 +292,23 @@ export function LogExplorer({
   const startStickToBottom = useCallback(() => {
     if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
     const deadline = performance.now() + COMPENSATION_DURATION_MS;
+    /*
+     * User-scroll-disengage. We record what we last wrote to
+     * scrollTop; on the next frame, if the current scrollTop
+     * differs from our last write by more than ~1px, only the user
+     * could have moved it (the document growing doesn't shift
+     * scrollTop on its own — see the rAF tick body). Abort the loop
+     * so we stop fighting their input.
+     *
+     * Once aborted, subsequent tail-line arrivals see isAtBottom()
+     * = false (user is past the 50px tolerance) and route through
+     * unreadCount → the pill — the stick doesn't re-engage until
+     * the user scrolls back to bottom.
+     *
+     * Matches standard live-tail UI behavior (Slack, Console.app,
+     * `kubectl logs --follow`).
+     */
+    let lastWrittenScrollTop: number | null = null;
 
     const tick = () => {
       const v = viewportRef.current;
@@ -299,10 +316,18 @@ export function LogExplorer({
         rafRef.current = null;
         return;
       }
+      if (
+        lastWrittenScrollTop !== null &&
+        Math.abs(v.scrollTop - lastWrittenScrollTop) > 1
+      ) {
+        rafRef.current = null;
+        return;
+      }
       const target = Math.max(0, v.scrollHeight - v.clientHeight);
       if (Math.abs(target - v.scrollTop) > 0.5) {
         v.scrollTop = target;
       }
+      lastWrittenScrollTop = v.scrollTop;
       if (performance.now() < deadline) {
         rafRef.current = requestAnimationFrame(tick);
       } else {
