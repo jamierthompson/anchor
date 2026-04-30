@@ -1,7 +1,6 @@
 "use client";
 
 import * as ScrollArea from "@radix-ui/react-scroll-area";
-import { type Transition } from "motion/react";
 import type { KeyboardEvent as ReactKeyboardEvent, Ref } from "react";
 
 import type { FilterToggleTarget } from "@/lib/filter-state";
@@ -25,67 +24,21 @@ const lineDomId = (lineId: string) => `${LINE_DOM_ID_PREFIX}${lineId}`;
  *
  * Uses <ul>/<li> to convey the sequence-and-identity semantics of a
  * log feed. The list is always the full fixed array — filtering and
- * View Context don't add or remove children. The <li> animates between
- * height: 0 + opacity: 0 (hidden) and height: auto + opacity: 1
- * (visible), so DOM identity stays stable across visibility changes.
+ * View Context don't add or remove children. Each <li> animates between
+ * a `data-visible="false"` state (grid-template-rows: 0fr, opacity 0)
+ * and `data-visible="true"` (grid-template-rows: 1fr, opacity 1), so
+ * DOM identity stays stable across visibility changes.
  *
- * Choreography per spec §6:
- *   Expand:   height grows first (~200ms), then text fades in (~150ms,
- *             with ~75ms delay). The line "makes room," then text
- *             materializes.
- *   Collapse: text fades out first (~150ms), then height collapses
- *             (~200ms, with ~100ms delay). Text dissolves, then the
- *             gap closes.
+ * Choreography per spec §6 lives in log-list.module.css. The asymmetric
+ * expand/collapse timing is encoded by attaching different transitions
+ * to the two states. Two modes via `data-transition-mode` on this <ul>:
  *
- * The data attributes are still emitted so CSS can drive the dim and
- * selected-line accent states — those are CSS transitions, not Motion.
+ *   - "instant" (filter dispatches): grid track snaps; opacity snaps.
+ *     The list reads as snappy — structural change happens at once.
+ *   - "slow" (context toggles): grid track eases 200ms; opacity 150ms.
+ *     The spatial expansion/contraction IS the point — heights ease
+ *     the choreography of "this region is opening up."
  */
-
-// Spec §6 single easing curve. Mirrors --ease-standard in globals.css;
-// duplicated here as a tuple because Motion takes the bezier control
-// points directly rather than a CSS string.
-const EASE = [0.32, 0.72, 0, 1] as const;
-
-/**
- * Two transition modes:
- *
- *   - "instant" (filter dispatches): the height jumps to/from 0 with
- *     no transition. Opacity still fades over 150ms so there's
- *     visible "something is changing" feedback. Pairs with the live-
- *     tail stick-to-bottom in LogExplorer — the document size
- *     resolves immediately, the viewport follows. The list reads as
- *     "snappy" because the structural change happens at once.
- *
- *   - "slow" (context toggles): height eases over 200ms because the
- *     spatial expansion/contraction IS the point — the user opened a
- *     context window to see lines fluidly appear around their anchor.
- *     Heights ease the choreography of "this region is opening up."
- *
- * LogExplorer flips the mode per dispatch type. Filter dispatches set
- * "instant"; `handleToggleContext` sets "slow" for the duration of
- * the slow animation, then resets.
- */
-
-const INSTANT_EXPAND: Transition = {
-  height: { duration: 0 },
-  opacity: { duration: 0 },
-};
-
-const INSTANT_COLLAPSE: Transition = {
-  opacity: { duration: 0 },
-  height: { duration: 0 },
-};
-
-const SLOW_EXPAND: Transition = {
-  height: { duration: 0.2, ease: EASE },
-  opacity: { duration: 0.15, delay: 0.075, ease: EASE },
-};
-
-const SLOW_COLLAPSE: Transition = {
-  opacity: { duration: 0.15, ease: EASE },
-  // Height eases over 200ms after opacity finishes (no overlap).
-  height: { duration: 0.2, delay: 0.15, ease: EASE },
-};
 
 export function LogList({
   lines,
@@ -147,12 +100,12 @@ export function LogList({
    */
   focusedLineId?: string | null;
   /**
-   * Ids of lines that streamed in via live tail (i.e. not present
-   * at component mount). Drives the per-line `initial` prop on
-   * `motion.li`: streamed lines animate from { height: 0,
-   * opacity: 0 } so they slide in from below; initial-fixture lines
-   * skip the animation (initial={false}) so the page-load render
-   * doesn't trigger 415 simultaneous mount-time animations.
+   * Ids of lines that streamed in via live tail (i.e. not present at
+   * component mount). Drives `data-streamed` on the <li>; the CSS
+   * uses `@starting-style` to mount streamed rows from the collapsed
+   * state so they animate in. Initial-fixture rows mount at final
+   * values without animating — avoids 415 simultaneous mount-time
+   * animations on page load.
    */
   streamedLineIds?: ReadonlySet<string>;
   /**
@@ -166,16 +119,16 @@ export function LogList({
   hasAnyFilter?: boolean;
   /**
    * Animation mode for line height changes:
-   *   - "instant" (default): height jumps to/from 0; opacity still fades.
-   *     Used for filter dispatches — list resolves snappily.
-   *   - "slow": height eases over 200ms. Used for context toggles
-   *     where the spatial expansion IS the point.
+   *   - "instant" (default): grid track snaps; opacity snaps. Used
+   *     for filter dispatches — list resolves snappily.
+   *   - "slow": grid track eases 200ms; opacity 150ms. Used for
+   *     context toggles where the spatial expansion IS the point.
+   *
+   * Surfaces on the <ul> as `data-transition-mode` and the CSS in
+   * log-list.module.css keys per-row transitions off it.
    */
   transitionMode?: "instant" | "slow";
 }) {
-  const expand = transitionMode === "slow" ? SLOW_EXPAND : INSTANT_EXPAND;
-  const collapse =
-    transitionMode === "slow" ? SLOW_COLLAPSE : INSTANT_COLLAPSE;
   return (
     <ScrollArea.Root className={styles.scrollRoot} type="hover">
       <ScrollArea.Viewport
@@ -198,6 +151,7 @@ export function LogList({
           aria-activedescendant={
             focusedLineId ? lineDomId(focusedLineId) : undefined
           }
+          data-transition-mode={transitionMode}
           onKeyDown={onKeyDown}
         >
           {lines.map((line) => {
@@ -205,9 +159,8 @@ export function LogList({
             // every-render) Set/Map references. Computing them here
             // means LogListItem receives stable boolean / number-or-
             // undefined props and the React.memo wrapping it actually
-            // bites — when a tail tick fires, only the appended row
-            // sees prop changes; existing rows skip re-render and
-            // their in-flight Motion tweens run undisturbed.
+            // bites on the cases where it can — e.g., a tail tick that
+            // doesn't change THIS row's data.
             const isSelected =
               selectedContextRangesById?.has(line.id) ?? false;
             const contextRange = selectedContextRangesById?.get(line.id);
@@ -228,8 +181,6 @@ export function LogList({
                 isFocused={isFocused}
                 contextRange={contextRange}
                 canToggleContext={canToggleContext}
-                expand={expand}
-                collapse={collapse}
                 onLineFocus={onLineFocus}
                 onFilterToggle={onFilterToggle}
                 onToggleContext={onToggleContext}

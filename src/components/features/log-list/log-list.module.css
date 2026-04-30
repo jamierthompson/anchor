@@ -107,40 +107,152 @@
   outline: none;
 }
 
+/*
+ * Each row uses the grid-template-rows trick for height interpolation:
+ * the <li> is a 1-row grid whose track flips between `1fr` (visible,
+ * track resolves to content height) and `0fr` (hidden, track resolves
+ * to 0). The single child .inner has `min-height: 0; overflow: hidden`
+ * so it clips cleanly when the track collapses.
+ *
+ * Why this trick over `height: 0 ↔ auto`:
+ *   - `height: auto` can't be transitioned in CSS without the modern
+ *     `interpolate-size: allow-keywords` (Chrome 129+/Safari 17.4+,
+ *     no Firefox yet). The grid-fr interpolation has wider support
+ *     (Chrome 109+, Safari 17.4+, Firefox 130+).
+ *   - The browser engine owns the interpolation entirely — no JS
+ *     measurement step, no main-thread tween, no animation engine
+ *     state machine that React re-renders can perturb. Fixes the
+ *     close-flicker by construction.
+ */
 .item {
-  /*
-   * 4px transparent border on every line so opening a context only
-   * recolors the border — no horizontal layout shift between selected
-   * and unselected lines.
-   *
-   * overflow: hidden is what makes the height: 0 collapse actually
-   * clip the line content during the expand/collapse animation.
-   *
-   * border-left-color transitions on selected-state changes so the
-   * accent fades in on context-open and out on context-close (spec §6
-   * "Selected line's left border fades out"). Motion owns the inline
-   * height + opacity styles — this transition only targets the border
-   * color, so the two don't fight.
-   */
+  display: grid;
+  grid-template-rows: 1fr;
   margin: 0;
   border-left: 4px solid transparent;
+  /*
+   * Border-color transitions on selected-state changes (spec §6
+   * "Selected line's left border fades out"). Lives on the .item
+   * because data-selected sits here; doesn't compete with the
+   * grid-template-rows transition (different property).
+   */
+  transition: border-left-color var(--duration-base) var(--ease-standard);
+}
+
+.inner {
+  /*
+   * Required for the grid-template-rows: 0fr collapse to actually
+   * hide content. Without these, the inner div would refuse to shrink
+   * below its content size and the row would never reach 0 height.
+   */
+  min-height: 0;
   overflow: hidden;
+}
+
+/*
+ * Hidden state: track collapses to 0fr (height becomes 0), opacity
+ * fades to 0. Drives both via `data-visible="false"` on the <li>.
+ * The .inner is opacity'd (not the <li>) so the border-left accent
+ * transition continues to render against the bg even mid-collapse.
+ */
+.item[data-visible="false"] > .inner {
+  opacity: 0;
+}
+
+.item[data-visible="false"] {
+  grid-template-rows: 0fr;
+}
+
+/*
+ * Per-mode transitions, keyed off `data-transition-mode` on the
+ * parent <ul>. The asymmetric expand/collapse choreography is encoded
+ * by attaching DIFFERENT transitions to the two states:
+ *
+ *   - "Visible direction" (becoming visible): the rule on
+ *     [data-visible="true"] describes the transitions that fire when
+ *     the row REACHES this state — i.e., the expand timing (height
+ *     starts immediately, opacity fades in 75ms later).
+ *   - "Hidden direction" (becoming hidden): the base .item rule
+ *     describes the transitions that fire when the row REACHES this
+ *     state — i.e., the collapse timing (opacity fades immediately,
+ *     height delays 150ms before collapsing).
+ *
+ * Spec §6 choreography:
+ *   Expand (height first, opacity follows ~75ms in):
+ *     grid-template-rows  200ms  ease         0ms
+ *     opacity             150ms  ease        75ms
+ *   Collapse (opacity first, height follows ~150ms in):
+ *     opacity             150ms  ease         0ms
+ *     grid-template-rows  200ms  ease       150ms
+ */
+[data-transition-mode="slow"] .item {
+  transition:
+    border-left-color var(--duration-base) var(--ease-standard),
+    grid-template-rows var(--duration-slow) var(--ease-standard) var(--duration-base);
+}
+[data-transition-mode="slow"] .item > .inner {
+  transition: opacity var(--duration-base) var(--ease-standard);
+}
+[data-transition-mode="slow"] .item[data-visible="true"] {
+  transition:
+    border-left-color var(--duration-base) var(--ease-standard),
+    grid-template-rows var(--duration-slow) var(--ease-standard);
+}
+[data-transition-mode="slow"] .item[data-visible="true"] > .inner {
+  transition: opacity var(--duration-base) var(--ease-standard) 75ms;
+}
+
+/*
+ * Instant mode (filter dispatches): grid track snaps; opacity also
+ * snaps. The list reads as "snappy" — the structural change happens
+ * at once. Pairs with the live-tail stick-to-bottom in LogExplorer:
+ * the document size resolves immediately, the viewport follows.
+ *
+ * Border-color transition kept on .item so the selection accent
+ * still fades cleanly even during a filter dispatch.
+ */
+[data-transition-mode="instant"] .item {
   transition: border-left-color var(--duration-base) var(--ease-standard);
 }
 
 /*
- * Visibility is driven by Motion (height + opacity inline styles per
- * spec §6 choreography). data-visible stays on the <li> for tests and
- * CSS hooks that may key off the eventual final state, but the actual
- * hide/show transition is now in the JSX, not CSS.
+ * Streamed-line entrance animation (spec §10.2 — "lines append at
+ * the bottom on a realistic cadence"). New tail lines mount with
+ * data-streamed="true" and animate from { 0fr, opacity 0 } to their
+ * normal visible state. @starting-style sets the initial values that
+ * apply only at the moment the element is inserted into the
+ * document — the next style recalc transitions to the target.
  *
- * Dim is driven by the inner LogLine element via its own data-dimmed
- * attribute. Keeping motion's inline opacity (0/1 for visibility) on
- * the <li> separate from the dim opacity on the inner element lets
- * the two compose via the natural opacity stacking rule — visible-
- * dimmed renders as 1 × dimmed-opacity, hidden composes to 0
- * regardless of dim state.
+ * Initial-fixture lines (data-streamed="false") have no
+ * @starting-style, so they mount at their final values without
+ * animating — avoids 415 simultaneous mount-time animations on
+ * page load.
  */
+.item[data-streamed="true"] {
+  @starting-style {
+    grid-template-rows: 0fr;
+  }
+}
+.item[data-streamed="true"] > .inner {
+  @starting-style {
+    opacity: 0;
+  }
+}
+
+/*
+ * Honor OS-level prefers-reduced-motion. CSS does this for free —
+ * no MotionConfig, no JS bridge — by zeroing the relevant durations.
+ * The final state still resolves correctly because the property
+ * values themselves don't change, only their transition timing.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .item,
+  .item > .inner,
+  [data-transition-mode] .item,
+  [data-transition-mode] .item > .inner {
+    transition-duration: 0ms !important;
+    transition-delay: 0ms !important;
+  }
+}
 
 /*
  * The selected line — the anchor of an open View Context window —
@@ -158,10 +270,9 @@
  * Distinct from selected (left-border accent) and dimmed (opacity).
  *
  * Inset outline (negative offset) so it sits *inside* the line's
- * bounding box rather than overflowing the row's visual edge — this
- * matters because the parent <li> has overflow: hidden for the
- * height-collapse animation, which would clip a positive-offset
- * outline.
+ * bounding box rather than overflowing the row's visual edge — the
+ * .inner has overflow: hidden for the height-collapse, which would
+ * clip a positive-offset outline.
  *
  * Color is the muted foreground — distinct enough to read as a focus
  * ring but quieter than the accent (which belongs to selection). The

@@ -1,6 +1,5 @@
 "use client";
 
-import { MotionConfig } from "motion/react";
 import {
   useCallback,
   useEffect,
@@ -1088,32 +1087,29 @@ export function LogExplorer({
   }, [openContexts.length, sheetOpen]);
 
   return (
-    // reducedMotion="user" honors the OS-level prefers-reduced-motion
-    // setting — Motion drops durations to ~0 so the line transitions
-    // don't run, but the final state still resolves correctly.
-    <MotionConfig reducedMotion="user">
-      <div className={styles.explorer}>
-        <FilterBar state={filterState} dispatch={dispatchFilter} />
-        <LogList
-          lines={derivedLines}
-          viewportRef={viewportRef}
-          onFilterToggle={handleFilterToggle}
-          onToggleContext={handleToggleContext}
-          onExpandContext={handleExpandContext}
-          onLessContext={handleLessContext}
-          onCopyLine={handleCopyLine}
-          onLineFocus={setFocusedLineId}
-          onKeyDown={handleKeyDown}
-          selectedContextRangesById={effectiveSelectedContextRangesById}
-          focusedLineId={effectiveFocusedLineId}
-          streamedLineIds={streamedLineIds}
-          hasAnyFilter={hasAnyFilter(filterState)}
-          transitionMode={transitionMode}
-        />
-        <NewLinesPill count={unreadCount} onClick={handleScrollToBottom} />
-        <ShortcutSheetTrigger onOpen={() => setSheetOpen(true)} />
-        <ShortcutSheet open={sheetOpen} onOpenChange={setSheetOpen} />
-      </div>
-    </MotionConfig>
+    // prefers-reduced-motion is honored entirely in CSS now — see the
+    // @media block in log-list.module.css. No JS bridge needed.
+    <div className={styles.explorer}>
+      <FilterBar state={filterState} dispatch={dispatchFilter} />
+      <LogList
+        lines={derivedLines}
+        viewportRef={viewportRef}
+        onFilterToggle={handleFilterToggle}
+        onToggleContext={handleToggleContext}
+        onExpandContext={handleExpandContext}
+        onLessContext={handleLessContext}
+        onCopyLine={handleCopyLine}
+        onLineFocus={setFocusedLineId}
+        onKeyDown={handleKeyDown}
+        selectedContextRangesById={effectiveSelectedContextRangesById}
+        focusedLineId={effectiveFocusedLineId}
+        streamedLineIds={streamedLineIds}
+        hasAnyFilter={hasAnyFilter(filterState)}
+        transitionMode={transitionMode}
+      />
+      <NewLinesPill count={unreadCount} onClick={handleScrollToBottom} />
+      <ShortcutSheetTrigger onOpen={() => setSheetOpen(true)} />
+      <ShortcutSheet open={sheetOpen} onOpenChange={setSheetOpen} />
+    </div>
   );
 }

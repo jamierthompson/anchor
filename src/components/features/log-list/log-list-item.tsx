@@ -1,6 +1,5 @@
 "use client";
 
-import { motion, type Transition } from "motion/react";
 import { memo, type MouseEvent as ReactMouseEvent } from "react";
 
 import type { FilterToggleTarget } from "@/lib/filter-state";
@@ -10,50 +9,50 @@ import { LogLine } from "./log-line";
 import styles from "./log-list.module.css";
 
 /**
- * Single row of the log list — `motion.li` + `LogLine`. Extracted from
- * LogList and wrapped in `React.memo` so live-tail ticks (which fire
- * setState in `useLiveTail` and propagate through LogExplorer →
- * LogList on every emission) don't re-render every existing row.
+ * Single row of the log list. Plain <li> + .inner wrapper — height /
+ * opacity are interpolated by CSS (the grid-template-rows trick; see
+ * log-list.module.css for the full rationale).
  *
- * ### Why this matters for animation smoothness
+ * ### Why CSS, not Motion
  *
- * Motion treats the `animate` prop's identity as a signal to re-evaluate
- * a tween. When the parent rebuilds `animate={{ height: ..., opacity: ... }}`
- * inline on every render, Motion may interrupt an in-flight height
- * transition (especially `"auto"`, which requires layout measurement)
- * and produce visible stutter. Memoizing this row means the inner
- * `motion.li` only sees new `animate` objects when one of the actual
- * inputs (`isVisible`) changes — its in-flight tween runs undisturbed
- * while a tail line lands.
+ * Motion ran the height/opacity tween in JS, driven by React's render
+ * cycle — and any re-render that touched a `motion.li` could perturb
+ * an in-flight tween if Motion saw a new `animate` object identity.
+ * Closing a context window while live tail was active reliably
+ * produced visible stutter because the callback identities (and
+ * therefore the row's prop identities) churned mid-animation.
  *
- * ### Memo key shape
+ * CSS transitions are owned by the browser engine. Once a transition
+ * starts on a property, no React re-render can affect it. Memoization
+ * becomes a perf nicety, not a correctness requirement; the close
+ * choreography runs end-to-end without interruption regardless of
+ * what happens in React land.
  *
- * Default shallow equality. All callback props are stabilized via
- * `useCallback` in LogExplorer. The `expand`/`collapse` Transition
- * objects are module constants in LogList. The only per-row prop that
- * changes when a new tail line arrives is *that line's* `isStreamed`
- * flag at the moment it appends — every other row's props are
- * referentially equal to the previous render and the memo skips.
+ * The memo here stays as defense-in-depth — it cuts wasted
+ * reconciliation work on tail ticks where this row's data is
+ * unchanged — but it's no longer load-bearing for visual smoothness.
  *
- * ### Why not pass the Set/Map references through?
+ * ### Memo equality
  *
- * `streamedLineIds` is a fresh `Set` per emission and
- * `selectedContextRangesById` is a fresh `Map` per derive. Passing
- * them down would defeat the memo for every row on every change.
- * LogList resolves the per-row boolean / number-or-undefined and
- * passes those primitives instead.
+ * `deriveLines` rebuilds every `DerivedLogLine` on each call, so the
+ * default shallow `prevProps.line === nextProps.line` would always
+ * fail. The underlying `LogLine` is fully `readonly` (src/types/log.ts),
+ * so the only fields that can differ between two `DerivedLogLine`s
+ * sharing an `id` are the derived flags `isVisible` / `isDimmed`.
+ * Comparing those three is a sound proxy for "this row's data didn't
+ * change."
  */
 
 type LogListItemProps = {
   line: DerivedLogLine;
   domId: string;
   /**
-   * True only for lines that streamed in via live tail. Drives the
-   * `motion.li`'s `initial` so streamed lines animate from
-   * `{ height: 0, opacity: 0 }` and initial-fixture lines skip the
-   * mount animation. Resolved once in LogList from
-   * `streamedLineIds.has(line.id)` so we can pass a primitive instead
-   * of the Set ref (which changes every tail tick).
+   * True only for lines that streamed in via live tail. Drives
+   * `data-streamed` on the <li>; the CSS uses `@starting-style` to
+   * mount streamed rows at { 0fr, opacity 0 } so they animate in.
+   * Initial-fixture rows (data-streamed="false") mount at final
+   * values without animating — avoids 415 simultaneous mount-time
+   * animations on page load.
    */
   isStreamed: boolean;
   isSelected: boolean;
@@ -64,14 +63,6 @@ type LogListItemProps = {
    * so this row doesn't need FilterState shape.
    */
   canToggleContext: boolean;
-  /**
-   * Active per-render Transition objects for expand and collapse.
-   * Module-level constants in LogList — stable references, so they
-   * don't break the memo. Picked by transitionMode at the LogList
-   * layer.
-   */
-  expand: Transition;
-  collapse: Transition;
   onLineFocus?: (lineId: string) => void;
   onFilterToggle?: (target: FilterToggleTarget, sourceLineId: string) => void;
   onToggleContext?: (lineId: string) => void;
@@ -88,8 +79,6 @@ function LogListItemImpl({
   isFocused,
   contextRange,
   canToggleContext,
-  expand,
-  collapse,
   onLineFocus,
   onFilterToggle,
   onToggleContext,
@@ -107,7 +96,7 @@ function LogListItemImpl({
   };
 
   return (
-    <motion.li
+    <li
       id={domId}
       data-line-id={line.id}
       role="option"
@@ -117,62 +106,32 @@ function LogListItemImpl({
       data-dimmed={line.isDimmed}
       data-selected={isSelected}
       data-focused={isFocused}
+      data-streamed={isStreamed}
       onClick={handleClick}
-      // Per-line `initial`:
-      //   - Streamed lines (live tail) → animate from
-      //     { height: 0, opacity: 0 } so they slide in from below
-      //     with the same expand choreography as context reveal
-      //     (spec §10.2).
-      //   - Initial-fixture lines → initial={false} so the page-load
-      //     render uses target values directly and doesn't trigger
-      //     415 simultaneous animations.
-      // After mount, isVisible toggles via `animate` only — initial
-      // doesn't apply on subsequent renders.
-      initial={isStreamed ? { height: 0, opacity: 0 } : false}
-      animate={{
-        height: line.isVisible ? "auto" : 0,
-        opacity: line.isVisible ? 1 : 0,
-      }}
-      transition={line.isVisible ? expand : collapse}
     >
-      <LogLine
-        line={line}
-        isVisible={line.isVisible}
-        isDimmed={line.isDimmed}
-        isSelected={isSelected}
-        contextRange={contextRange}
-        canToggleContext={canToggleContext}
-        onFilterToggle={onFilterToggle}
-        onToggleContext={onToggleContext}
-        onExpandContext={onExpandContext}
-        onLessContext={onLessContext}
-        onCopyLine={onCopyLine}
-      />
-    </motion.li>
+      <div className={styles.inner}>
+        <LogLine
+          line={line}
+          isVisible={line.isVisible}
+          isDimmed={line.isDimmed}
+          isSelected={isSelected}
+          contextRange={contextRange}
+          canToggleContext={canToggleContext}
+          onFilterToggle={onFilterToggle}
+          onToggleContext={onToggleContext}
+          onExpandContext={onExpandContext}
+          onLessContext={onLessContext}
+          onCopyLine={onCopyLine}
+        />
+      </div>
+    </li>
   );
 }
 
 /**
- * Custom equality for the row memo.
- *
- * `deriveLines` rebuilds every `DerivedLogLine` on each call (`lines.map(
- * line => ({ ...line, isVisible, isDimmed }))`), so the default shallow
- * `prevProps.line === nextProps.line` would always fail and the memo
- * would never bite — exactly the case we're trying to fix.
- *
- * The underlying `LogLine` source array is immutable (every field is
- * `readonly` per src/types/log.ts), so the only fields that can change
- * between two `DerivedLogLine` objects sharing the same `id` are the
- * derived flags `isVisible` and `isDimmed`. Comparing those three
- * fields is therefore a sound proxy for "this row's data is unchanged."
- *
- * Everything else (booleans, scalars, callbacks stabilized via
- * `useCallback` in LogExplorer, module-constant `Transition` refs)
- * compares by `===` as it would under default shallow equality.
- *
- * Note: `domId` is derived from `line.id` and a constant prefix, so
- * when `line.id` matches, `domId` necessarily matches; we still
- * compare it explicitly to keep the contract self-evident.
+ * Custom equality for the memo. See file-level docblock for why id +
+ * isVisible + isDimmed is sufficient to capture "this row's data is
+ * unchanged" given the immutability of the underlying LogLine source.
  */
 function arePropsEqual(prev: LogListItemProps, next: LogListItemProps) {
   return (
@@ -185,8 +144,6 @@ function arePropsEqual(prev: LogListItemProps, next: LogListItemProps) {
     prev.isFocused === next.isFocused &&
     prev.contextRange === next.contextRange &&
     prev.canToggleContext === next.canToggleContext &&
-    prev.expand === next.expand &&
-    prev.collapse === next.collapse &&
     prev.onLineFocus === next.onLineFocus &&
     prev.onFilterToggle === next.onFilterToggle &&
     prev.onToggleContext === next.onToggleContext &&
@@ -196,9 +153,4 @@ function arePropsEqual(prev: LogListItemProps, next: LogListItemProps) {
   );
 }
 
-/**
- * Memoized row component. See file-level docblock for why this matters,
- * and `arePropsEqual` above for why default shallow equality isn't
- * enough.
- */
 export const LogListItem = memo(LogListItemImpl, arePropsEqual);

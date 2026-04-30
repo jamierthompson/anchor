@@ -29,8 +29,8 @@ import type { LogLine } from "@/types/log";
  *               component reads this to decide which lines should
  *               animate-in (vs. render at target values for the
  *               initial fixture). Once a line is in `freshIds` it
- *               stays — no need to clean up; the animation only
- *               applies on the first mount of that motion.li.
+ *               stays — no need to clean up; the CSS @starting-style
+ *               only applies the first time the row is inserted.
  *
  * ### Cadence model
  *
