@@ -11,7 +11,13 @@
    * height: 100vh means the inner ScrollArea has a definite height to
    * size against — that's the prerequisite for actual viewport
    * overflow and meaningful scroll behavior.
+   *
+   * `position: relative` establishes the containing block for the
+   * desktop-only absolute-positioned legend (see legend.module.css):
+   * the legend overlays the top-right corner so the scenario chips
+   * row can align horizontally with it on wider screens.
    */
+  position: relative;
   display: flex;
   flex-direction: column;
   background: var(--color-bg);
