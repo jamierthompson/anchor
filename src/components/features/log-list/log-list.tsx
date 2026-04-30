@@ -1,13 +1,13 @@
 "use client";
 
 import * as ScrollArea from "@radix-ui/react-scroll-area";
-import { motion, type Transition } from "motion/react";
+import { type Transition } from "motion/react";
 import type { KeyboardEvent as ReactKeyboardEvent, Ref } from "react";
 
 import type { FilterToggleTarget } from "@/lib/filter-state";
 import type { DerivedLogLine } from "@/types/log";
 
-import { LogLine } from "./log-line";
+import { LogListItem } from "./log-list-item";
 import styles from "./log-list.module.css";
 
 /**
@@ -201,77 +201,42 @@ export function LogList({
           onKeyDown={onKeyDown}
         >
           {lines.map((line) => {
-            // Single-source-of-truth lookup per row. The Map carries
-            // both the boolean ("is this line a selected context
-            // anchor?" via `.has`) AND the per-line range ("what ±N is
-            // its window currently set to?" via `.get`). Used by the
-            // <li> for the border accent and by LogLine's action row
-            // to gate the Expand / Less buttons.
+            // Per-row primitives derived from the (potentially-fresh-
+            // every-render) Set/Map references. Computing them here
+            // means LogListItem receives stable boolean / number-or-
+            // undefined props and the React.memo wrapping it actually
+            // bites — when a tail tick fires, only the appended row
+            // sees prop changes; existing rows skip re-render and
+            // their in-flight Motion tweens run undisturbed.
             const isSelected =
               selectedContextRangesById?.has(line.id) ?? false;
             const contextRange = selectedContextRangesById?.get(line.id);
             const isFocused = line.id === focusedLineId;
+            const isStreamed = streamedLineIds?.has(line.id) ?? false;
+            // §3 gate for the View/Hide context toggle action. The Copy
+            // action has its own (looser) gate — see LineActions; it
+            // shows on any visible line.
+            const canToggleContext =
+              hasAnyFilter && line.isVisible && !line.isDimmed;
             return (
-              <motion.li
+              <LogListItem
                 key={line.id}
-                id={lineDomId(line.id)}
-                data-line-id={line.id}
-                role="option"
-                aria-selected={isSelected}
-                className={styles.item}
-                data-visible={line.isVisible}
-                data-dimmed={line.isDimmed}
-                data-selected={isSelected}
-                data-focused={isFocused}
-                // Plain click on the <li> sets focus on this line.
-                // LogLine still owns the modifier-click (cmd/ctrl) for
-                // context toggle and stops propagation on its inner
-                // pill/badge buttons, so this only fires for non-button
-                // clicks landing on the line body.
-                onClick={(event) => {
-                  if (event.metaKey || event.ctrlKey) return;
-                  onLineFocus?.(line.id);
-                }}
-                // Per-line `initial`:
-                //   - Streamed lines (live tail) → animate from
-                //     { height: 0, opacity: 0 } so they slide in
-                //     from below with the same expand choreography
-                //     as context reveal (spec §10.2).
-                //   - Initial-fixture lines → initial={false} so the
-                //     page-load render uses target values directly
-                //     and doesn't trigger 415 simultaneous animations.
-                // After mount, isVisible toggles via `animate` only —
-                // initial doesn't apply on subsequent renders.
-                initial={
-                  streamedLineIds?.has(line.id)
-                    ? { height: 0, opacity: 0 }
-                    : false
-                }
-                animate={{
-                  height: line.isVisible ? "auto" : 0,
-                  opacity: line.isVisible ? 1 : 0,
-                }}
-                transition={line.isVisible ? expand : collapse}
-              >
-                <LogLine
-                  line={line}
-                  isVisible={line.isVisible}
-                  isDimmed={line.isDimmed}
-                  isSelected={isSelected}
-                  contextRange={contextRange}
-                  // §3 gate for the View/Hide context toggle action.
-                  // The Copy action has its own (looser) gate — see
-                  // LineActions; it shows on any visible line.
-                  canToggleContext={
-                    hasAnyFilter && line.isVisible && !line.isDimmed
-                  }
-                  onFilterToggle={onFilterToggle}
-                  onToggleContext={onToggleContext}
-                  onExpandContext={onExpandContext}
-                  onLessContext={onLessContext}
-                  onCopyLine={onCopyLine}
-                />
-              </motion.li>
+                line={line}
+                domId={lineDomId(line.id)}
+                isStreamed={isStreamed}
+                isSelected={isSelected}
+                isFocused={isFocused}
+                contextRange={contextRange}
+                canToggleContext={canToggleContext}
+                expand={expand}
+                collapse={collapse}
+                onLineFocus={onLineFocus}
+                onFilterToggle={onFilterToggle}
+                onToggleContext={onToggleContext}
+                onExpandContext={onExpandContext}
+                onLessContext={onLessContext}
+                onCopyLine={onCopyLine}
+              />
             );
           })}
         </ul>
