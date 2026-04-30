@@ -1,6 +1,5 @@
 "use client";
 
-import { MotionConfig } from "motion/react";
 import {
   useCallback,
   useEffect,
@@ -23,6 +22,7 @@ import {
 } from "@/components/features/shortcut-sheet/shortcut-sheet";
 import { liveTailSeed } from "@/lib/mock-logs";
 import { useLiveTail } from "@/lib/use-live-tail";
+import { useStableCallback } from "@/lib/use-stable-callback";
 import {
   DEFAULT_CONTEXT_RANGE,
   nextContextRange,
@@ -292,6 +292,23 @@ export function LogExplorer({
   const startStickToBottom = useCallback(() => {
     if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
     const deadline = performance.now() + COMPENSATION_DURATION_MS;
+    /*
+     * User-scroll-disengage. We record what we last wrote to
+     * scrollTop; on the next frame, if the current scrollTop
+     * differs from our last write by more than ~1px, only the user
+     * could have moved it (the document growing doesn't shift
+     * scrollTop on its own — see the rAF tick body). Abort the loop
+     * so we stop fighting their input.
+     *
+     * Once aborted, subsequent tail-line arrivals see isAtBottom()
+     * = false (user is past the 50px tolerance) and route through
+     * unreadCount → the pill — the stick doesn't re-engage until
+     * the user scrolls back to bottom.
+     *
+     * Matches standard live-tail UI behavior (Slack, Console.app,
+     * `kubectl logs --follow`).
+     */
+    let lastWrittenScrollTop: number | null = null;
 
     const tick = () => {
       const v = viewportRef.current;
@@ -299,10 +316,18 @@ export function LogExplorer({
         rafRef.current = null;
         return;
       }
+      if (
+        lastWrittenScrollTop !== null &&
+        Math.abs(v.scrollTop - lastWrittenScrollTop) > 1
+      ) {
+        rafRef.current = null;
+        return;
+      }
       const target = Math.max(0, v.scrollHeight - v.clientHeight);
       if (Math.abs(target - v.scrollTop) > 0.5) {
         v.scrollTop = target;
       }
+      lastWrittenScrollTop = v.scrollTop;
       if (performance.now() < deadline) {
         rafRef.current = requestAnimationFrame(tick);
       } else {
@@ -402,12 +427,24 @@ export function LogExplorer({
     const delta = lines.length - prevLinesLengthRef.current;
     prevLinesLengthRef.current = lines.length;
     if (delta <= 0) return;
+    // Skip live-tail follow logic while a context-toggle slow
+    // animation is in flight. `startCompensation` and
+    // `startStickToBottom` share `rafRef` (only one rAF loop at a
+    // time); without this guard, a tail tick that arrives mid-
+    // toggle would call `startStickToBottom`, cancel the in-flight
+    // compensation rAF, and the anchor line would visibly drift.
+    // The user's deliberate context interaction wins for ~600ms;
+    // live-tail follow resumes on the next tick after slow mode
+    // clears. The newly-appended line still renders and animates
+    // in via @starting-style — only the scroll-side-effect is
+    // deferred.
+    if (transitionMode === "slow") return;
     if (isAtBottom()) {
       startStickToBottom();
     } else {
       setUnreadCount((c) => c + delta);
     }
-  }, [lines.length, isAtBottom, startStickToBottom]);
+  }, [lines.length, isAtBottom, startStickToBottom, transitionMode]);
 
   /**
    * Reset the unread count when the user organically scrolls to the
@@ -563,10 +600,13 @@ export function LogExplorer({
     return byId;
   }, [openContexts, filterState, lines]);
 
-  const handleFilterToggle = useCallback(
+  // Stable identity so the memoized LogListItem doesn't re-render on
+  // every state change that touches dispatchFilter's deps. The latest
+  // closure (and therefore the latest dispatchFilter) is read at call
+  // time. See use-stable-callback.ts for the full rationale.
+  const handleFilterToggle = useStableCallback(
     (target: FilterToggleTarget, sourceLineId: string) =>
       dispatchFilter(actionForTarget(target), sourceLineId),
-    [dispatchFilter],
   );
 
   /**
@@ -590,7 +630,7 @@ export function LogExplorer({
    * each toggle resets `anchorLineId` to the line just acted on, so a
    * subsequent filter dispatch falls through to the right reference.
    */
-  const handleToggleContext = useCallback(
+  const handleToggleContext = useStableCallback(
     (lineId: string) => {
       if (!hasAnyFilter(filterState)) return;
       const target = derivedLines.find((l) => l.id === lineId);
@@ -634,7 +674,6 @@ export function LogExplorer({
 
       if (anchor) startCompensation(anchor);
     },
-    [filterState, derivedLines, anchorLineId, captureAnchor, startCompensation],
   );
 
   /**
@@ -702,14 +741,12 @@ export function LogExplorer({
   // ±100 so it never fires at that endpoint, while shift+e wraps
   // around to ±20. Both paths into one handler keeps invariants
   // consolidated.
-  const handleExpandContext = useCallback(
-    (lineId: string) => stepContextRange(lineId, "next"),
-    [stepContextRange],
+  const handleExpandContext = useStableCallback((lineId: string) =>
+    stepContextRange(lineId, "next"),
   );
 
-  const handleLessContext = useCallback(
-    (lineId: string) => stepContextRange(lineId, "prev"),
-    [stepContextRange],
+  const handleLessContext = useStableCallback((lineId: string) =>
+    stepContextRange(lineId, "prev"),
   );
 
   /**
@@ -729,15 +766,12 @@ export function LogExplorer({
    * no-ops. The fallback case is rare in modern dev environments and
    * a clipboard error UI isn't worth its weight in a prototype.
    */
-  const handleCopyLine = useCallback(
-    (lineId: string) => {
-      const line = lines.find((l) => l.id === lineId);
-      if (!line) return;
-      const text = formatLineForCopy(line);
-      void navigator.clipboard?.writeText?.(text);
-    },
-    [lines],
-  );
+  const handleCopyLine = useStableCallback((lineId: string) => {
+    const line = lines.find((l) => l.id === lineId);
+    if (!line) return;
+    const text = formatLineForCopy(line);
+    void navigator.clipboard?.writeText?.(text);
+  });
 
   /**
    * Focus persistence rule (spec §7): the *saved* focus (`focusedLineId`)
@@ -1088,32 +1122,29 @@ export function LogExplorer({
   }, [openContexts.length, sheetOpen]);
 
   return (
-    // reducedMotion="user" honors the OS-level prefers-reduced-motion
-    // setting — Motion drops durations to ~0 so the line transitions
-    // don't run, but the final state still resolves correctly.
-    <MotionConfig reducedMotion="user">
-      <div className={styles.explorer}>
-        <FilterBar state={filterState} dispatch={dispatchFilter} />
-        <LogList
-          lines={derivedLines}
-          viewportRef={viewportRef}
-          onFilterToggle={handleFilterToggle}
-          onToggleContext={handleToggleContext}
-          onExpandContext={handleExpandContext}
-          onLessContext={handleLessContext}
-          onCopyLine={handleCopyLine}
-          onLineFocus={setFocusedLineId}
-          onKeyDown={handleKeyDown}
-          selectedContextRangesById={effectiveSelectedContextRangesById}
-          focusedLineId={effectiveFocusedLineId}
-          streamedLineIds={streamedLineIds}
-          hasAnyFilter={hasAnyFilter(filterState)}
-          transitionMode={transitionMode}
-        />
-        <NewLinesPill count={unreadCount} onClick={handleScrollToBottom} />
-        <ShortcutSheetTrigger onOpen={() => setSheetOpen(true)} />
-        <ShortcutSheet open={sheetOpen} onOpenChange={setSheetOpen} />
-      </div>
-    </MotionConfig>
+    // prefers-reduced-motion is honored entirely in CSS now — see the
+    // @media block in log-list.module.css. No JS bridge needed.
+    <div className={styles.explorer}>
+      <FilterBar state={filterState} dispatch={dispatchFilter} />
+      <LogList
+        lines={derivedLines}
+        viewportRef={viewportRef}
+        onFilterToggle={handleFilterToggle}
+        onToggleContext={handleToggleContext}
+        onExpandContext={handleExpandContext}
+        onLessContext={handleLessContext}
+        onCopyLine={handleCopyLine}
+        onLineFocus={setFocusedLineId}
+        onKeyDown={handleKeyDown}
+        selectedContextRangesById={effectiveSelectedContextRangesById}
+        focusedLineId={effectiveFocusedLineId}
+        streamedLineIds={streamedLineIds}
+        hasAnyFilter={hasAnyFilter(filterState)}
+        transitionMode={transitionMode}
+      />
+      <NewLinesPill count={unreadCount} onClick={handleScrollToBottom} />
+      <ShortcutSheetTrigger onOpen={() => setSheetOpen(true)} />
+      <ShortcutSheet open={sheetOpen} onOpenChange={setSheetOpen} />
+    </div>
   );
 }
