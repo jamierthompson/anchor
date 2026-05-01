@@ -11,9 +11,8 @@ import styles from "./log-line.module.css";
  *     columns and stay visible regardless of filter.
  *   - Regular lines render as a three-column grid: time, instance pill,
  *     message. WARN and ERROR levels are prefixed with a colored level
- *     word; DEBUG dims the entire message; INFO uses the default text
- *     color. Request IDs append as a small badge at the end of the
- *     message column.
+ *     word; INFO and DEBUG use the default text color. Request IDs
+ *     append as a small badge at the end of the message column.
  *
  * Per-line elements (instance pill, level badge, request id badge) are
  * non-interactive — filtering is applied via the scenario-chips bar
@@ -97,8 +96,6 @@ export function LogLine({
   }
 
   const prefix = LEVEL_PREFIX[line.level];
-  const messageClass =
-    line.level === "DEBUG" ? styles.messageMuted : styles.message;
 
   return (
     <div
@@ -114,7 +111,7 @@ export function LogLine({
         {formatTime(line.timestamp)}
       </time>
       <span className={styles.instance}>{line.instance}</span>
-      <span className={messageClass}>
+      <span className={styles.message}>
         {prefix && (
           <span
             className={LEVEL_PREFIX_CLASS[line.level as "WARN" | "ERROR"]}

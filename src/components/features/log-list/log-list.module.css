@@ -72,7 +72,7 @@
 }
 
 .scrollbarThumb:hover {
-  background: var(--color-fg-subtle);
+  background: var(--color-fg-muted);
 }
 
 /* Hit-target guard so small thumbs are still grabbable. */

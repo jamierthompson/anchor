@@ -34,10 +34,11 @@
  * full chroma you can't have both AAA contrast on near-black AND
  * "true red" — you pick. Coral was the deliberate choice.
  *
- * --color-fg-subtle is a transitional name retained for one commit
- * to keep this migration purely about values; it's removed in the
- * next refactor commit where DEBUG-level lines pick up default text
- * styling.
+ * Text hierarchy is two-tier (fg + fg-muted) by design. A third
+ * "subtle" tier was tried and dropped — the contrast range between
+ * the bg and AAA-floor is too narrow to fit three steps without
+ * collapsing two of them, and DEBUG-level lines (the original
+ * subtle-tier consumer) read fine at the default fg color.
  */
 
 :root {
@@ -47,7 +48,6 @@
   --color-bg-elevated:  oklch(0.187 0     0    ); /* #131313 — filter bar, popovers */
   --color-fg:           oklch(0.946 0     0    ); /* #ededed — body text, 16.91:1 AAA */
   --color-fg-muted:     oklch(0.685 0     0    ); /* #9a9a9a — timestamps, secondary,  7.04:1 AAA */
-  --color-fg-subtle:    oklch(0.575 0     0    ); /* #797979 — DEBUG (deprecated, removed next commit) */
   --color-border:       oklch(0.285 0     0    ); /* #2a2a2a */
 
   /* Roles — hue (H) locked per role; L tuned per surface for AAA. */
@@ -121,7 +121,6 @@
   --color-bg-elevated:  oklch(0.976 0     0    ); /* #f7f7f7 */
   --color-fg:           oklch(0.205 0     0    ); /* #171717 — body text,             17.93:1 AAA */
   --color-fg-muted:     oklch(0.465 0     0    ); /* #595959 — secondary,              7.00:1 AAA */
-  --color-fg-subtle:    oklch(0.567 0     0    ); /* #767676 — DEBUG (deprecated, removed next commit) */
   --color-border:       oklch(0.919 0     0    ); /* #e4e4e4 */
 
   --color-accent:       oklch(0.485 0.180 349.8); /* #a21f6d — same H as dark magenta, 7.11:1 AAA */
