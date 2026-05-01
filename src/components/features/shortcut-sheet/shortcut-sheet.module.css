@@ -271,7 +271,13 @@
     var(--color-bg);
   color: var(--color-fg);
   font-family: var(--font-mono);
-  font-size: 10px;
+  /*
+   * 11px on the sheet's caps — a touch larger than the legend's
+   * 10px so the sheet (where the user is actively reading) sits a
+   * step above the legend (which is ambient reference). Legend
+   * stays at 10px on purpose: smaller reads as supporting chrome.
+   */
+  font-size: 11px;
   font-weight: var(--font-weight-medium);
   line-height: 1;
   letter-spacing: 0;
@@ -293,4 +299,3 @@
  * relying on min-width auto-expand from padding works for
  * everything in the registry today.
  */
-

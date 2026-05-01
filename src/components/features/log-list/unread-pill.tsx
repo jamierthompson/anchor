@@ -2,13 +2,13 @@
 
 import { ArrowDown } from "lucide-react";
 
-import styles from "./new-lines-pill.module.css";
+import styles from "./unread-pill.module.css";
 
 /**
  * Floating pill near the bottom of the log list (spec §9.8) — surfaces
- * the count of new lines that have streamed in while the user is
- * scrolled away from the bottom. Click → smooth-scroll to bottom and
- * resume auto-follow.
+ * the count of unread log entries that have streamed in while the
+ * user is scrolled away from the bottom. Click → smooth-scroll to
+ * bottom and resume auto-follow.
  *
  * **State model**: this component is a pure render. The unread count
  * lives in LogExplorer (incremented on streamed-line arrival when
@@ -27,7 +27,7 @@ import styles from "./new-lines-pill.module.css";
  * mount/unmount so React's natural re-render cycle drives the
  * appearance and disappearance.
  */
-export function NewLinesPill({
+export function UnreadPill({
   count,
   onClick,
 }: {
@@ -40,12 +40,10 @@ export function NewLinesPill({
       type="button"
       className={styles.pill}
       onClick={onClick}
-      aria-label={`Scroll to ${count} new ${count === 1 ? "line" : "lines"}`}
+      aria-label={`Scroll to ${count} new`}
     >
-      <ArrowDown aria-hidden="true" size={14} />
-      <span>
-        {count} new {count === 1 ? "line" : "lines"}
-      </span>
+      <ArrowDown aria-hidden="true" size={12} />
+      <span>{count} New</span>
     </button>
   );
 }

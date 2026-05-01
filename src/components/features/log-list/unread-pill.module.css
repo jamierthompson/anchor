@@ -1,7 +1,8 @@
 /*
- * "↓ N new lines" floating pill (spec §9.8). Appears near the bottom
- * of the log viewport when the user is scrolled away from the bottom
- * and new lines have streamed in. Click smooth-scrolls to bottom.
+ * "↓ N New" unread floating pill (spec §9.8). Appears near the
+ * bottom of the log viewport when the user is scrolled away from
+ * the bottom and new entries have streamed in. Click smooth-scrolls
+ * to bottom.
  *
  * Positioning is `fixed` to the viewport (not the log scroll
  * container) because the convention is to anchor the pill to the
@@ -23,27 +24,46 @@
   transform: translateX(-50%);
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
-  height: 32px;
-  padding: 0 var(--space-4);
+  /*
+   * 12px between the arrow and the count — once the icon dropped
+   * to 12px (matching the text size), 8px felt cramped and 12px
+   * reads as the right amount of separation. The "12 New" string
+   * sits as a single text node so its internal word-space is the
+   * regular character.
+   */
+  gap: var(--space-3);
+  /*
+   * Asymmetric horizontal padding: 12px left / 14px right balances
+   * the visual heaviness of the down-arrow on the left edge — the
+   * icon's solid mass reads as more padding than it physically
+   * occupies, so the right side gets a touch more whitespace to
+   * make the pill feel optically centered. Vertical padding of 4px
+   * (no fixed height) lets the pill size to its content.
+   */
+  padding: 4px 14px 4px 12px;
   border: 1px solid var(--color-border);
-  border-radius: 999px;
+  /*
+   * 4px matches the shortcut-sheet panel and scenario-chips — a
+   * deliberate, restrained corner that reads as part of the same
+   * design vocabulary instead of a generic SaaS pill.
+   */
+  border-radius: 4px;
   background: var(--color-bg-elevated);
   color: var(--color-fg);
   font-family: var(--font-sans);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: var(--font-weight-medium);
   cursor: pointer;
   z-index: 40;
   /*
-   * Stacked shadows mirror the keycap / `?` button styling so the
-   * three floating affordances feel like part of one design
-   * language.
+   * Restrained lift shadow — keycap-family recipe (subtle inset
+   * highlight + a single soft drop) instead of the previous
+   * stacked-toast shadow stack. Still floats above content; just
+   * doesn't shout about it.
    */
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.06),
-    0 4px 8px rgba(0, 0, 0, 0.4),
-    0 1px 2px rgba(0, 0, 0, 0.3);
+    0 2px 6px rgba(0, 0, 0, 0.35);
   animation: pillEnter 200ms var(--ease-standard);
   transition:
     transform 120ms var(--ease-standard),
@@ -54,8 +74,7 @@
   transform: translateX(-50%) translateY(-1px);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.06),
-    0 6px 12px rgba(0, 0, 0, 0.5),
-    0 1px 2px rgba(0, 0, 0, 0.3);
+    0 4px 10px rgba(0, 0, 0, 0.45);
 }
 
 .pill:focus-visible {
