@@ -123,7 +123,7 @@ button.entry:focus-visible {
 }
 
 .plus {
-  color: var(--color-fg-subtle);
+  color: var(--color-fg-muted);
   font-size: 11px;
   font-family: var(--font-mono);
 }

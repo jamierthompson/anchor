@@ -48,15 +48,13 @@
  */
 .line > time,
 .line > .instance,
-.line > .message,
-.line > .messageMuted {
+.line > .message {
   transition: opacity var(--duration-fast) var(--ease-standard);
 }
 
 .line[data-dimmed="true"] > time,
 .line[data-dimmed="true"] > .instance,
-.line[data-dimmed="true"] > .message,
-.line[data-dimmed="true"] > .messageMuted {
+.line[data-dimmed="true"] > .message {
   opacity: var(--opacity-dimmed);
 }
 
@@ -80,12 +78,6 @@
 
 .message {
   color: var(--color-fg);
-  word-break: break-word;
-}
-
-/* DEBUG lines render at the subtle text color across the whole message. */
-.messageMuted {
-  color: var(--color-fg-subtle);
   word-break: break-word;
 }
 

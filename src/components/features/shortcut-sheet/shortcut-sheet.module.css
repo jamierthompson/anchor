@@ -223,14 +223,14 @@
 }
 
 .aliasSeparator {
-  color: var(--color-fg-subtle);
+  color: var(--color-fg-muted);
   font-size: 12px;
   font-family: var(--font-mono);
   margin: 0 2px;
 }
 
 .comboPlus {
-  color: var(--color-fg-subtle);
+  color: var(--color-fg-muted);
   font-size: 11px;
   font-family: var(--font-mono);
 }
