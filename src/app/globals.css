@@ -14,22 +14,46 @@
  * gives JS direct control over which theme is active so a manual
  * toggle can override the user's OS preference.
  *
- * Token values below are placeholders. They'll be refined when the
- * reference palette is sampled in a later pass.
+ * ─── Color: OKLCH, not hex ───────────────────────────────────────
+ *
+ * Colors are authored in oklch() — a perceptually-uniform color
+ * space. Each role's hue (H) is locked across themes so a user
+ * toggling light/dark mid-session reads "same color, adjusted for
+ * surface" instead of "the colors changed." Lightness (L) and
+ * occasionally chroma (C) shift per theme to keep contrast on each
+ * surface. Hex couldn't express that constraint without a manual
+ * audit per pair; OKLCH makes it a property of the token.
+ *
+ * Contrast target is WCAG AAA (7:1) for all text colors against the
+ * page bg. The mono-only typographic position means everything is
+ * "small text," so AA (4.5:1) leaves no margin for the ERROR / WARN
+ * level prefixes that already render at the small end of the scale.
+ *
+ * Honest trade-off baked in: dark-mode --color-error sits at coral
+ * (oklch L 0.73, hue 27) rather than fire-engine red (~L 0.58). At
+ * full chroma you can't have both AAA contrast on near-black AND
+ * "true red" — you pick. Coral was the deliberate choice.
+ *
+ * --color-fg-subtle is a transitional name retained for one commit
+ * to keep this migration purely about values; it's removed in the
+ * next refactor commit where DEBUG-level lines pick up default text
+ * styling.
  */
 
 :root {
   /* ---------- Color: dark theme (default) ---------- */
-  --color-bg:           #0a0a0a;
-  --color-bg-elevated:  #131313; /* filter bar, toolbar, popovers */
-  --color-fg:           #ededed;
-  --color-fg-muted:     #999999; /* timestamps, secondary text */
-  --color-fg-subtle:    #666666; /* DEBUG level, deeply de-emphasized */
-  --color-border:       #2a2a2a;
+  /* Neutrals — chroma 0; OKLCH lets us reason about lightness directly. */
+  --color-bg:           oklch(0.145 0     0    ); /* #0a0a0a */
+  --color-bg-elevated:  oklch(0.187 0     0    ); /* #131313 — filter bar, popovers */
+  --color-fg:           oklch(0.946 0     0    ); /* #ededed — body text, 16.91:1 AAA */
+  --color-fg-muted:     oklch(0.685 0     0    ); /* #9a9a9a — timestamps, secondary,  7.04:1 AAA */
+  --color-fg-subtle:    oklch(0.575 0     0    ); /* #797979 — DEBUG (deprecated, removed next commit) */
+  --color-border:       oklch(0.285 0     0    ); /* #2a2a2a */
 
-  --color-accent:       #4a9eff; /* selected line left-border, focus ring */
-  --color-warn:         #f5a623; /* WARN level prefix */
-  --color-error:        #f04438; /* ERROR level prefix */
+  /* Roles — hue (H) locked per role; L tuned per surface for AAA. */
+  --color-accent:       oklch(0.725 0.175 349.8); /* #f472b6 — magenta, ink (border/focus), 7.48:1 AAA */
+  --color-warn:         oklch(0.784 0.159  73.0); /* #f5a623 — amber WARN level prefix,    9.77:1 AAA */
+  --color-error:        oklch(0.730 0.200  27.3); /* #ff6a5e — coral ERROR level prefix,   7.05:1 AAA */
 
   /*
    * Dimmed-text opacity. Per the unified rule, any line revealed by
@@ -84,15 +108,25 @@
   --duration-slow: 200ms;
 }
 
-/* Light theme overrides. Activated via <html data-theme="light">. */
+/*
+ * Light theme overrides. Activated via <html data-theme="light">.
+ *
+ * Each role keeps the hue (H) from the dark palette; only lightness
+ * (and slightly chroma on warn) shifts to hit AAA on a white surface.
+ * That's the OKLCH payoff — single-axis edits per theme, identity
+ * preserved across them.
+ */
 [data-theme="light"] {
-  --color-bg:           #ffffff;
-  --color-bg-elevated:  #f7f7f7;
-  --color-fg:           #171717;
-  --color-fg-muted:     #6b6b6b;
-  --color-fg-subtle:    #999999;
-  --color-border:       #e4e4e4;
-  /* Accent / WARN / ERROR / level colors carry over from :root for now. */
+  --color-bg:           oklch(1.000 0     0    ); /* #ffffff */
+  --color-bg-elevated:  oklch(0.976 0     0    ); /* #f7f7f7 */
+  --color-fg:           oklch(0.205 0     0    ); /* #171717 — body text,             17.93:1 AAA */
+  --color-fg-muted:     oklch(0.465 0     0    ); /* #595959 — secondary,              7.00:1 AAA */
+  --color-fg-subtle:    oklch(0.567 0     0    ); /* #767676 — DEBUG (deprecated, removed next commit) */
+  --color-border:       oklch(0.919 0     0    ); /* #e4e4e4 */
+
+  --color-accent:       oklch(0.485 0.180 349.8); /* #a21f6d — same H as dark magenta, 7.11:1 AAA */
+  --color-warn:         oklch(0.465 0.130  73.0); /* #844a00 — same H as dark amber,   7.09:1 AAA */
+  --color-error:        oklch(0.485 0.200  27.3); /* #b5000d — same H as dark coral,   7.07:1 AAA */
 }
 
 html {
