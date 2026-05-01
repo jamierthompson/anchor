@@ -12,7 +12,7 @@ import {
 
 import { Legend, type LegendItem } from "@/components/features/legend/legend";
 import { LogList } from "@/components/features/log-list/log-list";
-import { NewLinesPill } from "@/components/features/log-list/new-lines-pill";
+import { UnreadPill } from "@/components/features/log-list/unread-pill";
 import { ScenarioChips } from "@/components/features/scenario-chips/scenario-chips";
 import { ShortcutSheet } from "@/components/features/shortcut-sheet/shortcut-sheet";
 import { liveTailSeed } from "@/lib/mock-logs";
@@ -395,7 +395,7 @@ export function LogExplorer({
   }, []);
 
   /**
-   * Unread count for the "↓ N new lines" pill (spec §9.8). Increments
+   * Unread count for the "↓ N New" pill (spec §9.8). Increments
    * when a streamed line arrives AND the user is scrolled away from
    * the bottom. Resets to 0 when:
    *   - The user clicks the pill (smooth-scrolls to bottom + reset).
@@ -1256,7 +1256,7 @@ export function LogExplorer({
         hasAnyFilter={hasAnyFilter(filterState)}
         transitionMode={transitionMode}
       />
-      <NewLinesPill count={unreadCount} onClick={handleScrollToBottom} />
+      <UnreadPill count={unreadCount} onClick={handleScrollToBottom} />
       <ShortcutSheet open={sheetOpen} onOpenChange={setSheetOpen} />
     </div>
   );
