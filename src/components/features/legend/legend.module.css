@@ -124,7 +124,7 @@ button.entry:focus-visible {
 
 .plus {
   color: var(--color-fg-muted);
-  font-size: 11px;
+  font-size: var(--font-size-2);
   font-family: var(--font-mono);
 }
 
@@ -151,7 +151,7 @@ button.entry:focus-visible {
     var(--color-bg-elevated);
   color: var(--color-fg);
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--font-size-1);
   font-weight: var(--font-weight-medium);
   line-height: 1;
   letter-spacing: 0;
@@ -170,7 +170,7 @@ button.entry:focus-visible {
  */
 .label {
   color: var(--color-fg-muted);
-  font-size: 10px;
+  font-size: var(--font-size-1);
   font-weight: var(--font-weight-medium);
   letter-spacing: 0.08em;
   text-transform: uppercase;

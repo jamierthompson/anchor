@@ -114,11 +114,12 @@
   color: var(--color-fg);
   font-family: var(--font-sans);
   /*
-   * 14px reads as a clear surface header — small enough to keep
-   * the sheet feeling like supporting chrome, big enough to have
-   * obvious priority over the 11px Title Case items below.
+   * --font-size-5 (14px) reads as a clear surface header — small
+   * enough to keep the sheet feeling like supporting chrome, big
+   * enough to have obvious priority over the --font-size-2 (11px)
+   * Title Case items below.
    */
-  font-size: 14px;
+  font-size: var(--font-size-5);
   font-weight: var(--font-weight-medium);
   letter-spacing: 0;
 }
@@ -145,7 +146,7 @@
   padding-bottom: var(--space-2);
   border-bottom: 1px solid var(--color-border);
   color: var(--color-fg-muted);
-  font-size: 11px;
+  font-size: var(--font-size-2);
   font-weight: var(--font-weight-medium);
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -181,12 +182,12 @@
   align-items: center;
   color: var(--color-fg);
   /*
-   * 11px reads as supporting / reference text — appropriate for a
-   * cheat sheet whose primary visual hierarchy is the keycaps
-   * themselves. Title Case at this size feels deliberate without
-   * shouting.
+   * --font-size-2 (11px) reads as supporting / reference text —
+   * appropriate for a cheat sheet whose primary visual hierarchy is
+   * the keycaps themselves. Title Case at this size feels deliberate
+   * without shouting.
    */
-  font-size: 11px;
+  font-size: var(--font-size-2);
   /*
    * Keep descriptions on one line. If a description ever needs
    * wrapping, we'll bump min-height accordingly — for now the
@@ -224,14 +225,14 @@
 
 .aliasSeparator {
   color: var(--color-fg-muted);
-  font-size: 12px;
+  font-size: var(--font-size-3);
   font-family: var(--font-mono);
   margin: 0 2px;
 }
 
 .comboPlus {
   color: var(--color-fg-muted);
-  font-size: 11px;
+  font-size: var(--font-size-2);
   font-family: var(--font-mono);
 }
 
@@ -272,12 +273,13 @@
   color: var(--color-fg);
   font-family: var(--font-mono);
   /*
-   * 11px on the sheet's caps — a touch larger than the legend's
-   * 10px so the sheet (where the user is actively reading) sits a
-   * step above the legend (which is ambient reference). Legend
-   * stays at 10px on purpose: smaller reads as supporting chrome.
+   * --font-size-2 (11px) on the sheet's caps — a touch larger than
+   * the legend's --font-size-1 (10px) so the sheet (where the user
+   * is actively reading) sits a step above the legend (which is
+   * ambient reference). Legend stays at 10px on purpose: smaller
+   * reads as supporting chrome.
    */
-  font-size: 11px;
+  font-size: var(--font-size-2);
   font-weight: var(--font-weight-medium);
   line-height: 1;
   letter-spacing: 0;

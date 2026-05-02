@@ -20,7 +20,7 @@
 
 .subheading {
   margin: 0;
-  font-size: 14px;
+  font-size: var(--font-size-5);
   font-weight: var(--font-weight-medium);
   color: var(--color-fg-muted);
   text-transform: uppercase;
@@ -81,29 +81,29 @@
 
 .token {
   font-family: var(--font-mono);
-  font-size: 13px;
+  font-size: var(--font-size-4);
   font-weight: var(--font-weight-medium);
   color: var(--color-fg);
 }
 
 .description {
   margin: 0;
-  font-size: 12px;
+  font-size: var(--font-size-3);
   color: var(--color-fg-muted);
-  line-height: 1.4;
+  line-height: var(--line-height-base);
 }
 
 /* Slightly smaller and muted so the description stays primary;
    the OKLCH string is reference data, not the headline. */
 .value {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--font-size-2);
   color: var(--color-fg-muted);
   word-break: break-all;
 }
 
 .contrast {
-  font-size: 11px;
+  font-size: var(--font-size-2);
   font-weight: var(--font-weight-medium);
   color: var(--color-accent);
 }
