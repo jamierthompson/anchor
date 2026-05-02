@@ -1,0 +1,176 @@
+/*
+ * Motion scale — two-panel layout on desktop.
+ *
+ * Panels stack on mobile — easing on top, durations below.
+ */
+
+.root {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-6);
+  align-items: start;
+}
+
+.easingPanel,
+.durationsPanel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/*
+ * Sub-subsection labels. Slightly smaller than the parent
+ * "Foundations → Motion" heading; uppercase + muted reads as
+ * supporting structure rather than competing for hierarchy.
+ */
+.panelLabel {
+  margin: 0;
+  font-size: var(--font-size-5);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-fg-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* ---------- Token meta block (shared) ---------- */
+
+.meta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.tokenLine {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.token {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-3);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-fg);
+  white-space: nowrap;
+}
+
+.value {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-2);
+  color: var(--color-fg-muted);
+}
+
+.usage {
+  margin: 0;
+  font-size: var(--font-size-3);
+  line-height: var(--line-height-base);
+  color: var(--color-fg-muted);
+}
+
+/* ---------- Easing panel ---------- */
+
+/*
+ * Curve sits at full panel width on desktop so the curve shape
+ * reads. max-width caps it so the panel doesn't stretch the SVG
+ * unreasonably wide on big viewports.
+ */
+.curveSvg {
+  width: 100%;
+  max-width: 240px;
+  aspect-ratio: 1;
+  padding: var(--space-2);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+}
+
+.curveRef {
+  stroke: var(--color-border);
+  stroke-width: 2;
+}
+
+.curvePath {
+  stroke: var(--color-accent);
+  stroke-width: 2;
+  fill: none;
+}
+
+/* ---------- Durations panel ---------- */
+
+.durationList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.durationItem {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/*
+ * Track holds the looping bar. Height matches --space-2 so
+ * the bar reads as a thin progress mark, not a button.
+ */
+.track {
+  position: relative;
+  width: 100%;
+  height: var(--space-2);
+  background: var(--color-bg-elevated);
+  border-radius: 1px;
+  overflow: hidden;
+}
+
+/*
+ * Bar travels left → right → left forever. We animate `left` (a
+ * layout property) rather than transform so the travel adapts to
+ * whatever width the track ends up at — no JS measurement needed.
+ *
+ * --space-6 is the bar's width; the keyframe accounts for
+ * it in the right-edge stop so the bar reaches the wall and turns
+ * around without overshooting.
+ */
+.bar {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: var(--space-6);
+  height: 100%;
+  background: var(--color-accent);
+  border-radius: 1px;
+  animation-name: motionTravel;
+  animation-timing-function: var(--ease-standard);
+  animation-iteration-count: infinite;
+}
+
+@keyframes motionTravel {
+  0% {
+    left: 0;
+  }
+  50% {
+    left: calc(100% - var(--space-6));
+  }
+  100% {
+    left: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bar {
+    animation: none;
+  }
+}
+
+/* ---------- Mobile ---------- */
+
+@media (max-width: 720px) {
+  .root {
+    grid-template-columns: 1fr;
+    gap: var(--space-8);
+  }
+}
