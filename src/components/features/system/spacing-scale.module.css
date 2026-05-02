@@ -1,30 +1,22 @@
 /*
- * Type scale tables.
+ * Spacing scale table.
  *
- * Layout reads as reference data — borrowed from how documentation
- * sites typically display token tables. The sample column is given
- * the most width so the size differences read at a glance.
+ * Layout follows the typography table for consistency — the two
+ * subsections sit next to each other on /system and read as the
+ * same kind of reference data.
  */
 
 .root {
   display: flex;
   flex-direction: column;
-  gap: var(--space-6);
-}
-
-.subsection {
-  display: flex;
-  flex-direction: column;
   gap: var(--space-3);
 }
 
-.subheading {
+.note {
   margin: 0;
-  font-size: var(--font-size-5);
-  font-weight: var(--font-weight-medium);
   color: var(--color-fg-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  font-size: var(--font-size-3);
+  line-height: var(--line-height-base);
 }
 
 .table {
@@ -48,11 +40,10 @@
   padding: var(--space-3);
   border-bottom: 1px solid var(--color-border);
   font-size: var(--font-size-3);
-  vertical-align: baseline;
+  vertical-align: middle;
   color: var(--color-fg);
 }
 
-/* Last row sits flush with the next subsection — no trailing rule. */
 .table tbody tr:last-child td {
   border-bottom: none;
 }
@@ -74,20 +65,20 @@
 }
 
 /*
- * The sample cell inherits font-family from the table; font-size /
- * weight / line-height are set via the inline style on each row so
- * the sample is rendered at the actual token's value.
+ * Bar sample — fixed height, accent color, width set by inline style
+ * to the actual token. Reads as a measurement at a glance; neighboring
+ * rows' bars compare directly.
  */
-.sample {
-  color: var(--color-fg);
+.bar {
+  height: 12px;
+  background: var(--color-accent);
+  border-radius: 1px;
 }
 
 /*
- * Mobile transformation. Below 720px the four-column table doesn't
- * have room without truncating, so each row collapses into a
- * stacked card: token / value / usage / sample read top-to-bottom
- * inside a hairline-bordered tile. Column headers are visually
- * hidden but kept in the DOM for screen readers.
+ * Mobile transformation. Same pattern as the type-scale tables:
+ * below 720px each row collapses into a stacked card so columns
+ * don't truncate.
  */
 @media (max-width: 720px) {
   .table thead {

@@ -1,4 +1,5 @@
 import { ColorSwatches } from "@/components/features/system/color-swatches";
+import { SpacingScale } from "@/components/features/system/spacing-scale";
 import { ThemeToggle } from "@/components/features/system/theme-toggle";
 import { TypeScale } from "@/components/features/system/type-scale";
 
@@ -59,7 +60,17 @@ export default function SystemPage() {
           <TypeScale />
         </section>
 
-        {/* Spacing and Motion subsections will land here. */}
+        <section
+          className={styles.subsection}
+          aria-labelledby="foundations-spacing"
+        >
+          <h3 id="foundations-spacing" className={styles.subsectionHeading}>
+            Spacing
+          </h3>
+          <SpacingScale />
+        </section>
+
+        {/* Motion subsection will land here. */}
       </section>
     </main>
   );
