@@ -135,7 +135,9 @@
   --font-size-4: 13px; /* body — log lines, default UI */
   --font-size-5: 14px; /* surface header (shortcut sheet) */
 
-  --font-size-page-h1: 22px; /* /system page H1 only */
+  --font-size-page-h1: 22px; /* /system page title */
+  --font-size-page-h2: 18px; /* /system section heading (e.g. Foundations) */
+  --font-size-page-h3: 15px; /* /system subsection heading (e.g. Color) */
 
   /*
    * Two weights only. Restraint is intentional — at terminal type

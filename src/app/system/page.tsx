@@ -1,5 +1,6 @@
 import { ColorSwatches } from "@/components/features/system/color-swatches";
 import { ThemeToggle } from "@/components/features/system/theme-toggle";
+import { TypeScale } from "@/components/features/system/type-scale";
 
 import styles from "./page.module.css";
 
@@ -45,7 +46,20 @@ export default function SystemPage() {
           <ColorSwatches />
         </section>
 
-        {/* Typography, Spacing, and Motion subsections will land here. */}
+        <section
+          className={styles.subsection}
+          aria-labelledby="foundations-typography"
+        >
+          <h3
+            id="foundations-typography"
+            className={styles.subsectionHeading}
+          >
+            Typography
+          </h3>
+          <TypeScale />
+        </section>
+
+        {/* Spacing and Motion subsections will land here. */}
       </section>
     </main>
   );
