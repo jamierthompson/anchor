@@ -107,10 +107,9 @@
 
   /* ---------- Typography ---------- */
   /*
-   * --font-mono falls back to the system mono stack until JetBrains
-   * Mono is wired up via next/font in the next commit. At that point
-   * next/font injects --font-jetbrains-mono onto the <html> element
-   * and the var() chain below picks it up automatically.
+   * --font-mono — JetBrains Mono via next/font (wired up in
+   * layout.tsx) with a system mono fallback chain. Mono is the only
+   * face the system uses; weight + size + color carry hierarchy.
    */
   --font-mono:
     var(--font-jetbrains-mono),
@@ -120,9 +119,39 @@
     Consolas,
     monospace;
 
-  --font-weight-regular:  400;
-  --font-weight-medium:   500;
-  --font-weight-semibold: 600;
+  /*
+   * Type scale — terminal range (10–13px), with 14px reserved for
+   * surface headers. The narrow range is deliberate: this is a logs
+   * UI, where density matters. Size alone won't carry hierarchy at
+   * this scale — weight, color, and spacing pick up the slack.
+   *
+   * 22px is exclusive to the /system page H1 (the only place outside
+   * the product where headline-shaped text appears). Naming makes the
+   * scope explicit so it doesn't drift into product CSS.
+   */
+  --font-size-1: 10px; /* eyebrow, legend keycap */
+  --font-size-2: 11px; /* section labels, sheet keycap */
+  --font-size-3: 12px; /* chip, instance pills, inline metadata */
+  --font-size-4: 13px; /* body — log lines, default UI */
+  --font-size-5: 14px; /* surface header (shortcut sheet) */
+
+  --font-size-page-h1: 22px; /* /system page H1 only */
+
+  /*
+   * Two weights only. Restraint is intentional — at terminal type
+   * sizes, 700 (bold) on JetBrains Mono reads chunky, and 500
+   * (medium) is plenty of emphasis when paired with color contrast.
+   */
+  --font-weight-regular: 400;
+  --font-weight-medium:  500;
+
+  /*
+   * Two line-heights. tight for single-line UI and headings where
+   * extra leading would feel airy; base for body and multi-line
+   * content where readability needs the breathing room.
+   */
+  --line-height-tight: 1.2;
+  --line-height-base:  1.4;
 
   /* ---------- Motion ---------- */
   /*
