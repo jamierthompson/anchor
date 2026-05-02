@@ -1,0 +1,10 @@
+/*
+ * Theme toggle layout — segmented pair of chips with a small gap so
+ * they read as related choices, not a button cluster.
+ */
+
+.group {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}

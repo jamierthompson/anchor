@@ -1,3 +1,5 @@
+import { ThemeToggle } from "@/components/features/system/theme-toggle";
+
 import styles from "./page.module.css";
 
 /*
@@ -18,10 +20,13 @@ export default function SystemPage() {
   return (
     <main className={styles.page}>
       <header className={styles.header}>
-        <h1 className={styles.title}>System</h1>
-        <p className={styles.subtitle}>
-          Design tokens and components powering the logs explorer.
-        </p>
+        <div>
+          <h1 className={styles.title}>System</h1>
+          <p className={styles.subtitle}>
+            Design tokens and components powering the logs explorer.
+          </p>
+        </div>
+        <ThemeToggle />
       </header>
 
       <section className={styles.section} aria-labelledby="foundations">

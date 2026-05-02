@@ -1,0 +1,12 @@
+/*
+ * The /system route wrapper. Visually transparent — it exists only
+ * to anchor data-theme so light-dark() values inside this subtree
+ * follow the toggle. Background and text colors come from the
+ * tokens themselves once they re-resolve.
+ */
+
+.systemRoot {
+  background: var(--color-bg);
+  color: var(--color-fg);
+  min-height: 100vh;
+}
