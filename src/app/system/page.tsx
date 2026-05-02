@@ -1,3 +1,4 @@
+import { ColorSwatches } from "@/components/features/system/color-swatches";
 import { ThemeToggle } from "@/components/features/system/theme-toggle";
 
 import styles from "./page.module.css";
@@ -12,9 +13,9 @@ import styles from "./page.module.css";
  * surface to demonstrate the system underneath the app.
  *
  * Server Component by default; no per-request data, no browser-only
- * APIs at this level. Interactive pieces (theme toggle, anything that
- * reads/writes data-theme on <html>) are added later as small client
- * islands so the page stays statically renderable.
+ * APIs at this level. Interactive pieces (theme toggle, color swatch
+ * value readouts) are isolated to small client islands so the page
+ * stays statically renderable.
  */
 export default function SystemPage() {
   return (
@@ -33,7 +34,18 @@ export default function SystemPage() {
         <h2 id="foundations" className={styles.sectionHeading}>
           Foundations
         </h2>
-        {/* Color, Typography, Spacing, and Motion sections will land here. */}
+
+        <section
+          className={styles.subsection}
+          aria-labelledby="foundations-color"
+        >
+          <h3 id="foundations-color" className={styles.subsectionHeading}>
+            Color
+          </h3>
+          <ColorSwatches />
+        </section>
+
+        {/* Typography, Spacing, and Motion subsections will land here. */}
       </section>
     </main>
   );

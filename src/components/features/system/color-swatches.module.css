@@ -1,0 +1,109 @@
+/*
+ * Color swatches layout.
+ *
+ * Responsive grid: 1 column on mobile, 2 on tablet, 3 on desktop.
+ * Subsections (Neutrals, Roles) stack vertically with --space-6
+ * between them so each group reads as a distinct chunk.
+ */
+
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.subsection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.subheading {
+  margin: 0;
+  font-size: 14px;
+  font-weight: var(--font-weight-medium);
+  color: var(--color-fg-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.grid {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 600px) {
+  .grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 900px) {
+  .grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/*
+ * Card surface. Uses the elevated bg so swatches set against page bg
+ * get visual contrast with their container. The hairline border is
+ * what distinguishes neighboring cards from each other.
+ */
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+}
+
+/*
+ * The visual sample is a 4:3 aspect ratio block — wider than tall,
+ * giving each card a paint-chip silhouette. The hairline inner
+ * border keeps the sample legible when its color is close to the
+ * card's surface (e.g. --color-bg-elevated on this same surface).
+ */
+.sample {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+}
+
+.meta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.token {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: var(--font-weight-medium);
+  color: var(--color-fg);
+}
+
+.description {
+  margin: 0;
+  font-size: 12px;
+  color: var(--color-fg-muted);
+  line-height: 1.4;
+}
+
+/* Slightly smaller and muted so the description stays primary;
+   the OKLCH string is reference data, not the headline. */
+.value {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-fg-muted);
+  word-break: break-all;
+}
+
+.contrast {
+  font-size: 11px;
+  font-weight: var(--font-weight-medium);
+  color: var(--color-accent);
+}
