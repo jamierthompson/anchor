@@ -176,6 +176,43 @@
   --radius-1: 3px;
   --radius-2: 4px;
 
+  /* ---------- Shadow + gradient: keycap chrome ---------- */
+  /*
+   * The keycap "physical button" effect is the only place in the
+   * system where a recipe of layered visuals is repeated verbatim.
+   * The legend's compact caps and the shortcut sheet's larger caps
+   * both apply the same 5-layer shadow + 3-stop highlight gradient
+   * to look like the same physical object photographed from the
+   * same angle, just at different sizes.
+   *
+   * Tokenizing keeps the recipe in one place. Each consumer still
+   * sets its own base background color (--color-bg vs
+   * --color-bg-elevated, depending on which parent surface the cap
+   * needs to lift off) by listing the gradient and the base in a
+   * background-shorthand list.
+   *
+   * Anatomy of --shadow-keycap:
+   *   inset top    rim highlight catching ambient light
+   *   inset bottom subtle concavity
+   *   1px outer    cap edge
+   *   1px hard     gap between cap and base
+   *   soft drop    cap's lift off the keyboard plane
+   */
+  --shadow-keycap:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.25),
+    0 0 0 1px rgba(255, 255, 255, 0.06),
+    0 1px 0 rgba(0, 0, 0, 0.4),
+    0 2px 4px rgba(0, 0, 0, 0.3);
+
+  --gradient-keycap:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.04) 0%,
+      rgba(255, 255, 255, 0) 50%,
+      rgba(0, 0, 0, 0.05) 100%
+    );
+
   /* ---------- Z-index ---------- */
   /*
    * Two layers above the page content. Modal sits one above its
