@@ -1,0 +1,121 @@
+/*
+ * Z-index documentation — two-panel layout matching MotionScale.
+ * Left: visual stack of three diagonally-offset tiles. Right: token
+ * list. Stacks vertically on mobile.
+ */
+
+.root {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-6);
+  align-items: start;
+}
+
+@media (--tablet) {
+  .root {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/*
+ * Visual stack. Three tiles overlap diagonally so the layering is
+ * obvious without animation. Each tile is absolutely positioned;
+ * the container reserves a fixed height so the layout doesn't jump.
+ */
+.stack {
+  position: relative;
+  width: 100%;
+  height: 200px;
+}
+
+.tile {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  width: 65%;
+  height: 100px;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-2);
+  font-family: var(--font-mono);
+}
+
+/* Bottom layer — default stacking context. */
+.tilePage {
+  top: 0;
+  left: 0;
+  background: var(--color-bg-elevated);
+}
+
+/* Middle layer — sits above page content via --z-overlay. The
+   diagonal offset makes the layering visually obvious. */
+.tileOverlay {
+  top: 50px;
+  left: 17.5%;
+  background: var(--color-bg-elevated);
+  z-index: var(--z-overlay);
+}
+
+/* Top layer — sits above --z-overlay via --z-modal, with an accent
+   border so the eye lands on it as the "active" layer. */
+.tileModal {
+  top: 100px;
+  left: 35%;
+  background: var(--color-bg-elevated);
+  border-color: var(--color-accent);
+  z-index: var(--z-modal);
+}
+
+.tileLabel {
+  font-size: var(--font-size-3);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-fg);
+}
+
+.tileValue {
+  font-size: var(--font-size-2);
+  color: var(--color-fg-muted);
+}
+
+/* Token list on the right (or below, on mobile). */
+
+.tokens {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.tokenRow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.tokenLine {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.tokenName {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-3);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-fg);
+}
+
+.tokenValue {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-2);
+  color: var(--color-fg-muted);
+}
+
+.tokenDescription {
+  margin: 0;
+  font-size: var(--font-size-3);
+  line-height: var(--line-height-base);
+  color: var(--color-fg-muted);
+}

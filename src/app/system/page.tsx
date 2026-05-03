@@ -1,9 +1,12 @@
 import { ColorSwatches } from "@/components/features/system/color-swatches";
+import { KeycapChrome } from "@/components/features/system/keycap-chrome";
 import { MediaQueries } from "@/components/features/system/media-queries";
 import { MotionScale } from "@/components/features/system/motion-scale";
+import { RadiusScale } from "@/components/features/system/radius-scale";
 import { SpacingScale } from "@/components/features/system/spacing-scale";
 import { ThemeToggle } from "@/components/features/system/theme-toggle";
 import { TypeScale } from "@/components/features/system/type-scale";
+import { ZIndexScale } from "@/components/features/system/z-index-scale";
 
 import styles from "./page.module.css";
 
@@ -74,12 +77,42 @@ export default function SystemPage() {
 
         <section
           className={styles.subsection}
+          aria-labelledby="foundations-radius"
+        >
+          <h3 id="foundations-radius" className={styles.subsectionHeading}>
+            Radius
+          </h3>
+          <RadiusScale />
+        </section>
+
+        <section
+          className={styles.subsection}
+          aria-labelledby="foundations-shadow"
+        >
+          <h3 id="foundations-shadow" className={styles.subsectionHeading}>
+            Shadow
+          </h3>
+          <KeycapChrome />
+        </section>
+
+        <section
+          className={styles.subsection}
           aria-labelledby="foundations-motion"
         >
           <h3 id="foundations-motion" className={styles.subsectionHeading}>
             Motion
           </h3>
           <MotionScale />
+        </section>
+
+        <section
+          className={styles.subsection}
+          aria-labelledby="foundations-z-index"
+        >
+          <h3 id="foundations-z-index" className={styles.subsectionHeading}>
+            Z-index
+          </h3>
+          <ZIndexScale />
         </section>
 
         <section
