@@ -43,12 +43,23 @@ describe("ColorSwatches", () => {
     delete window.matchMedia;
   });
 
-  it("renders Neutrals and Roles subsections", () => {
+  it("renders Roles, Neutrals, and Opacity subsections", () => {
     renderWithWrapper("dark");
+    expect(screen.getByRole("heading", { name: "Roles" })).toBeInTheDocument();
     expect(
       screen.getByRole("heading", { name: "Neutrals" }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Roles" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Opacity" }),
+    ).toBeInTheDocument();
+  });
+
+  it("renders the --opacity-dimmed token row with default + dimmed samples", () => {
+    renderWithWrapper("dark");
+    expect(screen.getByText("--opacity-dimmed")).toBeInTheDocument();
+    expect(screen.getByText("0.4")).toBeInTheDocument();
+    expect(screen.getByText("Default")).toBeInTheDocument();
+    expect(screen.getByText("Dimmed")).toBeInTheDocument();
   });
 
   it("renders one card per token (5 neutrals, 3 roles)", () => {

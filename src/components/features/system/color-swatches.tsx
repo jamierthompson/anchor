@@ -74,6 +74,8 @@ const NEUTRALS: Swatch[] = [
   },
 ];
 
+const OPACITY_SAMPLE = "The quick brown fox jumps over the lazy dog.";
+
 const ROLES: Swatch[] = [
   {
     token: "--color-accent",
@@ -206,6 +208,47 @@ export function ColorSwatches() {
           {NEUTRALS.map((swatch) => (
             <SwatchCard key={swatch.token} swatch={swatch} theme={theme} />
           ))}
+        </div>
+      </section>
+
+      <section className={styles.subsection} aria-labelledby="color-opacity">
+        <h3 id="color-opacity" className={styles.subheading}>
+          Opacity
+        </h3>
+
+        {/*
+         * Two prose samples side by side on tablet, stacked on
+         * mobile. The "Dimmed" sample renders the same string with
+         * opacity: var(--opacity-dimmed) applied so the rendered
+         * contrast is visible at a glance — particularly useful in
+         * light mode where dimmed text gets subtly closer to the
+         * background.
+         */}
+        <div className={styles.opacityDemo}>
+          <div className={styles.opacitySample}>
+            <span className={styles.opacityLabel}>Default</span>
+            <p className={styles.opacityText}>{OPACITY_SAMPLE}</p>
+          </div>
+          <div className={styles.opacitySample}>
+            <span className={styles.opacityLabel}>Dimmed</span>
+            <p
+              className={`${styles.opacityText} ${styles.opacityDimmed}`}
+            >
+              {OPACITY_SAMPLE}
+            </p>
+          </div>
+        </div>
+
+        <div className={styles.opacityMeta}>
+          <div className={styles.opacityTokenLine}>
+            <code className={styles.opacityToken}>--opacity-dimmed</code>
+            <span className={styles.opacityValue}>0.4</span>
+          </div>
+          <p className={styles.opacityDescription}>
+            Applied to context-revealed log lines that don&apos;t match the
+            active filter — keeps them readable but signals they&apos;re
+            secondary.
+          </p>
         </div>
       </section>
     </div>
