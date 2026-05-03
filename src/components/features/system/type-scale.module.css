@@ -89,7 +89,7 @@
  * inside a hairline-bordered tile. Column headers are visually
  * hidden but kept in the DOM for screen readers.
  */
-@media (max-width: 720px) {
+@media (--mobile) {
   .table thead {
     position: absolute;
     width: 1px;

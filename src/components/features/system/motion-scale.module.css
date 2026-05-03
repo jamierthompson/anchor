@@ -160,7 +160,7 @@
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
+@media (--reduced-motion) {
   .bar {
     animation: none;
   }
@@ -168,7 +168,7 @@
 
 /* ---------- Mobile ---------- */
 
-@media (max-width: 720px) {
+@media (--mobile) {
   .root {
     grid-template-columns: 1fr;
     gap: var(--space-8);

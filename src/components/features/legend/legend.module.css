@@ -14,6 +14,12 @@
  * can align horizontally with it.
  */
 
+/*
+ * Block-flow above the scenario chips, right-aligned via flex so
+ * the keycap row sits in the top-right corner of the explorer
+ * header. Same vertical padding as the chips section so the two
+ * read as parts of the same horizontal band.
+ */
 .legend {
   display: flex;
   justify-content: flex-end;
@@ -21,33 +27,7 @@
   gap: var(--space-2);
   padding: var(--space-3) var(--space-4);
   background: var(--color-bg);
-  /* Don't shrink in the explorer flex column (mobile flow). */
   flex-shrink: 0;
-}
-
-/*
- * Desktop: lift the legend out of the explorer's flex column and
- * pin it to the top-right corner. The scenario chips section below
- * then occupies the full row width and the legend's keycaps overlay
- * the top-right of that row — the eyebrow + chips on the left, the
- * keys on the right, sharing the same horizontal band.
- *
- * Padding mirrors the chips section's vertical padding so the
- * legend's content sits on the same visual baseline as the eyebrow.
- *
- * 640px is the desktop threshold — below it the chips row is too
- * cramped to share with the legend, and the block-flow layout
- * (chips-on-top-of-keys) reads more naturally.
- */
-@media (min-width: 640px) {
-  .legend {
-    position: absolute;
-    top: 0;
-    right: 0;
-    z-index: 1;
-    padding: var(--space-3) var(--space-4);
-    background: transparent;
-  }
 }
 
 /*
@@ -86,7 +66,7 @@
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
+@media (--reduced-motion) {
   .entry {
     animation: none;
   }

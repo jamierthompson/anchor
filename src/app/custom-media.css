@@ -1,0 +1,33 @@
+/*
+ * Custom media queries — single source of truth.
+ *
+ * @custom-media (CSS Media Queries Level 5 draft) lets us name
+ * media-query expressions and reference them by name. Browsers
+ * don't support @custom-media natively yet, so this file is fed to
+ * postcss-custom-media at build time, which inlines the resolved
+ * expression at every consumer site.
+ *
+ * Cross-file resolution: PostCSS processes each CSS Module file
+ * independently, so a declaration in globals.css wouldn't reach a
+ * consumer module. @csstools/postcss-global-data is configured in
+ * postcss.config.mjs to read this file and make its declarations
+ * available to every other CSS file the plugin processes.
+ *
+ * Keep this file scoped to *only* @custom-media declarations — any
+ * other CSS here would be silently ignored by the global-data
+ * plugin, and adding non-media tokens dilutes the file's purpose.
+ *
+ * Usage from any CSS file:
+ *
+ *   @media (--mobile)         { ... }   // up to 720px
+ *   @media (--reduced-motion) { ... }   // user opted out of motion
+ *   @media not (--tablet)     { ... }   // wider than 900px
+ */
+
+/* Breakpoints */
+@custom-media --mobile-narrow (max-width: 640px);
+@custom-media --mobile        (max-width: 720px);
+@custom-media --tablet        (max-width: 900px);
+
+/* Accessibility */
+@custom-media --reduced-motion (prefers-reduced-motion: reduce);

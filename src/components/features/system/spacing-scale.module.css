@@ -80,7 +80,7 @@
  * below 720px each row collapses into a stacked card so columns
  * don't truncate.
  */
-@media (max-width: 720px) {
+@media (--mobile) {
   .table thead {
     position: absolute;
     width: 1px;

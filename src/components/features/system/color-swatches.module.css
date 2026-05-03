@@ -33,13 +33,18 @@
   grid-template-columns: 1fr;
 }
 
-@media (min-width: 600px) {
+/*
+ * Above --mobile (720px), grid steps to two columns. Above --tablet
+ * (900px), it steps to three. Min-width forms negate the named
+ * max-width queries — `not (--mobile)` reads more honestly.
+ */
+@media not (--mobile) {
   .grid {
     grid-template-columns: repeat(2, 1fr);
   }
 }
 
-@media (min-width: 900px) {
+@media not (--tablet) {
   .grid {
     grid-template-columns: repeat(3, 1fr);
   }
