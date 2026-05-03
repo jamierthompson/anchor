@@ -1,9 +1,7 @@
 /*
- * Type scale tables.
- *
- * Layout reads as reference data — borrowed from how documentation
- * sites typically display token tables. The sample column is given
- * the most width so the size differences read at a glance.
+ * Media queries documentation. Same desktop-table → mobile-card
+ * structure as type-scale and spacing-scale, plus per-row indicator
+ * classes that live-update via @media (--name) rules.
  */
 
 .root {
@@ -28,14 +26,9 @@
 }
 
 /*
- * Mobile-first: default is the stacked-card layout. <thead> is
- * hidden by default; each row reads as a card with token / value
- * / usage / sample stacked top-to-bottom. Column headers are kept
- * in the DOM (visually hidden) for screen readers.
- *
- * At --tablet (720px+), the table overlay below restores the
- * four-column form. Same width above --tablet is comfortable; the
- * card form would feel verbose.
+ * Mobile-first: cards by default; @media (--tablet) restores the
+ * four-column table form. Same structure as type-scale and
+ * spacing-scale.
  */
 .table {
   width: 100%;
@@ -71,7 +64,7 @@
   padding: 0;
   border: none;
   font-size: var(--font-size-3);
-  vertical-align: baseline;
+  vertical-align: middle;
   color: var(--color-fg);
 }
 
@@ -92,18 +85,66 @@
 }
 
 /*
- * The sample cell inherits font-family from the table; font-size /
- * weight / line-height are set via the inline style on each row so
- * the sample is rendered at the actual token's value.
+ * Live indicator. Each row's indicator is lit (accent) only in its
+ * exclusive layout range — never additive — so the table always
+ * shows exactly one breakpoint state as currently active.
+ *
+ *   indicatorMobile   — lit below --tablet  (the implicit default)
+ *   indicatorTablet   — lit between --tablet and --desktop
+ *   indicatorDesktop  — lit at --desktop and up
+ *
+ * Achieved with cascading @media rules: each indicator sets a
+ * baseline, then a later @media block overrides it when a stricter
+ * threshold kicks in. Pure CSS — no JS, no listeners.
  */
-.sample {
-  color: var(--color-fg);
+.indicator {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--color-border);
+  transition: background var(--duration-fast) var(--ease-standard);
+}
+
+/* Mobile: lit by default; flips off once --tablet matches. */
+.indicatorMobile {
+  background: var(--color-accent);
+}
+@media (--tablet) {
+  .indicatorMobile {
+    background: var(--color-border);
+  }
+}
+
+/* Tablet: dim by default; lit at --tablet; dim again at --desktop. */
+@media (--tablet) {
+  .indicatorTablet {
+    background: var(--color-accent);
+  }
+}
+@media (--desktop) {
+  .indicatorTablet {
+    background: var(--color-border);
+  }
+}
+
+/* Desktop: dim by default; lit at --desktop. */
+@media (--desktop) {
+  .indicatorDesktop {
+    background: var(--color-accent);
+  }
+}
+
+/* Accessibility: lit when the OS preference is active. */
+@media (--reduced-motion) {
+  .indicatorReducedMotion {
+    background: var(--color-accent);
+  }
 }
 
 /*
- * --tablet and up: restore the four-column table form. Cards
- * collapse back into table rows by undoing the flex display and
- * reinstating cell padding + dividers.
+ * --tablet and up: restore the four-column table form. Same pattern
+ * as type-scale and spacing-scale.
  */
 @media (--tablet) {
   .table thead {
@@ -145,7 +186,6 @@
     border-bottom: 1px solid var(--color-border);
   }
 
-  /* Last row sits flush with the next subsection — no trailing rule. */
   .table tbody tr:last-child td {
     border-bottom: none;
   }

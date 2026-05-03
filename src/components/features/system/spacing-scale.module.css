@@ -19,33 +19,48 @@
   line-height: var(--line-height-base);
 }
 
+/*
+ * Mobile-first: default is the stacked-card layout. <thead> hidden;
+ * each row reads as a card with token / value / usage / sample
+ * stacked. At --tablet, the @media block below restores the
+ * four-column table form.
+ */
 .table {
   width: 100%;
   border-collapse: collapse;
   font-family: var(--font-mono);
 }
 
-.table thead th {
-  padding: var(--space-2) var(--space-3);
-  border-bottom: 1px solid var(--color-border);
-  color: var(--color-fg-muted);
-  font-size: var(--font-size-1);
-  font-weight: var(--font-weight-medium);
-  text-align: left;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+.table thead {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+.table tbody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.table tbody tr {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
 }
 
 .table tbody td {
-  padding: var(--space-3);
-  border-bottom: 1px solid var(--color-border);
+  padding: 0;
+  border: none;
   font-size: var(--font-size-3);
   vertical-align: middle;
   color: var(--color-fg);
-}
-
-.table tbody tr:last-child td {
-  border-bottom: none;
 }
 
 .token {
@@ -76,38 +91,50 @@
 }
 
 /*
- * Mobile transformation. Same pattern as the type-scale tables:
- * below 720px each row collapses into a stacked card so columns
- * don't truncate.
+ * --tablet and up: restore the four-column table form. Same pattern
+ * as type-scale.
  */
-@media (--mobile) {
+@media (--tablet) {
   .table thead {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip: auto;
+    white-space: normal;
+  }
+
+  .table thead th {
+    padding: var(--space-2) var(--space-3);
+    border-bottom: 1px solid var(--color-border);
+    color: var(--color-fg-muted);
+    font-size: var(--font-size-1);
+    font-weight: var(--font-weight-medium);
+    text-align: left;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
   }
 
   .table tbody {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-3);
+    display: table-row-group;
+    gap: 0;
   }
 
   .table tbody tr {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-1);
-    padding: var(--space-3);
-    border: 1px solid var(--color-border);
-    border-radius: 4px;
-  }
-
-  .table tbody td,
-  .table tbody tr:last-child td {
+    display: table-row;
+    gap: 0;
     padding: 0;
     border: none;
+    border-radius: 0;
+  }
+
+  .table tbody td {
+    display: table-cell;
+    padding: var(--space-3);
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .table tbody tr:last-child td {
+    border-bottom: none;
   }
 }

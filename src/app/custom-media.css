@@ -17,17 +17,23 @@
  * other CSS here would be silently ignored by the global-data
  * plugin, and adding non-media tokens dilutes the file's purpose.
  *
+ * Authoring convention: mobile-first. Default styles target the
+ * smallest viewport; @media (--tablet) and (--desktop) layer on
+ * enhancements at and above their thresholds. This makes media
+ * queries additive rather than subtractive — easier to read, and
+ * keeps the indicators on /system honest (a lit dot means the
+ * query just kicked in, not "we're below this size").
+ *
  * Usage from any CSS file:
  *
- *   @media (--mobile)         { ... }   // up to 720px
+ *   @media (--tablet)         { ... }   // 720px and up
+ *   @media (--desktop)        { ... }   // 900px and up
  *   @media (--reduced-motion) { ... }   // user opted out of motion
- *   @media not (--tablet)     { ... }   // wider than 900px
  */
 
 /* Breakpoints */
-@custom-media --mobile-narrow (max-width: 640px);
-@custom-media --mobile        (max-width: 720px);
-@custom-media --tablet        (max-width: 900px);
+@custom-media --tablet  (min-width: 720px);
+@custom-media --desktop (min-width: 900px);
 
 /* Accessibility */
 @custom-media --reduced-motion (prefers-reduced-motion: reduce);

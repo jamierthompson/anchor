@@ -1,8 +1,8 @@
 /*
- * Custom media queries (--mobile, --tablet, --reduced-motion, etc.)
- * live in custom-media.css so @csstools/postcss-global-data can pick
- * them up cross-file at build time. See that file for the full set
- * and usage notes.
+ * Custom media queries (--tablet, --desktop, --reduced-motion) live
+ * in custom-media.css so @csstools/postcss-global-data can pick them
+ * up cross-file at build time. See that file for the full set and
+ * usage notes.
  */
 
 /*

@@ -34,17 +34,16 @@
 }
 
 /*
- * Above --mobile (720px), grid steps to two columns. Above --tablet
- * (900px), it steps to three. Min-width forms negate the named
- * max-width queries — `not (--mobile)` reads more honestly.
+ * Mobile-first: default is single column. Tablet bumps to 2 columns;
+ * desktop bumps to 3.
  */
-@media not (--mobile) {
+@media (--tablet) {
   .grid {
     grid-template-columns: repeat(2, 1fr);
   }
 }
 
-@media not (--tablet) {
+@media (--desktop) {
   .grid {
     grid-template-columns: repeat(3, 1fr);
   }

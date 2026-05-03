@@ -1,4 +1,5 @@
 import { ColorSwatches } from "@/components/features/system/color-swatches";
+import { MediaQueries } from "@/components/features/system/media-queries";
 import { MotionScale } from "@/components/features/system/motion-scale";
 import { SpacingScale } from "@/components/features/system/spacing-scale";
 import { ThemeToggle } from "@/components/features/system/theme-toggle";
@@ -79,6 +80,16 @@ export default function SystemPage() {
             Motion
           </h3>
           <MotionScale />
+        </section>
+
+        <section
+          className={styles.subsection}
+          aria-labelledby="foundations-media"
+        >
+          <h3 id="foundations-media" className={styles.subsectionHeading}>
+            Media
+          </h3>
+          <MediaQueries />
         </section>
       </section>
     </main>

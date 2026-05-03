@@ -4,11 +4,22 @@
  * Panels stack on mobile — easing on top, durations below.
  */
 
+/*
+ * Mobile-first: panels stack vertically — easing on top, durations
+ * below. At --tablet they sit side by side as a 2-column grid.
+ */
 .root {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--space-6);
+  grid-template-columns: 1fr;
+  gap: var(--space-8);
   align-items: start;
+}
+
+@media (--tablet) {
+  .root {
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-6);
+  }
 }
 
 .easingPanel,
@@ -166,11 +177,3 @@
   }
 }
 
-/* ---------- Mobile ---------- */
-
-@media (--mobile) {
-  .root {
-    grid-template-columns: 1fr;
-    gap: var(--space-8);
-  }
-}
