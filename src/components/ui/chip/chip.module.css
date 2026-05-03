@@ -9,10 +9,6 @@
  * --color-accent, text steps up to --color-fg. Active hover bumps
  * brightness slightly so the hint of state change still reads.
  *
- * Token gap (intentional, will close during Foundations passes):
- *   - border-radius: 3px is hardcoded; a radius scale lands with
- *     the radius foundations pass. Picking a token now would commit
- *     to a scale we haven't finalized yet.
  */
 
 .chip {
@@ -21,7 +17,7 @@
   align-items: center;
   padding: 3px 14px;
   border: 1px solid var(--color-border);
-  border-radius: 3px;
+  border-radius: var(--radius-1);
   background: transparent;
   color: var(--color-fg-muted);
   font-family: var(--font-mono);

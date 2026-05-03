@@ -64,7 +64,7 @@
   gap: var(--space-1);
   padding: var(--space-3);
   border: 1px solid var(--color-border);
-  border-radius: 4px;
+  border-radius: var(--radius-2);
 }
 
 .table tbody td {

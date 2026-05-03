@@ -19,12 +19,18 @@
   inset: 0;
   background: rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(2px);
-  z-index: 100;
+  z-index: var(--z-overlay);
+  /*
+   * 160ms enter is bespoke — it's the choreography of the modal
+   * appearing, slightly slower than --duration-fast so the user has
+   * time to register the surface arriving. fadeOut snaps to
+   * --duration-fast since dismissal should feel responsive.
+   */
   animation: overlayFadeIn 160ms var(--ease-standard);
 }
 
 .overlay[data-state="closed"] {
-  animation: overlayFadeOut 120ms var(--ease-standard) forwards;
+  animation: overlayFadeOut var(--duration-fast) var(--ease-standard) forwards;
 }
 
 @keyframes overlayFadeIn {
@@ -68,19 +74,25 @@
   padding: var(--space-8);
   border: 1px solid var(--color-border);
   /*
-   * Restrained corner radius — the modal reads as a deliberate
-   * surface rather than a soft, app-store style card. 4px is just
-   * enough to soften the corners without any of the bubble feel.
+   * --radius-2 — restrained corner that reads as a deliberate
+   * surface, not a bubble. Matches every other default-UI surface.
    */
-  border-radius: 4px;
+  border-radius: var(--radius-2);
   background: var(--color-bg-elevated);
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.04) inset,
     0 24px 48px rgba(0, 0, 0, 0.5),
     0 6px 16px rgba(0, 0, 0, 0.4);
-  z-index: 101;
+  z-index: var(--z-modal);
   font-family: var(--font-sans);
-  animation: contentEnter 200ms var(--ease-standard);
+  /*
+   * Enter snaps to --duration-slow — the longest token, fitting
+   * since this is the heaviest shape change in the system. Exit is
+   * bespoke at 140ms (between --duration-fast and --duration-base)
+   * to feel slightly snappier than enter — dismiss usually wants to
+   * feel a touch quicker than reveal.
+   */
+  animation: contentEnter var(--duration-slow) var(--ease-standard);
 }
 
 .content[data-state="closed"] {
@@ -237,22 +249,15 @@
 }
 
 /*
- * Physical keycap. Mirrors the legend's `.cap` dimensions and
- * shadow recipe so the two surfaces read as the same physical
- * object — the sheet just shows more of them at once.
+ * Physical keycap. The visual recipe — multi-layer shadow + top-to-
+ * bottom highlight gradient — lives in --shadow-keycap and
+ * --gradient-keycap so this surface and the legend's compact caps
+ * read as the same physical object at different sizes.
  *
- * Dimensionality comes from layered shadows:
- *   - Inset top highlight (the cap's "rim" catching light)
- *   - Inset bottom inner shadow (the keycap's slight concavity)
- *   - Outer 1px translucent border (cap edge)
- *   - Outer 1px solid bottom shadow (the gap between cap and base)
- *   - Outer drop shadow (the keycap's lift off the keyboard plane)
- *
- * Linear-gradient on background creates the "top is slightly
- * brighter" cue that makes the cap read as facing up. Background
- * uses --color-bg (one step darker than the sheet's elevated
- * surface) so the cap pops off the panel; the legend uses
- * --color-bg-elevated for the same reason against the page bg.
+ * Background base is --color-bg here (one step darker than the
+ * sheet's elevated panel) so the cap lifts off the panel surface.
+ * Legend uses --color-bg-elevated on the same gradient because its
+ * parent surface is the page bg.
  */
 .keyCap {
   display: inline-flex;
@@ -261,15 +266,11 @@
   min-width: 18px;
   height: 18px;
   padding: 0 5px;
-  border-radius: 3px;
-  background:
-    linear-gradient(
-      180deg,
-      rgba(255, 255, 255, 0.04) 0%,
-      rgba(255, 255, 255, 0) 50%,
-      rgba(0, 0, 0, 0.05) 100%
-    ),
-    var(--color-bg);
+  border-radius: var(--radius-1);
+  /* Gradient overlay sits on top of --color-bg so the cap lifts
+     off the sheet's elevated surface. Legend uses --color-bg-elevated
+     on the same gradient for the inverse effect against the page. */
+  background: var(--gradient-keycap), var(--color-bg);
   color: var(--color-fg);
   font-family: var(--font-mono);
   /*
@@ -283,12 +284,10 @@
   font-weight: var(--font-weight-medium);
   line-height: 1;
   letter-spacing: 0;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.25),
-    0 0 0 1px rgba(255, 255, 255, 0.06),
-    0 1px 0 rgba(0, 0, 0, 0.4),
-    0 2px 4px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--shadow-keycap);
+  /* 80ms is bespoke — keycap press should feel snappier than the
+     system's --duration-fast (120ms). Tuning to feel like a real
+     hardware keypress, not a UI fade. */
   transition:
     transform 80ms var(--ease-standard),
     box-shadow 80ms var(--ease-standard);
