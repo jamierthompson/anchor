@@ -162,6 +162,30 @@
   --line-height-tight: 1.2;
   --line-height-base:  1.4;
 
+  /* ---------- Radius ---------- */
+  /*
+   * Two radius steps mapped to two "scales of chrome":
+   *
+   *   --radius-1 (3px)  small chrome — keycaps, chips, request-id pills
+   *   --radius-2 (4px)  default UI — pills, cards, table cells, modal
+   *                     content, log-list items, color swatch cards
+   *
+   * Bar samples (1px) and indicator dots (50%) intentionally sit
+   * outside the scale — they're shape primitives, not chrome.
+   */
+  --radius-1: 3px;
+  --radius-2: 4px;
+
+  /* ---------- Z-index ---------- */
+  /*
+   * Two layers above the page content. Modal sits one above its
+   * overlay so dialog content always paints on top of its own
+   * scrim. Keep new floating UI inside this scale so the layer
+   * order stays auditable.
+   */
+  --z-overlay: 100; /* modal backdrop scrims, dialog underlays */
+  --z-modal:   101; /* dialog content above its overlay */
+
   /* ---------- Motion ---------- */
   /*
    * A single easing curve is used across the prototype for
