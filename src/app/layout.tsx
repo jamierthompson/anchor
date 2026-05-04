@@ -4,6 +4,7 @@ import Script from "next/script";
 
 import { Footer } from "@/components/features/footer/footer";
 import { Nav } from "@/components/features/nav/nav";
+import { Shell } from "@/components/features/shell/shell";
 
 import "./globals.css";
 import styles from "./layout.module.css";
@@ -99,11 +100,15 @@ export default function RootLayout({
         <a href="#main-content" className={styles.skipLink}>
           Skip to main content
         </a>
-        <div className={styles.shell}>
-          <Nav />
+        {/*
+         * Shell is a thin client wrapper that branches on the current
+         * pathname so /demo can render the nav + page + footer inside
+         * a scroll-snap container, while every other route keeps the
+         * default min-height: 100dvh grid. Slots stay server-rendered.
+         */}
+        <Shell nav={<Nav />} footer={<Footer />}>
           {children}
-          <Footer />
-        </div>
+        </Shell>
         <Script id="anchor-theme-init" strategy="beforeInteractive">
           {initThemeScript}
         </Script>

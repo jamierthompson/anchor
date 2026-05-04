@@ -8,13 +8,12 @@
  * produced a visible "jump" as the LogExplorer expanded full-bleed.
  *
  * Notably, this only constrains the inline (horizontal) axis. The
- * LogExplorer fixes its block (vertical) size to
- *   calc(100dvh - var(--nav-height) - var(--footer-height))
- * so the explorer's bottom edge meets the footer's top edge exactly
- * (see log-explorer.module.css for the rationale). Adding padding-
- * block here would push the explorer past that calc and reintroduce
- * a body-level scrollbar alongside the explorer's internal one — so
- * we deliberately match horizontal chrome only.
+ * vertical size is owned by the Shell's /demo scroll-snap fold (see
+ * shell.module.css) and the LogExplorer's own
+ *   calc(100dvh - var(--nav-height))
+ * so the explorer fills the visible area below the nav and the
+ * footer is parked just past the snap point. Adding padding-block
+ * here would push the explorer past the fold and break the snap.
  *
  * `width: 100%` is the same load-bearing trick PageShell uses: a
  * grid item with `margin: 0 auto` and no explicit width shrinks to
