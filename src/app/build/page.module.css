@@ -1,0 +1,31 @@
+/*
+ * Page-level shell for /build. Mirrors /system's header treatment
+ * so the two long-form pages read as siblings — same max-width,
+ * same title scale, same subtitle color and weight. The body of the
+ * page will land inside .content; for now the file just establishes the shell so
+ * the placeholder copy sits where the real content eventually will.
+ */
+
+.page {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: var(--space-8) var(--space-6);
+}
+
+.header {
+  margin-bottom: var(--space-16);
+}
+
+.title {
+  margin: 0 0 var(--space-2);
+  font-size: var(--font-size-page-h1);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-tight);
+}
+
+.subtitle {
+  margin: 0;
+  color: var(--color-fg-muted);
+  font-size: var(--font-size-5);
+  line-height: var(--line-height-base);
+}
