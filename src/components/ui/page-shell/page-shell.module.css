@@ -9,6 +9,19 @@
  */
 
 .page {
+  /*
+   * `width: 100%` is load-bearing here. PageShell renders a <main>
+   * that lives inside a CSS Grid track (the root layout's shell
+   * grid). In Grid, auto margins absorb free space, which means a
+   * grid item with `margin: 0 auto` and no explicit width shrinks
+   * to its content's max-content width instead of stretching to
+   * fill the cell. Pages with narrow intrinsic content ended up at ~759px while
+   * /system, with wide tables and swatches, hit the 1080 cap. Setting
+   * width: 100% forces the page to fill the cell first; max-width
+   * then caps it at the reading-width, and `margin: 0 auto` centers
+   * the remainder predictably.
+   */
+  width: 100%;
   max-width: 1080px;
   margin: 0 auto;
   padding: var(--space-8) var(--space-6);
