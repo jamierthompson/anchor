@@ -13,21 +13,20 @@ import styles from "./theme-toggle.module.css";
  *
  * Source of truth = the DOM, not React state.
  *
- * The active theme lives on <div id="system-root" data-theme> set up
- * by the route layout. Scoping the attribute to a wrapper (rather
- * than <html>) keeps the toggle's choice from leaking to other
- * routes — / always follows the OS preference. localStorage carries
- * the user's choice across page loads, and the route layout's inline
- * script applies it before React hydrates.
+ * The active theme lives on <html data-theme>, set up by the root
+ * layout's beforeInteractive init script. Targeting <html> (rather
+ * than a body-level wrapper) means the global nav and footer in the
+ * root layout share the same theme as the page content — once a
+ * visitor picks dark on /system, the entire app follows along.
+ * localStorage carries the choice across page loads.
  *
  * useSyncExternalStore is the React-canonical way to subscribe to a
  * non-React source like a DOM dataset attribute. It handles SSR,
  * avoids the "useEffect to mirror external state" anti-pattern, and
- * keeps every toggle in sync with the wrapper's attribute.
+ * keeps every toggle in sync with <html>'s attribute.
  */
 
 const STORAGE_KEY = "anchor-theme";
-const WRAPPER_ID = "system-root";
 
 type Theme = "light" | "dark";
 
@@ -45,20 +44,16 @@ function subscribe(callback: () => void) {
   };
 }
 
-function getWrapper(): HTMLElement | null {
-  return document.getElementById(WRAPPER_ID);
-}
-
 /*
- * Falls back to "light" when the wrapper has no data-theme set,
- * because the absence of the attribute means "follow color-scheme:
- * light dark" — and we treat unset as light for the toggle's
- * default-active state. The route layout's inline script will
- * have set data-theme before hydration whenever a saved value
- * exists, so the unset path is the "no saved preference" case.
+ * Falls back to "light" when <html> has no data-theme set, because
+ * the absence of the attribute means "follow color-scheme: light
+ * dark" — and we treat unset as light for the toggle's default-active
+ * state. The root layout's init script will have set data-theme
+ * before hydration whenever a saved value exists, so the unset path
+ * is the "no saved preference" case.
  */
 function getSnapshot(): Theme {
-  const value = getWrapper()?.dataset.theme;
+  const value = document.documentElement.dataset.theme;
   return value === "dark" ? "dark" : "light";
 }
 
@@ -72,10 +67,7 @@ function getServerSnapshot(): Theme {
 }
 
 function applyTheme(next: Theme) {
-  const wrapper = getWrapper();
-  if (wrapper) {
-    wrapper.dataset.theme = next;
-  }
+  document.documentElement.dataset.theme = next;
   try {
     localStorage.setItem(STORAGE_KEY, next);
   } catch {

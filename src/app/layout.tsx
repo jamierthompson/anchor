@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { JetBrains_Mono } from "next/font/google";
+import Script from "next/script";
 
 import { Footer } from "@/components/features/footer/footer";
 import { Nav } from "@/components/features/nav/nav";
@@ -35,13 +36,59 @@ export const metadata: Metadata = {
   description: "A logs explorer prototype.",
 };
 
+/*
+ * Theme init script — applies the saved light/dark preference to
+ * <html data-theme> before React hydrates and before the body paints,
+ * so a user who picked "dark" on /system never sees a flash of the
+ * OS-preferred theme on subsequent loads.
+ *
+ * Three things are deliberate here:
+ *
+ * 1. We target document.documentElement (always present once the
+ *    parser hits <html>), not a body-level wrapper that would have
+ *    to be parsed first. With strategy="beforeInteractive" Next.js
+ *    inlines this script in the document head, so a body-level
+ *    target wouldn't yet exist when it runs.
+ *
+ * 2. We use next/script (not a raw <script> tag in JSX) because
+ *    React 19 warns when it encounters <script> tags during render —
+ *    they're a no-op on client navigation, only firing on SSR. The
+ *    Script component is the framework's escape hatch for this case.
+ *
+ * 3. localStorage access is wrapped in try/catch because some
+ *    browsers throw on access in private mode or when storage is
+ *    disabled. Falling back to OS preference is the right behavior
+ *    in those cases — losing persistence is not a critical failure
+ *    for a non-essential preference.
+ */
+const initThemeScript = `
+  try {
+    var saved = localStorage.getItem("anchor-theme");
+    if (saved === "light" || saved === "dark") {
+      document.documentElement.dataset.theme = saved;
+    }
+  } catch {}
+`;
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={jetbrainsMono.variable}>
+    /*
+     * suppressHydrationWarning on <html> is required because the
+     * init script above mutates the data-theme attribute before
+     * React hydrates. Without it, React would log a mismatch warning
+     * for the html element on every load with a saved theme. The
+     * prop only suppresses warnings on this single element — it
+     * does NOT disable hydration mismatch detection for descendants.
+     */
+    <html
+      lang="en"
+      className={jetbrainsMono.variable}
+      suppressHydrationWarning
+    >
       <body>
         {/*
          * Skip link is the first focusable element on every page.
@@ -57,6 +104,9 @@ export default function RootLayout({
           {children}
           <Footer />
         </div>
+        <Script id="anchor-theme-init" strategy="beforeInteractive">
+          {initThemeScript}
+        </Script>
       </body>
     </html>
   );
