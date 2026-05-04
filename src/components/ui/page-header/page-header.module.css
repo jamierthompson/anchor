@@ -1,0 +1,28 @@
+/*
+ * Page header chrome shared by /system and /build.
+ *
+ * --space-16 (64px) bottom margin gives the title room to breathe
+ * before the page's main content starts. Title uses --font-size-page-h1
+ * (22px) — the only place outside the product where headline-shaped
+ * type appears, scoped via that token name to keep it from drifting
+ * into product CSS. Subtitle drops to --font-size-5 (14px) and
+ * --color-fg-muted so the eye lands on the title first.
+ */
+
+.header {
+  margin-bottom: var(--space-16);
+}
+
+.title {
+  margin: 0 0 var(--space-2);
+  font-size: var(--font-size-page-h1);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-tight);
+}
+
+.subtitle {
+  margin: 0;
+  color: var(--color-fg-muted);
+  font-size: var(--font-size-5);
+  line-height: var(--line-height-base);
+}

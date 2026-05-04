@@ -1,0 +1,68 @@
+/*
+ * PageShell layout — the page container, page-edge padding, and the
+ * responsive 2-column grid that long-form pages share.
+ *
+ * Mobile-first: single column. The header sits at the top, then the
+ * sidebar (TOC), then content. At --tablet the layout splits into a
+ * 2-column grid with the sidebar pinned to the left. The generous
+ * max-width keeps line lengths comfortable for descriptive prose.
+ */
+
+.page {
+  /*
+   * `width: 100%` is load-bearing here. PageShell renders a <main>
+   * that lives inside a CSS Grid track (the root layout's shell
+   * grid). In Grid, auto margins absorb free space, which means a
+   * grid item with `margin: 0 auto` and no explicit width shrinks
+   * to its content's max-content width instead of stretching to
+   * fill the cell. Pages with narrow intrinsic content ended up at ~759px while
+   * /system, with wide tables and swatches, hit the 1080 cap. Setting
+   * width: 100% forces the page to fill the cell first; max-width
+   * then caps it at the reading-width, and `margin: 0 auto` centers
+   * the remainder predictably.
+   */
+  width: 100%;
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: var(--space-8) var(--space-6);
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-8);
+}
+
+@media (--tablet) {
+  .layout {
+    grid-template-columns: 180px 1fr;
+    gap: var(--space-8);
+    /*
+     * No align-items override here. position: sticky on a sidebar
+     * (e.g. the /system TOC) needs the grid track to be taller than
+     * the sidebar's content so there's room to "stick" within.
+     * Default `align-items: stretch` lets .sidebar span the row
+     * height (= .content's height), which is exactly what sticky
+     * needs.
+     */
+  }
+}
+
+.sidebar {
+  /*
+   * Just a positioning context; sticky behavior, internal layout,
+   * and visuals all live in the consumer's own component.
+   */
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+  /*
+   * Avoid horizontal overflow from any wide child (e.g. tables or
+   * code blocks) so the flex column itself stays inside the grid
+   * track.
+   */
+  min-width: 0;
+}

@@ -35,6 +35,7 @@ const NAV_LINKS: readonly NavLink[] = [
   { href: "/", label: "Home" },
   { href: "/demo", label: "Demo" },
   { href: "/system", label: "System" },
+  { href: "/build", label: "Build" },
 ] as const;
 
 /*
