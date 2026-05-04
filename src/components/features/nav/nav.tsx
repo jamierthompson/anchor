@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import { ThemeToggle } from "@/components/features/system/theme-toggle";
+
 import styles from "./nav.module.css";
 
 /*
@@ -56,24 +58,27 @@ export function Nav() {
       <Link href="/" className={styles.brand} aria-label="Anchor — home">
         anchor
       </Link>
-      <nav aria-label="Primary">
-        <ul className={styles.list} role="list">
-          {NAV_LINKS.map(({ href, label }) => {
-            const active = isActiveLink(href, pathname);
-            return (
-              <li key={href}>
-                <Link
-                  href={href}
-                  className={styles.link}
-                  aria-current={active ? "page" : undefined}
-                >
-                  {label}
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
-      </nav>
+      <div className={styles.actions}>
+        <nav aria-label="Primary">
+          <ul className={styles.list} role="list">
+            {NAV_LINKS.map(({ href, label }) => {
+              const active = isActiveLink(href, pathname);
+              return (
+                <li key={href}>
+                  <Link
+                    href={href}
+                    className={styles.link}
+                    aria-current={active ? "page" : undefined}
+                  >
+                    {label}
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </nav>
+        <ThemeToggle />
+      </div>
     </header>
   );
 }

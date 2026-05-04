@@ -1,29 +1,26 @@
 "use client";
 
+import { Moon, Sun } from "lucide-react";
 import { useSyncExternalStore } from "react";
-
-import { Chip } from "@/components/ui/chip/chip";
 
 import styles from "./theme-toggle.module.css";
 
 /*
- * Theme toggle — the single client island on /system that lets a
- * visitor flip between light and dark to inspect both palettes
- * against the same surface.
+ * Theme toggle — the global control that flips the app between
+ * light and dark. Lives in the top nav (top-right corner) so it's
+ * reachable from every route, not only /system.
  *
  * Source of truth = the DOM, not React state.
  *
  * The active theme lives on <html data-theme>, set up by the root
- * layout's beforeInteractive init script. Targeting <html> (rather
- * than a body-level wrapper) means the global nav and footer in the
- * root layout share the same theme as the page content — once a
- * visitor picks dark on /system, the entire app follows along.
+ * layout's beforeInteractive init script. Targeting <html> means
+ * a visitor's pick on /system follows them across the entire app.
  * localStorage carries the choice across page loads.
  *
  * useSyncExternalStore is the React-canonical way to subscribe to a
  * non-React source like a DOM dataset attribute. It handles SSR,
  * avoids the "useEffect to mirror external state" anti-pattern, and
- * keeps every toggle in sync with <html>'s attribute.
+ * keeps any future toggle instance in sync with <html>'s attribute.
  */
 
 const STORAGE_KEY = "anchor-theme";
@@ -83,20 +80,24 @@ export function ThemeToggle() {
 
   return (
     <div className={styles.group} role="group" aria-label="Theme">
-      <Chip
-        active={theme === "light"}
-        onClick={() => applyTheme("light")}
+      <button
+        type="button"
+        className={styles.button}
         aria-label="Switch to light theme"
+        aria-pressed={theme === "light"}
+        onClick={() => applyTheme("light")}
       >
-        Light
-      </Chip>
-      <Chip
-        active={theme === "dark"}
-        onClick={() => applyTheme("dark")}
+        <Sun aria-hidden="true" className={styles.icon} />
+      </button>
+      <button
+        type="button"
+        className={styles.button}
         aria-label="Switch to dark theme"
+        aria-pressed={theme === "dark"}
+        onClick={() => applyTheme("dark")}
       >
-        Dark
-      </Chip>
+        <Moon aria-hidden="true" className={styles.icon} />
+      </button>
     </div>
   );
 }

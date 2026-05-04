@@ -12,14 +12,14 @@
 
 /*
  * Page padding. Side and bottom padding follow the standard scale.
- * Top padding clears the fixed theme-toggle band at the top of the
- * viewport — calc(--space-8 + --space-12) = 80px, enough room for
- * the band itself plus standard breathing room above the title.
+ * Top padding gives the page title breathing room below the global
+ * nav — the nav itself is in flow, so the page already starts at
+ * viewport y = nav-height. --space-8 is the breathing room.
  */
 .page {
   max-width: 1080px;
   margin: 0 auto;
-  padding: calc(var(--space-8) + var(--space-12)) var(--space-6) var(--space-8);
+  padding: var(--space-8) var(--space-6);
 }
 
 .header {
@@ -82,16 +82,12 @@
 
 /*
  * Each foundation lives in its own <section>. scroll-margin-top
- * accounts for the chrome stacked at the top of the viewport — the
- * sticky global nav (--nav-height) plus the fixed theme-toggle band
- * directly below it (--space-12 ≈ band height) — plus a small
+ * accounts for the sticky global nav (--nav-height) plus a small
  * breathing gap, so when a TOC link scrolls a section into view its
- * heading sits below all of that rather than under it.
+ * heading sits just below the nav rather than under it.
  */
 .section {
-  scroll-margin-top: calc(
-    var(--nav-height) + var(--space-12) + var(--space-6)
-  );
+  scroll-margin-top: calc(var(--nav-height) + var(--space-6));
 }
 
 .sectionHeading {
