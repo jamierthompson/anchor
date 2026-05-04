@@ -1,14 +1,10 @@
 /*
  * Scenario chip bar styles.
  *
- * Three toggle chips in a row. Visual treatment is borrowed from the
- * earlier filter-bar Chip element (rounded rectangle, monospace, faint
- * border) but without the × remove icon — chips are a pure toggle, so
- * clicking the chip body is the only interaction.
- *
- * Active state uses the accent color as a filled background — mirrors
- * the active-anchor button on log lines so "selected" reads consistent
- * across surfaces.
+ * The chips themselves are the shared <Chip /> primitive from
+ * components/ui/chip. This module owns only the section wrapper, the eyebrow
+ * heading, and the toolbar row that holds the chips, so the bar
+ * shares one consistent toggle visual with the rest of the system.
  */
 
 /*
@@ -21,9 +17,6 @@
  * No background / no top border: the section reads as plain
  * top-of-page chrome on the explorer's base bg. The bottom border
  * stays as the divider between this top region and the log list.
- * Slightly heavier bottom padding (16px vs 12px on the other
- * sides) gives the chips a touch of breathing room above the
- * border without pushing the log list down with extra margin.
  */
 .section {
   padding: var(--space-3) var(--space-4) var(--space-4);
@@ -31,11 +24,7 @@
 }
 
 /*
- * Eyebrow heading — same caps/10px/muted treatment as the legend's
- * label so the two surfaces share a typographic vocabulary for
- * "supporting copy that names a control."
- *
- * Fixed height + inline-flex centering so the text baseline lines up
+ * Eyebrow heading – Fixed height + inline-flex centering so the text baseline lines up
  * with the legend's label text on desktop (where the legend is
  * absolute-positioned in the top-right of this section). The 18px
  * height matches the legend's keycap row, so even though the legend's
@@ -60,44 +49,4 @@
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
-  font-family: var(--font-mono);
-  font-size: var(--font-size-4);
-}
-
-.chip {
-  display: inline-flex;
-  align-items: center;
-  padding: 2px var(--space-3);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-2);
-  background: var(--color-bg);
-  color: var(--color-fg-muted);
-  font-family: inherit;
-  font-size: var(--font-size-3);
-  font-weight: var(--font-weight-medium);
-  white-space: nowrap;
-  cursor: pointer;
-  transition: background var(--duration-fast) var(--ease-standard),
-    color var(--duration-fast) var(--ease-standard),
-    border-color var(--duration-fast) var(--ease-standard);
-}
-
-.chip:hover {
-  border-color: var(--color-fg-muted);
-  color: var(--color-fg);
-}
-
-.chip:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
-}
-
-.chip[data-active="true"] {
-  border-color: var(--color-accent);
-  background: var(--color-accent);
-  color: var(--color-bg);
-}
-
-.chip[data-active="true"]:hover {
-  filter: brightness(1.1);
 }
