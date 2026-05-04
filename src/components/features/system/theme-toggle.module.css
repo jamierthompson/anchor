@@ -1,24 +1,64 @@
 /*
- * Theme toggle layout. Pinned to the top of the viewport across the
- * full page width, painting the page-bg color so the chips always
- * sit on a clean surface as the visitor scrolls — no chip-shaped
- * card or border, just the toggle floating in a band of bg.
+ * Theme toggle — icon-only sun/moon buttons that sit on the right
+ * edge of the global nav. The pair is rendered as a `role="group"`
+ * with an aria-label so screen readers announce them as a single
+ * "Theme" control containing two pressable options.
  *
- * The chip pair sits flush-right inside the band; on mobile, the
- * band still spans 100vw so the toggle is reachable without the
- * chrome of a card-like container.
+ * Visual treatment is deliberately quiet — the toggle is supporting
+ * chrome, not a primary action. Inactive icon sits at fg-muted; the
+ * active option (announced via aria-pressed) lifts to fg, matching
+ * the active-link treatment in the nav itself. Hover lifts to fg
+ * for both buttons so the affordance reads on cursor sweep.
  */
 
 .group {
-  display: flex;
-  justify-content: flex-end;
+  display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  padding: var(--space-4) var(--space-6);
-  background: var(--color-bg);
-  z-index: var(--z-floating);
+  gap: 2px;
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /*
+   * 28px square keeps the click target reasonable (above 24px AAA
+   * floor for non-essential controls) without making the toggle
+   * dominate the nav line-up.
+   */
+  width: 28px;
+  height: 28px;
+  padding: 0;
+
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-1);
+  color: var(--color-fg-muted);
+  cursor: pointer;
+
+  transition: color var(--duration-fast) var(--ease-standard);
+}
+
+.button:hover {
+  color: var(--color-fg);
+}
+
+.button[aria-pressed="true"] {
+  color: var(--color-fg);
+}
+
+.button:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.icon {
+  width: 14px;
+  height: 14px;
+  /*
+   * Stroke-only icons inherit color from the button. Lucide's
+   * default stroke width (2) reads slightly heavy at 14px, so we
+   * thin it for visual weight that matches the nav text.
+   */
+  stroke-width: 1.5;
 }

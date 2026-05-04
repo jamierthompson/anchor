@@ -17,17 +17,18 @@
   .toc {
     position: sticky;
     /*
-     * Clear the fixed theme-toggle band at the top of the viewport
-     * (--space-12 ≈ band height) plus a small breathing gap, so the
-     * TOC heading doesn't sit flush against the band as the page
-     * scrolls.
+     * Clear the sticky global nav plus a small breathing gap so the
+     * TOC heading doesn't sit flush against the nav's bottom edge
+     * as the page scrolls.
      */
-    top: calc(var(--space-12) + var(--space-4));
+    top: calc(var(--nav-height) + var(--space-4));
     /*
      * Cap height so the TOC scrolls if it ever exceeds the
-     * viewport — keeps it usable even at very short windows.
+     * viewport — keeps it usable even at very short windows. Same
+     * top-chrome subtraction as the sticky offset above so the
+     * cap matches the available room.
      */
-    max-height: calc(100vh - var(--space-12) * 2);
+    max-height: calc(100dvh - var(--nav-height) - var(--space-4));
     overflow-y: auto;
   }
 }
