@@ -48,15 +48,20 @@ export function Footer() {
   return (
     <footer className={styles.footer}>
       <p className={styles.text}>anchor — a logs explorer prototype</p>
-      <a
-        href={REPO_URL}
-        target="_blank"
-        rel="noopener noreferrer"
-        aria-label="View source on GitHub (opens in new tab)"
-        className={styles.iconLink}
-      >
-        <GithubIcon className={styles.icon} />
-      </a>
+      <div className={styles.meta}>
+        <span className={styles.copyright}>
+          © {new Date().getFullYear()} Jamie Thompson
+        </span>
+        <a
+          href={REPO_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="View source on GitHub (opens in new tab)"
+          className={styles.iconLink}
+        >
+          <GithubIcon className={styles.icon} />
+        </a>
+      </div>
     </footer>
   );
 }

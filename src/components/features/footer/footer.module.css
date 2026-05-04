@@ -24,6 +24,24 @@
 }
 
 /*
+ * Right-side cluster: copyright + GitHub icon link. Mirrors the
+ * nav's right-side layout (link list + theme toggle) so the page
+ * is bookended by a matching pattern of "supporting metadata,
+ * then icon control" on both edges.
+ */
+.meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.copyright {
+  font-size: var(--font-size-2);
+  color: var(--color-fg-muted);
+  line-height: var(--line-height-tight);
+}
+
+/*
  * Icon link styled to match the nav's theme-toggle buttons — same
  * 28×28 hit target, same muted-on-rest / fg-on-hover treatment.
  * Keeping the visual rules in lockstep means the chrome on the two
