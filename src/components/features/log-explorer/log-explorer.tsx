@@ -12,7 +12,7 @@ import {
 
 import { Legend, type LegendItem } from "@/components/features/legend/legend";
 import { LogList } from "@/components/features/log-list/log-list";
-import { UnreadPill } from "@/components/features/log-list/unread-pill";
+import { UnreadStrip } from "@/components/features/log-list/unread-strip";
 import { ScenarioChips } from "@/components/features/scenario-chips/scenario-chips";
 import { ShortcutSheet } from "@/components/features/shortcut-sheet/shortcut-sheet";
 import { liveTailSeed } from "@/lib/mock-logs";
@@ -1256,7 +1256,7 @@ export function LogExplorer({
         hasAnyFilter={hasAnyFilter(filterState)}
         transitionMode={transitionMode}
       />
-      <UnreadPill count={unreadCount} onClick={handleScrollToBottom} />
+      <UnreadStrip count={unreadCount} onClick={handleScrollToBottom} />
       <ShortcutSheet open={sheetOpen} onOpenChange={setSheetOpen} />
     </div>
   );

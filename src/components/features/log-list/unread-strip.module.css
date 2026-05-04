@@ -1,0 +1,70 @@
+/*
+ * Absolute-positioned against .explorer (which carries position:
+ * relative). Sits above the LogList by source order — no z-index
+ * needed. Rendering as chrome rather than a flex item means showing/
+ * hiding doesn't reflow the log list.
+ */
+.strip {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+
+  border: 0;
+  border-top: 1px solid var(--color-border);
+  background: var(--color-bg);
+  color: var(--color-fg-muted);
+
+  font-family: var(--font-mono);
+  font-size: var(--font-size-2);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+
+  cursor: pointer;
+  animation: stripEnter var(--duration-slow) var(--ease-standard);
+  transition:
+    background var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard);
+}
+
+.strip:hover {
+  background: var(--color-bg-elevated);
+  color: var(--color-fg);
+}
+
+.strip:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+}
+
+/* The number is the part that actually changed; step it up to fg
+   while the supporting label stays muted. */
+.count {
+  color: var(--color-fg);
+  font-variant-numeric: tabular-nums;
+}
+
+.arrow {
+  display: inline-block;
+  transition: transform var(--duration-fast) var(--ease-standard);
+}
+
+.strip:hover .arrow {
+  transform: translateY(2px);
+}
+
+@keyframes stripEnter {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@media (--reduced-motion) {
+  .strip { animation: none; }
+  .arrow { transition: none; }
+}
