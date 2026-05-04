@@ -19,6 +19,11 @@ type ZIndexRow = {
 
 const TOKENS: ZIndexRow[] = [
   {
+    token: "--z-floating",
+    value: "50",
+    usage: "Fixed/sticky chrome (theme toggle) above page content",
+  },
+  {
     token: "--z-overlay",
     value: "100",
     usage: "Modal backdrop scrims, dialog underlays",
@@ -44,6 +49,10 @@ export function ZIndexScale() {
         <div className={`${styles.tile} ${styles.tilePage}`}>
           <span className={styles.tileLabel}>Page content</span>
           <span className={styles.tileValue}>auto</span>
+        </div>
+        <div className={`${styles.tile} ${styles.tileFloating}`}>
+          <span className={styles.tileLabel}>--z-floating</span>
+          <span className={styles.tileValue}>50</span>
         </div>
         <div className={`${styles.tile} ${styles.tileOverlay}`}>
           <span className={styles.tileLabel}>--z-overlay</span>

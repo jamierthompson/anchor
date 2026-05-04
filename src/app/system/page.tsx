@@ -5,126 +5,138 @@ import { MotionScale } from "@/components/features/system/motion-scale";
 import { RadiusScale } from "@/components/features/system/radius-scale";
 import { SpacingScale } from "@/components/features/system/spacing-scale";
 import { ThemeToggle } from "@/components/features/system/theme-toggle";
+import { Toc } from "@/components/features/system/toc";
 import { TypeScale } from "@/components/features/system/type-scale";
 import { ZIndexScale } from "@/components/features/system/z-index-scale";
 
 import styles from "./page.module.css";
 
 /*
- * /system — the project's design-system reference page.
+ * /system — the design-token reference page.
  *
- * This route documents the foundations (color, typography, spacing,
- * motion) and, eventually, the atomic components used by the logs
- * explorer. It's both a working spec — confirming each token has a
- * named purpose and lives at the right level of the scale — and a
- * surface to demonstrate the system underneath the app.
+ * Documents every token the logs explorer uses: color, typography,
+ * spacing, radius, shadow, motion, z-index, and the custom-media
+ * queries that drive responsive behavior. Each section is a
+ * top-level H2; component-level subgroups (Roles, Sizes, Breakpoints,
+ * etc.) are H3 with the same uppercase / muted styling.
  *
- * Server Component by default; no per-request data, no browser-only
- * APIs at this level. Interactive pieces (theme toggle, color swatch
- * value readouts) are isolated to small client islands so the page
- * stays statically renderable.
+ * Layout splits on tablet+ — a sticky TOC on the left, content on
+ * the right. Mobile stacks everything in a single column with the
+ * TOC sitting above Color in flow. The theme toggle is fixed at the
+ * top-right at every viewport size so it stays in reach as the
+ * visitor scrolls.
+ *
+ * Server Component by default; the only client islands are
+ * ThemeToggle (writes data-theme on the route wrapper) and Toc
+ * (IntersectionObserver for the active-section indicator).
  */
 export default function SystemPage() {
   return (
     <main className={styles.page}>
+      <ThemeToggle />
+
       <header className={styles.header}>
-        <div>
-          <h1 className={styles.title}>System</h1>
-          <p className={styles.subtitle}>
-            Design tokens and components powering the logs explorer.
-          </p>
-        </div>
-        <ThemeToggle />
+        <h1 className={styles.title}>System</h1>
+        <p className={styles.subtitle}>
+          Design tokens powering the logs explorer.
+        </p>
       </header>
 
-      <section className={styles.section} aria-labelledby="foundations">
-        <h2 id="foundations" className={styles.sectionHeading}>
-          Foundations
-        </h2>
+      <div className={styles.layout}>
+        <aside className={styles.tocColumn}>
+          <Toc />
+        </aside>
 
-        <section
-          className={styles.subsection}
-          aria-labelledby="foundations-color"
-        >
-          <h3 id="foundations-color" className={styles.subsectionHeading}>
-            Color
-          </h3>
-          <ColorSwatches />
-        </section>
-
-        <section
-          className={styles.subsection}
-          aria-labelledby="foundations-typography"
-        >
-          <h3
-            id="foundations-typography"
-            className={styles.subsectionHeading}
+        <div className={styles.content}>
+          <section
+            id="section-color"
+            className={styles.section}
+            aria-labelledby="heading-color"
           >
-            Typography
-          </h3>
-          <TypeScale />
-        </section>
+            <h2 id="heading-color" className={styles.sectionHeading}>
+              Color
+            </h2>
+            <ColorSwatches />
+          </section>
 
-        <section
-          className={styles.subsection}
-          aria-labelledby="foundations-spacing"
-        >
-          <h3 id="foundations-spacing" className={styles.subsectionHeading}>
-            Spacing
-          </h3>
-          <SpacingScale />
-        </section>
+          <section
+            id="section-typography"
+            className={styles.section}
+            aria-labelledby="heading-typography"
+          >
+            <h2 id="heading-typography" className={styles.sectionHeading}>
+              Typography
+            </h2>
+            <TypeScale />
+          </section>
 
-        <section
-          className={styles.subsection}
-          aria-labelledby="foundations-radius"
-        >
-          <h3 id="foundations-radius" className={styles.subsectionHeading}>
-            Radius
-          </h3>
-          <RadiusScale />
-        </section>
+          <section
+            id="section-spacing"
+            className={styles.section}
+            aria-labelledby="heading-spacing"
+          >
+            <h2 id="heading-spacing" className={styles.sectionHeading}>
+              Spacing
+            </h2>
+            <SpacingScale />
+          </section>
 
-        <section
-          className={styles.subsection}
-          aria-labelledby="foundations-shadow"
-        >
-          <h3 id="foundations-shadow" className={styles.subsectionHeading}>
-            Shadow
-          </h3>
-          <KeycapChrome />
-        </section>
+          <section
+            id="section-radius"
+            className={styles.section}
+            aria-labelledby="heading-radius"
+          >
+            <h2 id="heading-radius" className={styles.sectionHeading}>
+              Radius
+            </h2>
+            <RadiusScale />
+          </section>
 
-        <section
-          className={styles.subsection}
-          aria-labelledby="foundations-motion"
-        >
-          <h3 id="foundations-motion" className={styles.subsectionHeading}>
-            Motion
-          </h3>
-          <MotionScale />
-        </section>
+          <section
+            id="section-shadow"
+            className={styles.section}
+            aria-labelledby="heading-shadow"
+          >
+            <h2 id="heading-shadow" className={styles.sectionHeading}>
+              Shadow
+            </h2>
+            <KeycapChrome />
+          </section>
 
-        <section
-          className={styles.subsection}
-          aria-labelledby="foundations-z-index"
-        >
-          <h3 id="foundations-z-index" className={styles.subsectionHeading}>
-            Z-index
-          </h3>
-          <ZIndexScale />
-        </section>
+          <section
+            id="section-motion"
+            className={styles.section}
+            aria-labelledby="heading-motion"
+          >
+            <h2 id="heading-motion" className={styles.sectionHeading}>
+              Motion
+            </h2>
+            <MotionScale />
+          </section>
 
-        <section
-          className={styles.subsection}
-          aria-labelledby="foundations-media"
-        >
-          <h3 id="foundations-media" className={styles.subsectionHeading}>
-            Media
-          </h3>
-          <MediaQueries />
-        </section>
-      </section>
+          <section
+            id="section-z-index"
+            className={styles.section}
+            aria-labelledby="heading-z-index"
+          >
+            <h2 id="heading-z-index" className={styles.sectionHeading}>
+              Z-index
+            </h2>
+            <ZIndexScale />
+          </section>
+
+          <section
+            id="section-media"
+            className={styles.section}
+            aria-labelledby="heading-media"
+          >
+            <h2 id="heading-media" className={styles.sectionHeading}>
+              Media
+            </h2>
+            <MediaQueries />
+          </section>
+        </div>
+      </div>
     </main>
   );
 }

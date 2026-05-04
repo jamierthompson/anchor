@@ -112,9 +112,9 @@ export function MotionScale() {
   return (
     <div className={styles.root}>
       <section className={styles.easingPanel} aria-labelledby="motion-easing">
-        <h4 id="motion-easing" className={styles.panelLabel}>
+        <h3 id="motion-easing" className={styles.panelLabel}>
           Easing
-        </h4>
+        </h3>
         <EasingCurve />
         <TokenMeta
           token={EASING.token}
@@ -127,9 +127,9 @@ export function MotionScale() {
         className={styles.durationsPanel}
         aria-labelledby="motion-durations"
       >
-        <h4 id="motion-durations" className={styles.panelLabel}>
+        <h3 id="motion-durations" className={styles.panelLabel}>
           Durations
-        </h4>
+        </h3>
         <ul className={styles.durationList}>
           {DURATIONS.map((row) => (
             <li key={row.token} className={styles.durationItem}>

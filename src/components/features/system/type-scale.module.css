@@ -20,7 +20,7 @@
 
 .subheading {
   margin: 0;
-  font-size: var(--font-size-5);
+  font-size: var(--font-size-page-h3);
   font-weight: var(--font-weight-medium);
   color: var(--color-fg-muted);
   text-transform: uppercase;

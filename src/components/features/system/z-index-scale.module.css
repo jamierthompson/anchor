@@ -25,7 +25,7 @@
 .stack {
   position: relative;
   width: 100%;
-  height: 200px;
+  height: 240px;
 }
 
 .tile {
@@ -33,35 +33,42 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
-  width: 65%;
-  height: 100px;
+  width: 60%;
+  height: 80px;
   padding: var(--space-3) var(--space-4);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-2);
   font-family: var(--font-mono);
 }
 
-/* Bottom layer — default stacking context. */
+/* Bottom — default stacking context. */
 .tilePage {
   top: 0;
   left: 0;
   background: var(--color-bg-elevated);
 }
 
-/* Middle layer — sits above page content via --z-overlay. The
-   diagonal offset makes the layering visually obvious. */
+/* Floating — sits above page content via --z-floating. Each
+   subsequent tile shifts further right + down so the layering is
+   visually obvious without animation. */
+.tileFloating {
+  top: 40px;
+  left: 13%;
+  background: var(--color-bg-elevated);
+  z-index: var(--z-floating);
+}
+
 .tileOverlay {
-  top: 50px;
-  left: 17.5%;
+  top: 80px;
+  left: 27%;
   background: var(--color-bg-elevated);
   z-index: var(--z-overlay);
 }
 
-/* Top layer — sits above --z-overlay via --z-modal, with an accent
-   border so the eye lands on it as the "active" layer. */
+/* Top — accent border lands the eye on the active-most layer. */
 .tileModal {
-  top: 100px;
-  left: 35%;
+  top: 120px;
+  left: 40%;
   background: var(--color-bg-elevated);
   border-color: var(--color-accent);
   z-index: var(--z-modal);

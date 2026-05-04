@@ -111,6 +111,8 @@
   --space-4: 16px;
   --space-6: 24px;
   --space-8: 32px;
+  --space-12: 48px; /* large breaks — between subsections */
+  --space-16: 64px; /* extra-large breaks — between top-level page sections */
 
   /* ---------- Typography ---------- */
   /*
@@ -143,8 +145,8 @@
   --font-size-5: 14px; /* surface header (shortcut sheet) */
 
   --font-size-page-h1: 22px; /* /system page title */
-  --font-size-page-h2: 18px; /* /system section heading (e.g. Foundations) */
-  --font-size-page-h3: 15px; /* /system subsection heading (e.g. Color) */
+  --font-size-page-h2: 18px; /* /system section heading (Color, Typography, …) */
+  --font-size-page-h3: 14px; /* /system subsection heading (Roles, Sizes, …) */
 
   /*
    * Two weights only. Restraint is intentional — at terminal type
@@ -220,8 +222,9 @@
    * scrim. Keep new floating UI inside this scale so the layer
    * order stays auditable.
    */
-  --z-overlay: 100; /* modal backdrop scrims, dialog underlays */
-  --z-modal:   101; /* dialog content above its overlay */
+  --z-floating:  50; /* fixed/sticky chrome that sits over page content */
+  --z-overlay:  100; /* modal backdrop scrims, dialog underlays */
+  --z-modal:    101; /* dialog content above its overlay */
 
   /* ---------- Motion ---------- */
   /*

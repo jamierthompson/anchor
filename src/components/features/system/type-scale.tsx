@@ -56,13 +56,13 @@ const SIZES: SizeRow[] = [
   },
   {
     token: "--font-size-page-h3",
-    value: "15px",
-    usage: "/system subsection heading (e.g. Color, Typography)",
+    value: "14px",
+    usage: "/system subsection heading (Roles, Sizes, Breakpoints, …)",
   },
   {
     token: "--font-size-page-h2",
     value: "18px",
-    usage: "/system section heading (e.g. Foundations)",
+    usage: "/system section heading (Color, Typography, …)",
   },
   {
     token: "--font-size-page-h1",

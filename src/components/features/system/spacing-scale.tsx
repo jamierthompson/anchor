@@ -48,7 +48,18 @@ const SPACES: SpaceRow[] = [
   {
     token: "--space-8",
     value: "32px",
-    usage: "Page-scale padding — sheet, /system page, section margins",
+    usage: "Page-scale padding — sheet, /system page padding",
+  },
+  {
+    token: "--space-12",
+    value: "48px",
+    usage: "Large breaks — gaps between subsections",
+  },
+  {
+    token: "--space-16",
+    value: "64px",
+    usage:
+      "Extra-large breaks — header → content gap, between top-level sections",
   },
 ];
 
