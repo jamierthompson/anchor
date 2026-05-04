@@ -7,6 +7,7 @@ import { SpacingScale } from "@/components/features/system/spacing-scale";
 import { Toc } from "@/components/features/system/toc";
 import { TypeScale } from "@/components/features/system/type-scale";
 import { ZIndexScale } from "@/components/features/system/z-index-scale";
+import { PageHeader } from "@/components/ui/page-header/page-header";
 
 import styles from "./page.module.css";
 
@@ -29,12 +30,10 @@ import styles from "./page.module.css";
 export default function SystemPage() {
   return (
     <main id="main-content" className={styles.page}>
-      <header className={styles.header}>
-        <h1 className={styles.title}>System</h1>
-        <p className={styles.subtitle}>
-          Design tokens powering the logs explorer.
-        </p>
-      </header>
+      <PageHeader
+        title="System"
+        subtitle="Design tokens powering the logs explorer."
+      />
 
       <div className={styles.layout}>
         <aside className={styles.tocColumn}>
