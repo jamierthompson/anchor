@@ -1,0 +1,83 @@
+/*
+ * Global nav layout.
+ *
+ * `position: sticky; top: 0` keeps the nav glued to the top of the
+ * viewport during scroll without removing it from flow — so the
+ * shell grid still sees a 48px row and lays out content correctly
+ * below.
+ *
+ * z-index sits at --z-floating so the nav covers any in-flow content
+ * that scrolls beneath it, but stays under modals (--z-modal) so a
+ * dialog's scrim still wins.
+ */
+
+.header {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-floating);
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  height: var(--nav-height);
+  padding-inline: var(--space-6);
+
+  background: var(--color-bg);
+  border-bottom: 1px solid var(--color-border);
+}
+
+/*
+ * Brand wordmark.
+ */
+.brand {
+  font-size: var(--font-size-4);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-fg);
+  letter-spacing: 0.02em;
+  border-radius: var(--radius-1);
+}
+
+.brand:focus-visible,
+.link:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.list {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/*
+ * Inactive links sit at fg-muted; hover and current both lift to fg.
+ * Current additionally bumps to medium weight — color alone is not
+ * a sufficient distinction for assistive tech that surfaces visual
+ * weight (and aria-current="page" is the announced fallback either
+ * way). transition kept short so cursor sweeps don't feel laggy.
+ */
+.link {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-1) var(--space-2);
+
+  font-size: var(--font-size-3);
+  color: var(--color-fg-muted);
+  border-radius: var(--radius-1);
+
+  transition: color var(--duration-fast) var(--ease-standard);
+}
+
+.link:hover {
+  color: var(--color-fg);
+}
+
+.link[aria-current="page"] {
+  color: var(--color-fg);
+  font-weight: var(--font-weight-medium);
+}

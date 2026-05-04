@@ -215,6 +215,15 @@
       rgba(0, 0, 0, 0.05) 100%
     );
 
+  /* ---------- Layout chrome ---------- */
+  /*
+   * Height of the global top nav. Tokenized so the LogExplorer and
+   * /system ThemeToggle (both of which want to align to the top of
+   * the visible content area, not the viewport) can offset by it
+   * without hard-coding the number.
+   */
+  --nav-height: 48px;
+
   /* ---------- Z-index ---------- */
   /*
    * Two layers above the page content. Modal sits one above its

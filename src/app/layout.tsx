@@ -1,6 +1,11 @@
 import type { Metadata } from "next";
 import { JetBrains_Mono } from "next/font/google";
+
+import { Footer } from "@/components/features/footer/footer";
+import { Nav } from "@/components/features/nav/nav";
+
 import "./globals.css";
+import styles from "./layout.module.css";
 
 /*
  * JetBrains Mono is the project's only typeface (per the visual
@@ -37,7 +42,22 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={jetbrainsMono.variable}>
-      <body>{children}</body>
+      <body>
+        {/*
+         * Skip link is the first focusable element on every page.
+         * Hidden visually until it receives focus (see layout.module.css).
+         * Targets the per-page <main id="main-content"> element so
+         * keyboard users can bypass the nav without clicking through it.
+         */}
+        <a href="#main-content" className={styles.skipLink}>
+          Skip to main content
+        </a>
+        <div className={styles.shell}>
+          <Nav />
+          {children}
+          <Footer />
+        </div>
+      </body>
     </html>
   );
 }

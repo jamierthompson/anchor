@@ -32,7 +32,7 @@ import styles from "./page.module.css";
  */
 export default function SystemPage() {
   return (
-    <main className={styles.page}>
+    <main id="main-content" className={styles.page}>
       <ThemeToggle />
 
       <header className={styles.header}>
