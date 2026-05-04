@@ -34,7 +34,7 @@ const sampleLines: DerivedLogLine[] = [
     timestamp: Date.UTC(2026, 3, 27, 14, 0, 10),
     instance: "7tbsm",
     level: "INFO",
-    message: "🎉 Deploy live · srv-7tbsm@a3f2c1",
+    message: "Deploy live · srv-7tbsm@a3f2c1",
     isDeployBoundary: true,
   }),
 ];
@@ -52,7 +52,7 @@ describe("LogList", () => {
     ).toBeInTheDocument();
     expect(screen.getByText(/Cache miss rate elevated/)).toBeInTheDocument();
     expect(
-      screen.getByText("🎉 Deploy live · srv-7tbsm@a3f2c1"),
+      screen.getByText("Deploy live · srv-7tbsm@a3f2c1"),
     ).toBeInTheDocument();
   });
 
@@ -61,7 +61,7 @@ describe("LogList", () => {
     const items = Array.from(container.querySelectorAll("li"));
     expect(items[0].textContent).toContain("Server listening on port 3000");
     expect(items[1].textContent).toContain("Cache miss rate elevated");
-    expect(items[2].textContent).toContain("🎉 Deploy live");
+    expect(items[2].textContent).toContain("Deploy live");
   });
 
   it("renders an empty list when given no lines", () => {

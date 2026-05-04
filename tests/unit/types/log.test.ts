@@ -28,12 +28,12 @@ describe("LogLine type", () => {
       id: "log_0002",
       timestamp: 1714224001000,
       instance: "7tbsm",
-      requestId: "req_a3f9c2",
+      requestId: "a3f9c2",
       level: "INFO",
       message: "GET /api/users 200 in 42ms",
     };
 
-    expect(line.requestId).toBe("req_a3f9c2");
+    expect(line.requestId).toBe("a3f9c2");
   });
 
   it("accepts a deploy-boundary line", () => {
@@ -42,7 +42,7 @@ describe("LogLine type", () => {
       timestamp: 1714224500000,
       instance: "7tbsm",
       level: "INFO",
-      message: "🎉 Deploy live · srv-7tbsm@a3f2c1",
+      message: "Deploy live · srv-7tbsm@a3f2c1",
       isDeployBoundary: true,
     };
 

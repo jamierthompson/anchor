@@ -77,14 +77,17 @@ describe("LogLine — regular lines", () => {
 
   it("renders a request id as a distinct element when present", () => {
     render(
-      <LogLine line={{ ...baseLine, requestId: "req_a3f9c2" }} />,
+      <LogLine line={{ ...baseLine, requestId: "a3f9c2" }} />,
     );
-    expect(screen.getByText("req_a3f9c2")).toBeInTheDocument();
+    expect(screen.getByText("a3f9c2")).toBeInTheDocument();
   });
 
   it("does not render a request id element when none is set", () => {
-    render(<LogLine line={baseLine} />);
-    expect(screen.queryByText(/^req_/)).not.toBeInTheDocument();
+    const { container } = render(<LogLine line={baseLine} />);
+    // The .requestId span carries the `req=` prefix as a ::before
+    // pseudo-element, so absence is checked structurally rather than
+    // via visible text.
+    expect(container.querySelector('[class*="requestId"]')).toBeNull();
   });
 
   it("renders the instance, level prefix, and request-id badge as plain (non-interactive) spans", () => {
@@ -93,7 +96,7 @@ describe("LogLine — regular lines", () => {
     // buttons, no role="button", no aria-label="Filter by …".
     render(
       <LogLine
-        line={{ ...baseLine, level: "ERROR", requestId: "req_a3f9c2" }}
+        line={{ ...baseLine, level: "ERROR", requestId: "a3f9c2" }}
       />,
     );
     expect(
@@ -101,7 +104,7 @@ describe("LogLine — regular lines", () => {
     ).not.toBeInTheDocument();
     expect(screen.getByText("7tbsm").tagName).toBe("SPAN");
     expect(screen.getByText("ERROR").tagName).toBe("SPAN");
-    expect(screen.getByText("req_a3f9c2").tagName).toBe("SPAN");
+    expect(screen.getByText("a3f9c2").tagName).toBe("SPAN");
   });
 });
 
@@ -137,7 +140,7 @@ describe("LogLine — dim styling lives on the inner element", () => {
         line={{
           ...baseLine,
           isDeployBoundary: true,
-          message: "🎉 Deploy live · srv-7tbsm@a3f2c1",
+          message: "Deploy live · srv-7tbsm@a3f2c1",
         }}
         isDimmed
       />,
@@ -152,7 +155,7 @@ describe("LogLine — deploy boundaries", () => {
     ...baseLine,
     id: "log_deploy",
     isDeployBoundary: true,
-    message: "🎉 Deploy live · srv-7tbsm@a3f2c1",
+    message: "Deploy live · srv-7tbsm@a3f2c1",
   };
 
   it("renders deploy boundaries with the separator role", () => {
@@ -163,7 +166,7 @@ describe("LogLine — deploy boundaries", () => {
   it("includes the deploy message text", () => {
     render(<LogLine line={deployLine} />);
     expect(
-      screen.getByText("🎉 Deploy live · srv-7tbsm@a3f2c1"),
+      screen.getByText("Deploy live · srv-7tbsm@a3f2c1"),
     ).toBeInTheDocument();
   });
 

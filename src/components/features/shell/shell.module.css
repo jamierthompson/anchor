@@ -1,0 +1,93 @@
+/*
+ * Default shell — preserves the original 3-row grid the layout used
+ * before the Shell wrapper existed: nav (auto) / children (1fr) /
+ * footer (auto), with min-height 100dvh.
+ *
+ * 100dvh (dynamic viewport height) keeps the shell honest on mobile
+ * browsers that resize the viewport as their address bar collapses;
+ * 100vh would lock to the largest viewport and leave empty space
+ * below the footer when the bar is visible.
+ */
+.shell {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  min-height: 100dvh;
+}
+
+/*
+ * /demo variant — nav stays in the grid's first row; the rest of the
+ * viewport becomes a single scroll container holding a fold-sized
+ * page slot and the footer.
+ *
+ * Total document height equals the viewport (no body-level scroll);
+ * the inner .demoScroller carries the only scroll on this route.
+ */
+.shellDemo {
+  grid-template-rows: auto 1fr;
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/*
+ * Scroll-snap container for /demo.
+ *
+ * Sizing
+ *   The outer .shellDemo grid pins the nav at the top and gives this
+ *   container the remaining 1fr — equivalent to 100dvh - --nav-height.
+ *
+ * Snap behavior
+ *   scroll-snap-type: y mandatory + scroll-snap-align: start on each
+ *   child means the container always settles either at the top (footer
+ *   hidden) or at the footer (footer fully visible). There's no
+ *   in-between state, so the user never sees a partially-revealed
+ *   footer slice.
+ *
+ * Scroll chaining
+ *   The LogExplorer renders an internal scroll area for the log list.
+ *   With overscroll-behavior: auto (the browser default), reaching the
+ *   bottom of that inner list chains the wheel/touch gesture up to
+ *   this container, which then snaps to the footer. That's the
+ *   "scroll past the content to reveal the footer" interaction.
+ *
+ * Hidden scrollbar
+ *   scrollbar-width: none (Firefox) and ::-webkit-scrollbar { display:
+ *   none } (Blink/WebKit) hide the chrome without disabling
+ *   scrollability. The route is single-purpose enough that the visible
+ *   bar would only add noise — the footer reveal is the only thing
+ *   to scroll to.
+ */
+.demoScroller {
+  overflow-y: auto;
+  scroll-snap-type: y mandatory;
+  scrollbar-width: none;
+}
+
+.demoScroller::-webkit-scrollbar {
+  display: none;
+}
+
+/*
+ * First snap target — fills the visible area below the nav exactly,
+ * so the LogExplorer it contains lines up flush against the fold.
+ * The explorer reads this as a definite parent height (height: 100%)
+ * and sizes its internal scroll area against it.
+ */
+.demoFold {
+  height: 100%;
+  scroll-snap-align: start;
+}
+
+/*
+ * Second snap target — the global Footer. It still owns its own
+ * --footer-height fixed sizing; the snap-align here just lets the
+ * scroller treat its top edge as a snap stop.
+ *
+ * The footer is a direct child of .demoScroller (the slot prop), so
+ * we attach the snap-align via a descendant selector rather than a
+ * wrapper — wrapping would introduce an extra DOM node for no
+ * structural reason and complicate the contentinfo landmark.
+ */
+.demoScroller > footer {
+  scroll-snap-align: start;
+}

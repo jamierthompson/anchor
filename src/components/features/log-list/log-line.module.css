@@ -64,16 +64,22 @@
   white-space: nowrap;
 }
 
+/*
+ * Instance label — `@srv-a3`-style metadata. Renders as plain muted
+ * mono; no border, no background. The @-prefix is set in
+ * --font-weight-regular so the name (medium) reads as the primary
+ * value of the label and the @ sits one step quieter.
+ */
 .instance {
-  display: inline-block;
-  padding: 0 var(--space-2);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-2);
-  background: var(--color-bg-elevated);
-  color: var(--color-fg);
+  color: var(--color-fg-muted);
   font-size: var(--font-size-3);
   font-weight: var(--font-weight-medium);
   white-space: nowrap;
+}
+
+.instance::before {
+  content: "@";
+  font-weight: var(--font-weight-regular);
 }
 
 .message {
@@ -91,15 +97,20 @@
   font-weight: var(--font-weight-medium);
 }
 
+/*
+ * Request id — trailing inline metadata.
+ */
 .requestId {
-  display: inline-block;
   margin-left: var(--space-2);
-  padding: 0 var(--space-1);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-1);
-  background: var(--color-bg-elevated);
   color: var(--color-fg-muted);
-  font-size: var(--font-size-2);
+  font-size: var(--font-size-3);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+}
+
+.requestId::before {
+  content: "req=";
+  font-weight: var(--font-weight-regular);
 }
 
 /* Deploy boundary: horizontal divider with the deploy event text inline. */

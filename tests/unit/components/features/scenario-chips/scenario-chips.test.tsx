@@ -33,7 +33,11 @@ describe("ScenarioChips", () => {
   it("none of the chips are active when the filter state is empty", () => {
     renderBar(initialFilterState);
     for (const chip of screen.getAllByRole("button")) {
-      expect(chip.getAttribute("data-active")).toBe("false");
+      // The shared <Chip> primitive omits data-active in the inactive
+      // state (data-active={active ? "true" : undefined}) so absence
+      // of the attribute is the inactive marker — paired with the
+      // aria-pressed assertion which carries the accessible contract.
+      expect(chip.getAttribute("data-active")).toBeNull();
       expect(chip.getAttribute("aria-pressed")).toBe("false");
     }
   });
@@ -55,11 +59,11 @@ describe("ScenarioChips", () => {
     const dispatch = vi.fn();
     renderBar(initialFilterState, dispatch);
 
-    fireEvent.click(screen.getByRole("button", { name: /Trace req_b81k4m/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Trace req=b81k4m/ }));
 
     expect(dispatch).toHaveBeenCalledWith({
       type: "setFilter",
-      state: { instances: [], requestIds: ["req_b81k4m"], levels: [] },
+      state: { instances: [], requestIds: ["b81k4m"], levels: [] },
     });
   });
 
@@ -86,12 +90,12 @@ describe("ScenarioChips", () => {
     // active is derived from equality to that state.
     expect(
       screen.getByRole("button", { name: /Trace/ }).getAttribute("data-active"),
-    ).toBe("false");
+    ).toBeNull();
     expect(
       screen
         .getByRole("button", { name: /Instance/ })
         .getAttribute("data-active"),
-    ).toBe("false");
+    ).toBeNull();
   });
 
   it("clicking the active chip clears the filter (toggle-off)", () => {
@@ -135,7 +139,7 @@ describe("ScenarioChips", () => {
     });
 
     for (const chip of screen.getAllByRole("button")) {
-      expect(chip.getAttribute("data-active")).toBe("false");
+      expect(chip.getAttribute("data-active")).toBeNull();
     }
   });
 });

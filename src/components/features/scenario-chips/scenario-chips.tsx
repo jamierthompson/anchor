@@ -2,6 +2,7 @@
 
 import type { Dispatch } from "react";
 
+import { Chip } from "@/components/ui/chip/chip";
 import {
   filterStatesEqual,
   initialFilterState,
@@ -13,9 +14,7 @@ import styles from "./scenario-chips.module.css";
 
 /**
  * Scenario chip bar — three preset filter states the user can toggle on
- * and off. Replaces the earlier "+ Add filter" popover + per-line click-
- * to-filter affordances (spec §1: this prototype's goal is anchor +
- * trace flow, not a general filter builder).
+ * and off.
  *
  * Behavior:
  *   - Mutually exclusive: at most one chip is active at a time. Clicking
@@ -27,16 +26,15 @@ import styles from "./scenario-chips.module.css";
  *
  * Each preset is an explicit FilterState object. Scenarios were chosen
  * to exercise the three demo-relevant filtering surfaces:
- *   - Errors only — the "show me what broke" filter; pulls the §6 error
- *     cluster forward and demonstrates how cross-instance INFO traffic
- *     keeps flowing while one instance degrades.
- *   - Trace req_b81k4m — the "trace one request" demo; this id appears
+ *   - Errors only — the "show me what broke" filter;
+ *     demonstrates how cross-instance INFO traffic keeps flowing while
+ *     one instance degrades.
+ *   - Trace req=b81k4m — the "trace one request" demo; this id appears
  *     in both the healthy phase and the error cluster, so opening
  *     context on a healthy occurrence vs. a failing one is the headline
  *     anchor flow.
  *   - Instance 7tbsm — the "narrow to one server" demo; 7tbsm is the
- *     instance that degrades and gets rolled back, so it's the most
- *     narratively rich of the three.
+ *     instance that degrades and gets rolled back.
  */
 
 type Scenario = {
@@ -53,8 +51,8 @@ const SCENARIOS: readonly Scenario[] = [
   },
   {
     id: "trace",
-    label: "Trace req_b81k4m",
-    state: { instances: [], requestIds: ["req_b81k4m"], levels: [] },
+    label: "Trace req=b81k4m",
+    state: { instances: [], requestIds: ["b81k4m"], levels: [] },
   },
   {
     id: "instance",
@@ -79,21 +77,18 @@ export function ScenarioChips({ state, dispatch }: ScenarioChipsProps) {
 
   return (
     <section className={styles.section}>
-      <h2 className={styles.eyebrow}>Pre-baked filters</h2>
+      <h2 className={styles.eyebrow}>Filters</h2>
       <div className={styles.bar} role="toolbar" aria-label="Filter scenarios">
         {SCENARIOS.map((scenario) => {
           const isActive = filterStatesEqual(state, scenario.state);
           return (
-            <button
+            <Chip
               key={scenario.id}
-              type="button"
-              className={styles.chip}
-              data-active={isActive}
-              aria-pressed={isActive}
+              active={isActive}
               onClick={() => handleClick(scenario)}
             >
               {scenario.label}
-            </button>
+            </Chip>
           );
         })}
       </div>

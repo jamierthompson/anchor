@@ -8,26 +8,33 @@
  * the with-room ↔ boundary transition. Shift+E enters and exits
  * to its left without disrupting Esc's position.
  *
- * Layout split: on mobile the legend sits above the scenario chips
- * in normal block flow; on desktop it lifts out to absolute
- * positioning in the top-right of the explorer so the chips row
- * can align horizontally with it.
- */
-
-/*
- * Block-flow above the scenario chips, right-aligned via flex so
- * the keycap row sits in the top-right corner of the explorer
- * header. Same vertical padding as the chips section so the two
- * read as parts of the same horizontal band.
+ * Hidden on mobile — every entry advertises a keyboard shortcut, and
+ * a touch-only viewport has no physical keys to honor them with. The
+ * sheet behind the "?" entry is also keyboard-driven, so the trigger
+ * itself isn't useful without a keyboard. Hiding the strip returns
+ * its vertical band to the log list, which is the only surface the
+ * user can actually interact with at this size class.
  */
 .legend {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-3) var(--space-4);
+  display: none;
   background: var(--color-bg);
   flex-shrink: 0;
+}
+
+/*
+ * Tablet+ : show the legend in normal block flow, right-aligned via
+ * flex so the keycap row sits in the top-right corner of the explorer
+ * header. Same vertical padding as the chips section so the two read
+ * as parts of the same horizontal band.
+ */
+@media (--tablet) {
+  .legend {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-4);
+  }
 }
 
 /*

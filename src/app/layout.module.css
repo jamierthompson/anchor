@@ -1,24 +1,8 @@
 /*
- * App shell layout.
- *
- * A 3-row CSS grid — auto / 1fr / auto — pins the nav to the top
- * and the footer to the bottom while letting the middle row absorb
- * all leftover height. On short pages the
- * footer ends up at the bottom of the viewport rather than floating
- * directly under the nav. On naturally-tall pages (/system) the
- * middle row grows past 1fr and the page scrolls normally.
- *
- * 100dvh (dynamic viewport height) keeps the shell honest on mobile
- * browsers that resize the viewport as their address bar collapses —
- * 100vh would lock to the *largest* viewport, leaving extra empty
- * space below the footer when the bar is visible.
+ * Layout-level chrome that lives outside the Shell wrapper. The shell
+ * (3-row grid on most routes, scroll-snap reveal on /demo) now lives
+ * in components/features/shell — see shell.module.css.
  */
-
-.shell {
-  display: grid;
-  grid-template-rows: auto 1fr auto;
-  min-height: 100dvh;
-}
 
 /*
  * Skip-to-content link. Hidden off-screen until it receives focus,
