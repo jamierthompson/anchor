@@ -14,6 +14,12 @@
  * can align horizontally with it.
  */
 
+/*
+ * Block-flow above the scenario chips, right-aligned via flex so
+ * the keycap row sits in the top-right corner of the explorer
+ * header. Same vertical padding as the chips section so the two
+ * read as parts of the same horizontal band.
+ */
 .legend {
   display: flex;
   justify-content: flex-end;
@@ -21,33 +27,7 @@
   gap: var(--space-2);
   padding: var(--space-3) var(--space-4);
   background: var(--color-bg);
-  /* Don't shrink in the explorer flex column (mobile flow). */
   flex-shrink: 0;
-}
-
-/*
- * Desktop: lift the legend out of the explorer's flex column and
- * pin it to the top-right corner. The scenario chips section below
- * then occupies the full row width and the legend's keycaps overlay
- * the top-right of that row — the eyebrow + chips on the left, the
- * keys on the right, sharing the same horizontal band.
- *
- * Padding mirrors the chips section's vertical padding so the
- * legend's content sits on the same visual baseline as the eyebrow.
- *
- * 640px is the desktop threshold — below it the chips row is too
- * cramped to share with the legend, and the block-flow layout
- * (chips-on-top-of-keys) reads more naturally.
- */
-@media (min-width: 640px) {
-  .legend {
-    position: absolute;
-    top: 0;
-    right: 0;
-    z-index: 1;
-    padding: var(--space-3) var(--space-4);
-    background: transparent;
-  }
 }
 
 /*
@@ -61,11 +41,11 @@
   gap: 6px;
   padding: 2px 6px;
   border: 0;
-  border-radius: 5px;
+  border-radius: var(--radius-2);
   background: transparent;
   font-family: var(--font-sans);
   cursor: default;
-  transition: background 120ms var(--ease-standard);
+  transition: background var(--duration-fast) var(--ease-standard);
   /*
    * Plays on mount. The parent bumps `pulseKey` on each successful
    * action (e.g. shift+e expansion) which forces React to remount
@@ -86,7 +66,7 @@
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
+@media (--reduced-motion) {
   .entry {
     animation: none;
   }
@@ -124,7 +104,7 @@ button.entry:focus-visible {
 
 .plus {
   color: var(--color-fg-muted);
-  font-size: 11px;
+  font-size: var(--font-size-2);
   font-family: var(--font-mono);
 }
 
@@ -140,27 +120,17 @@ button.entry:focus-visible {
   min-width: 18px;
   height: 18px;
   padding: 0 5px;
-  border-radius: 3px;
-  background:
-    linear-gradient(
-      180deg,
-      rgba(255, 255, 255, 0.04) 0%,
-      rgba(255, 255, 255, 0) 50%,
-      rgba(0, 0, 0, 0.05) 100%
-    ),
-    var(--color-bg-elevated);
+  border-radius: var(--radius-1);
+  /* Gradient overlay sits on top of the elevated bg so the cap
+     lifts off the page-bg surface the legend renders against. */
+  background: var(--gradient-keycap), var(--color-bg-elevated);
   color: var(--color-fg);
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--font-size-1);
   font-weight: var(--font-weight-medium);
   line-height: 1;
   letter-spacing: 0;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.25),
-    0 0 0 1px rgba(255, 255, 255, 0.06),
-    0 1px 0 rgba(0, 0, 0, 0.4),
-    0 2px 4px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--shadow-keycap);
 }
 
 /*
@@ -170,7 +140,7 @@ button.entry:focus-visible {
  */
 .label {
   color: var(--color-fg-muted);
-  font-size: 10px;
+  font-size: var(--font-size-1);
   font-weight: var(--font-weight-medium);
   letter-spacing: 0.08em;
   text-transform: uppercase;

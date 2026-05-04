@@ -1,4 +1,11 @@
 /*
+ * Custom media queries (--tablet, --desktop, --reduced-motion) live
+ * in custom-media.css so @csstools/postcss-global-data can pick them
+ * up cross-file at build time. See that file for the full set and
+ * usage notes.
+ */
+
+/*
  * Design token foundation.
  *
  * All tokens live as CSS custom properties on :root so they're
@@ -8,11 +15,18 @@
  * keeps the design system globally available without polluting the
  * class namespace.
  *
- * Theme strategy: dark is the default at :root. Light mode is
- * applied by setting `data-theme="light"` on the <html> element.
- * Using an explicit attribute (rather than @media prefers-color-scheme)
- * gives JS direct control over which theme is active so a manual
- * toggle can override the user's OS preference.
+ * Theme strategy:
+ *
+ *   1. By default, the active theme follows the user's OS preference
+ *      via `color-scheme: light dark` and the CSS `light-dark()`
+ *      function. Most routes (e.g. /) get this behavior automatically.
+ *
+ *   2. The /system route opts into manual control by setting
+ *      `data-theme="light"` or `data-theme="dark"` on a wrapper
+ *      element. That selector switches `color-scheme` to a single
+ *      keyword, which forces light-dark() to return the corresponding
+ *      arm regardless of OS preference. The toggle UI lives only on
+ *      /system; the rest of the app honors the OS preference.
  *
  * ─── Color: OKLCH, not hex ───────────────────────────────────────
  *
@@ -41,20 +55,45 @@
  * subtle-tier consumer) read fine at the default fg color.
  */
 
-:root {
-  /* ---------- Color: dark theme (default) ---------- */
+/*
+ * ---------- Color: light-dark(light, dark) ----------
+ *
+ * Each role is defined exactly once. The light value comes first,
+ * dark second — the order CSS's light-dark() function expects.
+ *
+ * Selector list (`:root, [data-theme]`) is critical. light-dark() is
+ * resolved at computed-value time, *on the element where the custom
+ * property is declared* — so a value declared only on :root would
+ * inherit already-resolved into descendants, and overriding
+ * color-scheme on a wrapper would have no effect on the inherited
+ * tokens. Re-declaring the same block on [data-theme] makes the
+ * tokens recompute against the wrapper's forced color-scheme. The
+ * actual values still live in one place.
+ *
+ * Trailing comments preserve the per-theme contrast notes — those
+ * are the auditable data this page is meant to demonstrate.
+ */
+:root,
+[data-theme] {
   /* Neutrals — chroma 0; OKLCH lets us reason about lightness directly. */
-  --color-bg:           oklch(0.145 0     0    ); /* #0a0a0a */
-  --color-bg-elevated:  oklch(0.187 0     0    ); /* #131313 — filter bar, popovers */
-  --color-fg:           oklch(0.946 0     0    ); /* #ededed — body text, 16.91:1 AAA */
-  --color-fg-muted:     oklch(0.685 0     0    ); /* #9a9a9a — timestamps, secondary,  7.04:1 AAA */
-  --color-border:       oklch(0.285 0     0    ); /* #2a2a2a */
+  --color-bg:          light-dark(oklch(1.000 0     0    ), oklch(0.145 0     0    )); /* #ffffff / #0a0a0a */
+  --color-bg-elevated: light-dark(oklch(0.976 0     0    ), oklch(0.187 0     0    )); /* #f7f7f7 / #131313 — filter bar, popovers */
+  --color-fg:          light-dark(oklch(0.205 0     0    ), oklch(0.946 0     0    )); /* #171717 / #ededed — body text, 17.93:1 / 16.91:1 AAA */
+  --color-fg-muted:    light-dark(oklch(0.465 0     0    ), oklch(0.685 0     0    )); /* #595959 / #9a9a9a — secondary,  7.00:1 / 7.04:1 AAA */
+  --color-border:      light-dark(oklch(0.919 0     0    ), oklch(0.285 0     0    )); /* #e4e4e4 / #2a2a2a */
 
-  /* Roles — hue (H) locked per role; L tuned per surface for AAA. */
-  --color-accent:       oklch(0.725 0.175 349.8); /* #f472b6 — magenta, ink (border/focus), 7.48:1 AAA */
-  --color-warn:         oklch(0.784 0.159  73.0); /* #f5a623 — amber WARN level prefix,    9.77:1 AAA */
-  --color-error:        oklch(0.730 0.200  27.3); /* #ff6a5e — coral ERROR level prefix,   7.05:1 AAA */
+  /* Roles — hue (H) locked across themes; L (and slightly C on warn)
+     tuned per surface for AAA contrast. */
+  --color-accent:      light-dark(oklch(0.485 0.180 349.8), oklch(0.725 0.175 349.8)); /* magenta — ink (border/focus), 7.11:1 / 7.48:1 AAA */
+  --color-warn:        light-dark(oklch(0.465 0.130  73.0), oklch(0.784 0.159  73.0)); /* amber  — WARN level prefix,   7.09:1 / 9.77:1 AAA */
+  --color-error:       light-dark(oklch(0.485 0.200  27.3), oklch(0.730 0.200  27.3)); /* coral  — ERROR level prefix,  7.07:1 / 7.05:1 AAA */
+}
 
+/*
+ * Non-color tokens — these don't depend on color-scheme, so they
+ * stay declared once at :root and inherit normally.
+ */
+:root {
   /*
    * Dimmed-text opacity. Per the unified rule, any line revealed by
    * View Context (but not matching the active filter) is dimmed.
@@ -72,13 +111,14 @@
   --space-4: 16px;
   --space-6: 24px;
   --space-8: 32px;
+  --space-12: 48px; /* large breaks — between subsections */
+  --space-16: 64px; /* extra-large breaks — between top-level page sections */
 
   /* ---------- Typography ---------- */
   /*
-   * --font-mono falls back to the system mono stack until JetBrains
-   * Mono is wired up via next/font in the next commit. At that point
-   * next/font injects --font-jetbrains-mono onto the <html> element
-   * and the var() chain below picks it up automatically.
+   * --font-mono — JetBrains Mono via next/font (wired up in
+   * layout.tsx) with a system mono fallback chain. Mono is the only
+   * face the system uses; weight + size + color carry hierarchy.
    */
   --font-mono:
     var(--font-jetbrains-mono),
@@ -88,9 +128,103 @@
     Consolas,
     monospace;
 
-  --font-weight-regular:  400;
-  --font-weight-medium:   500;
-  --font-weight-semibold: 600;
+  /*
+   * Type scale — terminal range (10–13px), with 14px reserved for
+   * surface headers. The narrow range is deliberate: this is a logs
+   * UI, where density matters. Size alone won't carry hierarchy at
+   * this scale — weight, color, and spacing pick up the slack.
+   *
+   * 22px is exclusive to the /system page H1 (the only place outside
+   * the product where headline-shaped text appears). Naming makes the
+   * scope explicit so it doesn't drift into product CSS.
+   */
+  --font-size-1: 10px; /* eyebrow, legend keycap */
+  --font-size-2: 11px; /* section labels, sheet keycap */
+  --font-size-3: 12px; /* chip, instance pills, inline metadata */
+  --font-size-4: 13px; /* body — log lines, default UI */
+  --font-size-5: 14px; /* surface header (shortcut sheet) */
+
+  --font-size-page-h1: 22px; /* /system page title */
+  --font-size-page-h2: 18px; /* /system section heading (Color, Typography, …) */
+  --font-size-page-h3: 14px; /* /system subsection heading (Roles, Sizes, …) */
+
+  /*
+   * Two weights only. Restraint is intentional — at terminal type
+   * sizes, 700 (bold) on JetBrains Mono reads chunky, and 500
+   * (medium) is plenty of emphasis when paired with color contrast.
+   */
+  --font-weight-regular: 400;
+  --font-weight-medium:  500;
+
+  /*
+   * Two line-heights. tight for single-line UI and headings where
+   * extra leading would feel airy; base for body and multi-line
+   * content where readability needs the breathing room.
+   */
+  --line-height-tight: 1.2;
+  --line-height-base:  1.4;
+
+  /* ---------- Radius ---------- */
+  /*
+   * Two radius steps mapped to two "scales of chrome":
+   *
+   *   --radius-1 (3px)  small chrome — keycaps, chips, request-id pills
+   *   --radius-2 (4px)  default UI — pills, cards, table cells, modal
+   *                     content, log-list items, color swatch cards
+   *
+   * Bar samples (1px) and indicator dots (50%) intentionally sit
+   * outside the scale — they're shape primitives, not chrome.
+   */
+  --radius-1: 3px;
+  --radius-2: 4px;
+
+  /* ---------- Shadow + gradient: keycap chrome ---------- */
+  /*
+   * The keycap "physical button" effect is the only place in the
+   * system where a recipe of layered visuals is repeated verbatim.
+   * The legend's compact caps and the shortcut sheet's larger caps
+   * both apply the same 5-layer shadow + 3-stop highlight gradient
+   * to look like the same physical object photographed from the
+   * same angle, just at different sizes.
+   *
+   * Tokenizing keeps the recipe in one place. Each consumer still
+   * sets its own base background color (--color-bg vs
+   * --color-bg-elevated, depending on which parent surface the cap
+   * needs to lift off) by listing the gradient and the base in a
+   * background-shorthand list.
+   *
+   * Anatomy of --shadow-keycap:
+   *   inset top    rim highlight catching ambient light
+   *   inset bottom subtle concavity
+   *   1px outer    cap edge
+   *   1px hard     gap between cap and base
+   *   soft drop    cap's lift off the keyboard plane
+   */
+  --shadow-keycap:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.25),
+    0 0 0 1px rgba(255, 255, 255, 0.06),
+    0 1px 0 rgba(0, 0, 0, 0.4),
+    0 2px 4px rgba(0, 0, 0, 0.3);
+
+  --gradient-keycap:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.04) 0%,
+      rgba(255, 255, 255, 0) 50%,
+      rgba(0, 0, 0, 0.05) 100%
+    );
+
+  /* ---------- Z-index ---------- */
+  /*
+   * Two layers above the page content. Modal sits one above its
+   * overlay so dialog content always paints on top of its own
+   * scrim. Keep new floating UI inside this scale so the layer
+   * order stays auditable.
+   */
+  --z-floating:  50; /* fixed/sticky chrome that sits over page content */
+  --z-overlay:  100; /* modal backdrop scrims, dialog underlays */
+  --z-modal:    101; /* dialog content above its overlay */
 
   /* ---------- Motion ---------- */
   /*
@@ -109,34 +243,25 @@
 }
 
 /*
- * Light theme overrides. Activated via <html data-theme="light">.
+ * Theme drivers.
  *
- * Each role keeps the hue (H) from the dark palette; only lightness
- * (and slightly chroma on warn) shifts to hit AAA on a white surface.
- * That's the OKLCH payoff — single-axis edits per theme, identity
- * preserved across them.
+ * `color-scheme` is the lever. Setting it to `light dark` lets the
+ * browser pick the OS-preferred arm of every light-dark() value. The
+ * /system route can override that choice by setting `data-theme` on
+ * its route wrapper, which pins color-scheme to a single keyword and
+ * forces light-dark() to return that arm everywhere inside the
+ * wrapper. Outside the wrapper (e.g. on /), the OS preference wins.
+ *
+ * color-scheme also tells the browser which arm to use for native
+ * controls (scrollbars, form widgets), so they stay in sync with the
+ * tokens automatically.
  */
-[data-theme="light"] {
-  --color-bg:           oklch(1.000 0     0    ); /* #ffffff */
-  --color-bg-elevated:  oklch(0.976 0     0    ); /* #f7f7f7 */
-  --color-fg:           oklch(0.205 0     0    ); /* #171717 — body text,             17.93:1 AAA */
-  --color-fg-muted:     oklch(0.465 0     0    ); /* #595959 — secondary,              7.00:1 AAA */
-  --color-border:       oklch(0.919 0     0    ); /* #e4e4e4 */
-
-  --color-accent:       oklch(0.485 0.180 349.8); /* #a21f6d — same H as dark magenta, 7.11:1 AAA */
-  --color-warn:         oklch(0.465 0.130  73.0); /* #844a00 — same H as dark amber,   7.09:1 AAA */
-  --color-error:        oklch(0.485 0.200  27.3); /* #b5000d — same H as dark coral,   7.07:1 AAA */
+:root {
+  color-scheme: light dark;
 }
 
-html {
-  /* Hint to the browser so form controls, scrollbars, etc. honor
-     the active theme. */
-  color-scheme: dark;
-}
-
-[data-theme="light"] {
-  color-scheme: light;
-}
+[data-theme="light"] { color-scheme: light; }
+[data-theme="dark"]  { color-scheme: dark;  }
 
 /* ---------- Reset ---------- */
 

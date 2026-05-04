@@ -1,0 +1,192 @@
+/*
+ * Media queries documentation. Same desktop-table → mobile-card
+ * structure as type-scale and spacing-scale, plus per-row indicator
+ * classes that live-update via @media (--name) rules.
+ */
+
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.subsection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.subheading {
+  margin: 0;
+  font-size: var(--font-size-page-h3);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-fg-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/*
+ * Mobile-first: cards by default; @media (--tablet) restores the
+ * four-column table form. Same structure as type-scale and
+ * spacing-scale.
+ */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+}
+
+.table thead {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+.table tbody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.table tbody tr {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-2);
+}
+
+.table tbody td {
+  padding: 0;
+  border: none;
+  font-size: var(--font-size-3);
+  vertical-align: middle;
+  color: var(--color-fg);
+}
+
+.token {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-3);
+  color: var(--color-fg);
+  white-space: nowrap;
+}
+
+.value {
+  color: var(--color-fg-muted);
+  white-space: nowrap;
+}
+
+.usage {
+  color: var(--color-fg-muted);
+}
+
+/*
+ * Live indicator. Each row's indicator is lit (accent) only in its
+ * exclusive layout range — never additive — so the table always
+ * shows exactly one breakpoint state as currently active.
+ *
+ *   indicatorMobile   — lit below --tablet  (the implicit default)
+ *   indicatorTablet   — lit between --tablet and --desktop
+ *   indicatorDesktop  — lit at --desktop and up
+ *
+ * Achieved with cascading @media rules: each indicator sets a
+ * baseline, then a later @media block overrides it when a stricter
+ * threshold kicks in. Pure CSS — no JS, no listeners.
+ */
+.indicator {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--color-border);
+  transition: background var(--duration-fast) var(--ease-standard);
+}
+
+/* Mobile: lit by default; flips off once --tablet matches. */
+.indicatorMobile {
+  background: var(--color-accent);
+}
+@media (--tablet) {
+  .indicatorMobile {
+    background: var(--color-border);
+  }
+}
+
+/* Tablet: dim by default; lit at --tablet; dim again at --desktop. */
+@media (--tablet) {
+  .indicatorTablet {
+    background: var(--color-accent);
+  }
+}
+@media (--desktop) {
+  .indicatorTablet {
+    background: var(--color-border);
+  }
+}
+
+/* Desktop: dim by default; lit at --desktop. */
+@media (--desktop) {
+  .indicatorDesktop {
+    background: var(--color-accent);
+  }
+}
+
+/* Accessibility: lit when the OS preference is active. */
+@media (--reduced-motion) {
+  .indicatorReducedMotion {
+    background: var(--color-accent);
+  }
+}
+
+/*
+ * --tablet and up: restore the four-column table form. Same pattern
+ * as type-scale and spacing-scale.
+ */
+@media (--tablet) {
+  .table thead {
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip: auto;
+    white-space: normal;
+  }
+
+  .table thead th {
+    padding: var(--space-2) var(--space-3);
+    border-bottom: 1px solid var(--color-border);
+    color: var(--color-fg-muted);
+    font-size: var(--font-size-1);
+    font-weight: var(--font-weight-medium);
+    text-align: left;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .table tbody {
+    display: table-row-group;
+    gap: 0;
+  }
+
+  .table tbody tr {
+    display: table-row;
+    gap: 0;
+    padding: 0;
+    border: none;
+    border-radius: 0;
+  }
+
+  .table tbody td {
+    display: table-cell;
+    padding: var(--space-3);
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .table tbody tr:last-child td {
+    border-bottom: none;
+  }
+}

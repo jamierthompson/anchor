@@ -1,0 +1,83 @@
+/*
+ * Table of contents.
+ *
+ * Mobile (default): static, sits above the first section in normal
+ * flow.
+ * Desktop (--tablet and up): sticky in the left column, pinned just
+ * below the page's top padding.
+ */
+
+.toc {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+@media (--tablet) {
+  .toc {
+    position: sticky;
+    /*
+     * Clear the fixed theme-toggle band at the top of the viewport
+     * (--space-12 ≈ band height) plus a small breathing gap, so the
+     * TOC heading doesn't sit flush against the band as the page
+     * scrolls.
+     */
+    top: calc(var(--space-12) + var(--space-4));
+    /*
+     * Cap height so the TOC scrolls if it ever exceeds the
+     * viewport — keeps it usable even at very short windows.
+     */
+    max-height: calc(100vh - var(--space-12) * 2);
+    overflow-y: auto;
+  }
+}
+
+.heading {
+  margin: 0;
+  font-size: var(--font-size-1);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-fg-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+/*
+ * Link visuals. Default is muted; hover lifts to fg; active gets
+ * the accent color and a left border to read as a current-section
+ * indicator. The left border lives inside the link's padding so the
+ * text doesn't shift when active state toggles.
+ */
+.link {
+  display: block;
+  padding: var(--space-1) var(--space-3);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-3);
+  color: var(--color-fg-muted);
+  border-left: 2px solid transparent;
+  transition:
+    color var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard);
+}
+
+.link:hover {
+  color: var(--color-fg);
+}
+
+.link[data-active="true"] {
+  color: var(--color-accent);
+  border-left-color: var(--color-accent);
+}
+
+.link:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}

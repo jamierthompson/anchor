@@ -1,0 +1,39 @@
+/*
+ * Custom media queries — single source of truth.
+ *
+ * @custom-media (CSS Media Queries Level 5 draft) lets us name
+ * media-query expressions and reference them by name. Browsers
+ * don't support @custom-media natively yet, so this file is fed to
+ * postcss-custom-media at build time, which inlines the resolved
+ * expression at every consumer site.
+ *
+ * Cross-file resolution: PostCSS processes each CSS Module file
+ * independently, so a declaration in globals.css wouldn't reach a
+ * consumer module. @csstools/postcss-global-data is configured in
+ * postcss.config.mjs to read this file and make its declarations
+ * available to every other CSS file the plugin processes.
+ *
+ * Keep this file scoped to *only* @custom-media declarations — any
+ * other CSS here would be silently ignored by the global-data
+ * plugin, and adding non-media tokens dilutes the file's purpose.
+ *
+ * Authoring convention: mobile-first. Default styles target the
+ * smallest viewport; @media (--tablet) and (--desktop) layer on
+ * enhancements at and above their thresholds. This makes media
+ * queries additive rather than subtractive — easier to read, and
+ * keeps the indicators on /system honest (a lit dot means the
+ * query just kicked in, not "we're below this size").
+ *
+ * Usage from any CSS file:
+ *
+ *   @media (--tablet)         { ... }   // 720px and up
+ *   @media (--desktop)        { ... }   // 900px and up
+ *   @media (--reduced-motion) { ... }   // user opted out of motion
+ */
+
+/* Breakpoints */
+@custom-media --tablet  (min-width: 720px);
+@custom-media --desktop (min-width: 900px);
+
+/* Accessibility */
+@custom-media --reduced-motion (prefers-reduced-motion: reduce);

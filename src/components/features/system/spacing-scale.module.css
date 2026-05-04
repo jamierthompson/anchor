@@ -1,0 +1,140 @@
+/*
+ * Spacing scale table.
+ *
+ * Layout follows the typography table for consistency — the two
+ * subsections sit next to each other on /system and read as the
+ * same kind of reference data.
+ */
+
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.note {
+  margin: 0;
+  color: var(--color-fg-muted);
+  font-size: var(--font-size-3);
+  line-height: var(--line-height-base);
+}
+
+/*
+ * Mobile-first: default is the stacked-card layout. <thead> hidden;
+ * each row reads as a card with token / value / usage / sample
+ * stacked. At --tablet, the @media block below restores the
+ * four-column table form.
+ */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+}
+
+.table thead {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+.table tbody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.table tbody tr {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-2);
+}
+
+.table tbody td {
+  padding: 0;
+  border: none;
+  font-size: var(--font-size-3);
+  vertical-align: middle;
+  color: var(--color-fg);
+}
+
+.token {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-3);
+  color: var(--color-fg);
+  white-space: nowrap;
+}
+
+.value {
+  color: var(--color-fg-muted);
+  white-space: nowrap;
+}
+
+.usage {
+  color: var(--color-fg-muted);
+}
+
+/*
+ * Bar sample — fixed height, accent color, width set by inline style
+ * to the actual token. Reads as a measurement at a glance; neighboring
+ * rows' bars compare directly.
+ */
+.bar {
+  height: 12px;
+  background: var(--color-accent);
+  border-radius: 1px;
+}
+
+/*
+ * --tablet and up: restore the four-column table form. Same pattern
+ * as type-scale.
+ */
+@media (--tablet) {
+  .table thead {
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip: auto;
+    white-space: normal;
+  }
+
+  .table thead th {
+    padding: var(--space-2) var(--space-3);
+    border-bottom: 1px solid var(--color-border);
+    color: var(--color-fg-muted);
+    font-size: var(--font-size-1);
+    font-weight: var(--font-weight-medium);
+    text-align: left;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .table tbody {
+    display: table-row-group;
+    gap: 0;
+  }
+
+  .table tbody tr {
+    display: table-row;
+    gap: 0;
+    padding: 0;
+    border: none;
+    border-radius: 0;
+  }
+
+  .table tbody td {
+    display: table-cell;
+    padding: var(--space-3);
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .table tbody tr:last-child td {
+    border-bottom: none;
+  }
+}

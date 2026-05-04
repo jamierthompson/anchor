@@ -1,0 +1,117 @@
+/*
+ * Keycap chrome demo — two cards with a real keycap on each parent
+ * surface, plus a description list of the two tokens.
+ */
+
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.demos {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-3);
+}
+
+@media (--tablet) {
+  .demos {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/*
+ * Each card hosts a keycap against a specific parent surface. The
+ * card itself uses the corresponding bg color so the demo matches
+ * what the consumer renders in production — the legend on the page
+ * bg, the shortcut sheet on the sheet's elevated panel.
+ */
+.card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-6);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-2);
+}
+
+.cardBg {
+  background: var(--color-bg);
+}
+
+.cardElevated {
+  background: var(--color-bg-elevated);
+}
+
+.label {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-2);
+  color: var(--color-fg-muted);
+  text-align: center;
+}
+
+/*
+ * Real keycap. Recipe is sourced from --shadow-keycap and
+ * --gradient-keycap so any tuning to the tokens flows here too.
+ * Base color differs between consumers (the contextual choice this
+ * demo is meant to surface), so the two cap variants below set it
+ * inline.
+ */
+.cap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: var(--radius-1);
+  color: var(--color-fg);
+  font-family: var(--font-mono);
+  font-weight: var(--font-weight-medium);
+  line-height: 1;
+  letter-spacing: 0;
+  box-shadow: var(--shadow-keycap);
+}
+
+/* Legend cap: 10px on top of --color-bg-elevated. */
+.capLegend {
+  font-size: var(--font-size-1);
+  background: var(--gradient-keycap), var(--color-bg-elevated);
+}
+
+/* Sheet cap: 11px on top of --color-bg. */
+.capSheet {
+  font-size: var(--font-size-2);
+  background: var(--gradient-keycap), var(--color-bg);
+}
+
+/* Token description list. */
+
+.tokens {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.tokenRow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.tokenName {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-3);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-fg);
+}
+
+.tokenDescription {
+  margin: 0;
+  font-size: var(--font-size-3);
+  line-height: var(--line-height-base);
+  color: var(--color-fg-muted);
+}

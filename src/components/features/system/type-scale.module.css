@@ -1,0 +1,152 @@
+/*
+ * Type scale tables.
+ *
+ * Layout reads as reference data — borrowed from how documentation
+ * sites typically display token tables. The sample column is given
+ * the most width so the size differences read at a glance.
+ */
+
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.subsection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.subheading {
+  margin: 0;
+  font-size: var(--font-size-page-h3);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-fg-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/*
+ * Mobile-first: default is the stacked-card layout. <thead> is
+ * hidden by default; each row reads as a card with token / value
+ * / usage / sample stacked top-to-bottom. Column headers are kept
+ * in the DOM (visually hidden) for screen readers.
+ *
+ * At --tablet (720px+), the table overlay below restores the
+ * four-column form. Same width above --tablet is comfortable; the
+ * card form would feel verbose.
+ */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+}
+
+.table thead {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+.table tbody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.table tbody tr {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-2);
+}
+
+.table tbody td {
+  padding: 0;
+  border: none;
+  font-size: var(--font-size-3);
+  vertical-align: baseline;
+  color: var(--color-fg);
+}
+
+.token {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-3);
+  color: var(--color-fg);
+  white-space: nowrap;
+}
+
+.value {
+  color: var(--color-fg-muted);
+  white-space: nowrap;
+}
+
+.usage {
+  color: var(--color-fg-muted);
+}
+
+/*
+ * The sample cell inherits font-family from the table; font-size /
+ * weight / line-height are set via the inline style on each row so
+ * the sample is rendered at the actual token's value.
+ */
+.sample {
+  color: var(--color-fg);
+}
+
+/*
+ * --tablet and up: restore the four-column table form. Cards
+ * collapse back into table rows by undoing the flex display and
+ * reinstating cell padding + dividers.
+ */
+@media (--tablet) {
+  .table thead {
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip: auto;
+    white-space: normal;
+  }
+
+  .table thead th {
+    padding: var(--space-2) var(--space-3);
+    border-bottom: 1px solid var(--color-border);
+    color: var(--color-fg-muted);
+    font-size: var(--font-size-1);
+    font-weight: var(--font-weight-medium);
+    text-align: left;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .table tbody {
+    display: table-row-group;
+    gap: 0;
+  }
+
+  .table tbody tr {
+    display: table-row;
+    gap: 0;
+    padding: 0;
+    border: none;
+    border-radius: 0;
+  }
+
+  .table tbody td {
+    display: table-cell;
+    padding: var(--space-3);
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  /* Last row sits flush with the next subsection — no trailing rule. */
+  .table tbody tr:last-child td {
+    border-bottom: none;
+  }
+}

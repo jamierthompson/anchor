@@ -1,0 +1,101 @@
+/*
+ * Page-level layout for /system.
+ *
+ * Mobile-first: single column. The header sits at the top, then the
+ * TOC, then content. At --tablet the layout splits into a 2-column
+ * grid with the TOC pinned to the left.
+ *
+ * Generous max-width keeps line lengths comfortable for the
+ * descriptive text that sits next to each token. --space-12 gaps
+ * between H2 sections give every foundation room to breathe.
+ */
+
+/*
+ * Page padding. Side and bottom padding follow the standard scale.
+ * Top padding clears the fixed theme-toggle band at the top of the
+ * viewport — calc(--space-8 + --space-12) = 80px, enough room for
+ * the band itself plus standard breathing room above the title.
+ */
+.page {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: calc(var(--space-8) + var(--space-12)) var(--space-6) var(--space-8);
+}
+
+.header {
+  margin-bottom: var(--space-16);
+}
+
+.title {
+  margin: 0 0 var(--space-2);
+  font-size: var(--font-size-page-h1);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-tight);
+}
+
+.subtitle {
+  margin: 0;
+  color: var(--color-fg-muted);
+  font-size: var(--font-size-5);
+  line-height: var(--line-height-base);
+}
+
+/*
+ * Layout: TOC and content. Mobile = single column. Tablet+ pins the
+ * TOC to a fixed-width left column; the content column flexes.
+ */
+.layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-8);
+}
+
+@media (--tablet) {
+  .layout {
+    grid-template-columns: 180px 1fr;
+    gap: var(--space-8);
+    /*
+     * No align-items override here. position: sticky on the TOC
+     * needs the grid track to be taller than the TOC's content so
+     * there's room to "stick" within. Default `align-items: stretch`
+     * lets .tocColumn span the row height (= .content's height),
+     * which is exactly what sticky needs.
+     */
+  }
+}
+
+.tocColumn {
+  /* Just a positioning context; sticky behavior lives in the Toc
+     component's own module. */
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+  /*
+   * Avoid horizontal overflow from any wide child (e.g. tables) so
+   * the flex column itself stays inside the grid track.
+   */
+  min-width: 0;
+}
+
+/*
+ * Each foundation lives in its own <section>. scroll-margin-top
+ * accounts for the fixed theme-toggle band at the top of the
+ * viewport (--space-12 ≈ band height) plus a small breathing gap,
+ * so when a TOC link scrolls a section into view its heading sits
+ * just below the band rather than under it.
+ */
+.section {
+  scroll-margin-top: calc(var(--space-12) + var(--space-6));
+}
+
+.sectionHeading {
+  margin: 0 0 var(--space-4);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--color-border);
+  font-size: var(--font-size-page-h2);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-tight);
+}
