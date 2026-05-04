@@ -29,7 +29,7 @@ import styles from "./scenario-chips.module.css";
  *   - Errors only — the "show me what broke" filter;
  *     demonstrates how cross-instance INFO traffic keeps flowing while
  *     one instance degrades.
- *   - Trace req_b81k4m — the "trace one request" demo; this id appears
+ *   - Trace req=b81k4m — the "trace one request" demo; this id appears
  *     in both the healthy phase and the error cluster, so opening
  *     context on a healthy occurrence vs. a failing one is the headline
  *     anchor flow.
@@ -51,8 +51,8 @@ const SCENARIOS: readonly Scenario[] = [
   },
   {
     id: "trace",
-    label: "Trace req_b81k4m",
-    state: { instances: [], requestIds: ["req_b81k4m"], levels: [] },
+    label: "Trace req=b81k4m",
+    state: { instances: [], requestIds: ["b81k4m"], levels: [] },
   },
   {
     id: "instance",

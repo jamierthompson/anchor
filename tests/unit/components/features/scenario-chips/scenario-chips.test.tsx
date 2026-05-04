@@ -55,11 +55,11 @@ describe("ScenarioChips", () => {
     const dispatch = vi.fn();
     renderBar(initialFilterState, dispatch);
 
-    fireEvent.click(screen.getByRole("button", { name: /Trace req_b81k4m/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Trace req=b81k4m/ }));
 
     expect(dispatch).toHaveBeenCalledWith({
       type: "setFilter",
-      state: { instances: [], requestIds: ["req_b81k4m"], levels: [] },
+      state: { instances: [], requestIds: ["b81k4m"], levels: [] },
     });
   });
 
