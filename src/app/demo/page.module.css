@@ -1,0 +1,29 @@
+/*
+ * /demo page chrome.
+ *
+ * Mirrors the horizontal container the long-form pages get from
+ * PageShell — same max-width and same page-edge padding — so the
+ * left and right content edges line up across /system, /build, and
+ * /demo. Without this, navigating from a PageShell route into /demo
+ * produced a visible "jump" as the LogExplorer expanded full-bleed.
+ *
+ * Notably, this only constrains the inline (horizontal) axis. The
+ * LogExplorer fixes its block (vertical) size to
+ *   calc(100dvh - var(--nav-height) - var(--footer-height))
+ * so the explorer's bottom edge meets the footer's top edge exactly
+ * (see log-explorer.module.css for the rationale). Adding padding-
+ * block here would push the explorer past that calc and reintroduce
+ * a body-level scrollbar alongside the explorer's internal one — so
+ * we deliberately match horizontal chrome only.
+ *
+ * `width: 100%` is the same load-bearing trick PageShell uses: a
+ * grid item with `margin: 0 auto` and no explicit width shrinks to
+ * its content's max-content width instead of stretching, which would
+ * make narrow viewports collapse the explorer below the cell.
+ */
+.page {
+  width: 100%;
+  max-width: 1080px;
+  margin: 0 auto;
+  padding-inline: var(--space-6);
+}

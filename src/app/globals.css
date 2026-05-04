@@ -293,6 +293,21 @@ body {
   min-height: 100%;
 }
 
+/*
+ * Reserve scrollbar gutter at the document root so the body's
+ * available width is identical whether or not the page is tall enough
+ * to scroll. Without this, navigating from a long page (/system,
+ * /build — body scrolls) to a short one (/demo — explorer scrolls
+ * internally, body doesn't) widens the viewport by the scrollbar
+ * width, and any centered layout (margin: 0 auto inside max-width)
+ * jumps by ~7px on the way in and back on the way out. `stable`
+ * always reserves the gutter; the scrollbar simply renders inside it
+ * when scrolling is needed.
+ */
+html {
+  scrollbar-gutter: stable;
+}
+
 body {
   background: var(--color-bg);
   color: var(--color-fg);
