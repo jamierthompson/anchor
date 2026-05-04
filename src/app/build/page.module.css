@@ -1,12 +1,72 @@
 /*
- * Page-level shell for /build. Header treatment comes from the
- * shared PageHeader primitive; this file owns the max-width
- * container and page-edge padding so /build and /system share
- * the same content gutters and reading-width constraint.
+ * /build — placeholder styles.
+ *
+ * Page chrome (max-width container, padding, 2-column grid) lives
+ * in PageShell. This file only owns the sidebar placeholder and
+ * the section / prose presets used by the lorem content. Once
+ * /build's real TOC and write-up land, the placeholder rules go
+ * away; section + prose styles stay (or graduate to a shared
+ * primitive if /system ever adopts them).
  */
 
-.page {
-  max-width: 1080px;
-  margin: 0 auto;
-  padding: var(--space-8) var(--space-6);
+/* ---------- Sidebar placeholder ---------- */
+
+.toc {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.tocHeading {
+  margin: 0;
+  font-size: var(--font-size-1);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-fg-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.tocList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.tocLink {
+  display: block;
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--font-size-3);
+  color: var(--color-fg-muted);
+  border-left: 2px solid transparent;
+  transition: color var(--duration-fast) var(--ease-standard);
+}
+
+.tocLink:hover {
+  color: var(--color-fg);
+}
+
+/* ---------- Section + prose ---------- */
+
+.sectionHeading {
+  margin: 0 0 var(--space-4);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--color-border);
+  font-size: var(--font-size-page-h2);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-tight);
+}
+
+.prose {
+  margin: 0 0 var(--space-4);
+  font-size: var(--font-size-4);
+  line-height: var(--line-height-base);
+  color: var(--color-fg);
+  max-width: 64ch;
+}
+
+.prose:last-child {
+  margin-bottom: 0;
 }
