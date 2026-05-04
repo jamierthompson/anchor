@@ -11,11 +11,13 @@
    * definite parent height to size against — that's the prerequisite
    * for actual viewport overflow and meaningful scroll behavior.
    *
-   * Subtracting --nav-height keeps the explorer sized to the visible
-   * area below the global nav, so the bottom edge lands at the
-   * viewport bottom instead of the nav pushing it 48px below the
-   * fold. 100dvh follows the dynamic viewport so mobile address
-   * bars don't strand a band of empty space at the bottom.
+   * Subtracting both --nav-height and --footer-height keeps the
+   * explorer sized to the visible area between the global chrome,
+   * so the explorer's bottom edge meets the footer's top edge
+   * exactly — no body-level scroll bar appearing alongside the
+   * explorer's internal one. 100dvh follows the dynamic viewport
+   * so mobile address bars don't strand a band of empty space at
+   * the bottom.
    *
    * `position: relative` establishes the containing block for the
    * desktop-only absolute-positioned legend (see legend.module.css):
@@ -27,5 +29,5 @@
   flex-direction: column;
   background: var(--color-bg);
   color: var(--color-fg);
-  height: calc(100dvh - var(--nav-height));
+  height: calc(100dvh - var(--nav-height) - var(--footer-height));
 }

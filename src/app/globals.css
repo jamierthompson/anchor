@@ -217,12 +217,18 @@
 
   /* ---------- Layout chrome ---------- */
   /*
-   * Height of the global top nav. Tokenized so the LogExplorer and
-   * /system ThemeToggle (both of which want to align to the top of
-   * the visible content area, not the viewport) can offset by it
-   * without hard-coding the number.
+   * Heights of the global nav and footer. Tokenized so consumers
+   * that need to fit the visible content area (LogExplorer, sticky
+   * TOC offsets, etc.) can subtract from 100dvh without hard-coding
+   * the numbers — and so any future change to the chrome heights
+   * is one-line.
+   *
+   * Both are 48px for top/bottom symmetry and to give the icon
+   * controls (theme toggle in the nav, GitHub link in the footer)
+   * a comfortable square hit area centered vertically.
    */
   --nav-height: 48px;
+  --footer-height: 48px;
 
   /* ---------- Z-index ---------- */
   /*

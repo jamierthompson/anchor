@@ -11,8 +11,20 @@
   justify-content: space-between;
   gap: var(--space-4);
 
+  /*
+   * Fixed height (matches --nav-height) so the footer's contribution
+   * to the page is predictable. Consumers like LogExplorer subtract
+   * this from 100dvh to size themselves, and a fixed height means
+   * one source of truth instead of an intrinsic height that depends
+   * on which icons / text the footer happens to contain.
+   *
+   * Padding is inline-only — vertical alignment is handled by
+   * align-items: center on the flex container.
+   */
+  height: var(--footer-height);
+  padding-inline: var(--space-6);
+
   border-top: 1px solid var(--color-border);
-  padding: var(--space-3) var(--space-6);
   background: var(--color-bg);
 }
 
