@@ -140,7 +140,7 @@ describe("LogLine — dim styling lives on the inner element", () => {
         line={{
           ...baseLine,
           isDeployBoundary: true,
-          message: "🎉 Deploy live · srv-7tbsm@a3f2c1",
+          message: "Deploy live · srv-7tbsm@a3f2c1",
         }}
         isDimmed
       />,
@@ -155,7 +155,7 @@ describe("LogLine — deploy boundaries", () => {
     ...baseLine,
     id: "log_deploy",
     isDeployBoundary: true,
-    message: "🎉 Deploy live · srv-7tbsm@a3f2c1",
+    message: "Deploy live · srv-7tbsm@a3f2c1",
   };
 
   it("renders deploy boundaries with the separator role", () => {
@@ -166,7 +166,7 @@ describe("LogLine — deploy boundaries", () => {
   it("includes the deploy message text", () => {
     render(<LogLine line={deployLine} />);
     expect(
-      screen.getByText("🎉 Deploy live · srv-7tbsm@a3f2c1"),
+      screen.getByText("Deploy live · srv-7tbsm@a3f2c1"),
     ).toBeInTheDocument();
   });
 

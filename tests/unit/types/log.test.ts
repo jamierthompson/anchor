@@ -42,7 +42,7 @@ describe("LogLine type", () => {
       timestamp: 1714224500000,
       instance: "7tbsm",
       level: "INFO",
-      message: "🎉 Deploy live · srv-7tbsm@a3f2c1",
+      message: "Deploy live · srv-7tbsm@a3f2c1",
       isDeployBoundary: true,
     };
 

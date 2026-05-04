@@ -31,7 +31,7 @@ export type LogLine = {
   readonly requestId?: string;
   readonly level: Level;
   readonly message: string;
-  /** Marks deploy-event lines (the 🎉 dividers), which stay visible regardless of filter. */
+  /** Marks deploy-event lines (the horizontal-rule dividers), which stay visible regardless of filter. */
   readonly isDeployBoundary?: boolean;
 };
 

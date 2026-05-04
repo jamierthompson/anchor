@@ -120,7 +120,7 @@ function buildMockLogs(): readonly LogLine[] {
     info(7, 54, "a3kx2", "Healthcheck OK"),
 
     // ── Phase 2 · Deploy boundary (minute 8) ──────────────────────────
-    deploy(8, 0, "7tbsm", "🎉 Deploy live · srv-7tbsm@a3f2c1"),
+    deploy(8, 0, "7tbsm", "Deploy live · srv-7tbsm@a3f2c1"),
     info(8, 4, "7tbsm", "Server listening on port 3000"),
     info(8, 5, "7tbsm", "Cache warmed (1284 keys)"),
     info(8, 9, "a3kx2", "Healthcheck OK"),
@@ -378,7 +378,7 @@ function buildMockLogs(): readonly LogLine[] {
     info(37, 48, "a3kx2", "GET /api/orders/54 200 in 48ms", "c4n7p9"),
 
     // ── Phase 7 · Recovery deploy (minute 38) ─────────────────────────
-    deploy(38, 0, "7tbsm", "🎉 Deploy live · srv-7tbsm@8f4d29 (rollback)"),
+    deploy(38, 0, "7tbsm", "Deploy live · srv-7tbsm@8f4d29 (rollback)"),
     info(38, 5, "7tbsm", "Server listening on port 3000"),
     info(38, 7, "7tbsm", "Cache warmed (1284 keys)"),
     info(38, 12, "a3kx2", "Healthcheck OK"),
