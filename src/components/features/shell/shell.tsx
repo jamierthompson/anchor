@@ -1,6 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
+import { useEffect, useRef } from "react";
 
 import styles from "./shell.module.css";
 
@@ -43,6 +44,34 @@ export function Shell({
 }) {
   const pathname = usePathname();
   const isDemo = pathname === "/demo";
+  const demoScrollerRef = useRef<HTMLDivElement>(null);
+
+  /*
+   * The footer reveal is bidirectional: scroll past the inner log
+   * list's bottom to reveal it, scroll back up in the inner list to
+   * dismiss it. The dismissal half is driven from here — LogExplorer
+   * mirrors its at-bottom flag onto <html data-demo-at-bottom>, and
+   * this observer snaps the scroller back to parked when the flag
+   * goes false. Same one-way DOM-signal pattern as the theme toggle.
+   */
+  useEffect(() => {
+    if (!isDemo) return;
+    const html = document.documentElement;
+    const scroller = demoScrollerRef.current;
+    if (!scroller) return;
+    const handleAttrChange = () => {
+      const atBottom = html.dataset.demoAtBottom === "true";
+      if (!atBottom && scroller.scrollTop > 0) {
+        scroller.scrollTo({ top: 0, behavior: "smooth" });
+      }
+    };
+    const observer = new MutationObserver(handleAttrChange);
+    observer.observe(html, {
+      attributes: true,
+      attributeFilter: ["data-demo-at-bottom"],
+    });
+    return () => observer.disconnect();
+  }, [isDemo]);
 
   if (isDemo) {
     return (
@@ -54,7 +83,7 @@ export function Shell({
          * --footer-height. Mandatory snap means the page settles in
          * one of the two states and never half-reveals the footer.
          */}
-        <div className={styles.demoScroller}>
+        <div ref={demoScrollerRef} className={styles.demoScroller}>
           <div className={styles.demoFold}>{children}</div>
           {footer}
         </div>

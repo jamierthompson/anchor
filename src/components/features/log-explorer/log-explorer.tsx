@@ -464,6 +464,28 @@ export function LogExplorer({
   }, [unreadCount, isAtBottom]);
 
   /**
+   * Mirror at-bottom state to <html data-demo-at-bottom> so the Shell
+   * can read it without a React context bridge. Same one-way DOM-
+   * signal pattern as the theme toggle. The Shell's /demo branch
+   * uses this to snap its footer-reveal scroller back to parked when
+   * the user scrolls up away from the tail.
+   */
+  useEffect(() => {
+    const v = viewportRef.current;
+    if (!v) return;
+    const html = document.documentElement;
+    const update = () => {
+      html.dataset.demoAtBottom = isAtBottom() ? "true" : "false";
+    };
+    update();
+    v.addEventListener("scroll", update, { passive: true });
+    return () => {
+      v.removeEventListener("scroll", update);
+      delete html.dataset.demoAtBottom;
+    };
+  }, [isAtBottom]);
+
+  /**
    * Pill click handler — smooth-scroll to bottom + reset count.
    * Uses native `scrollTo({ behavior: "smooth" })` rather than the
    * rAF compensation loop because this is a USER-initiated jump
