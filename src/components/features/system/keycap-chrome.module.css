@@ -63,9 +63,6 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 5px;
   border-radius: var(--radius-1);
   color: var(--color-fg);
   font-family: var(--font-mono);
@@ -75,14 +72,21 @@
   box-shadow: var(--shadow-keycap);
 }
 
-/* Legend cap: 10px on top of --color-bg-elevated. */
+/* Legend cap: 18×18 / 10px on --color-bg-elevated. */
 .capLegend {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
   font-size: var(--font-size-1);
   background: var(--gradient-keycap), var(--color-bg-elevated);
 }
 
-/* Sheet cap: 11px on top of --color-bg. */
+/* Sheet cap: 22×22 / 11px on --color-bg — a structural size step
+   above the legend cap, so the two surfaces read as different ranks. */
 .capSheet {
+  min-width: 22px;
+  height: 22px;
+  padding: 0 7px;
   font-size: var(--font-size-2);
   background: var(--gradient-keycap), var(--color-bg);
 }

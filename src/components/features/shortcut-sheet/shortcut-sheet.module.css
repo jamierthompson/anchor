@@ -99,26 +99,19 @@
   animation: contentExit 140ms var(--ease-standard) forwards;
 }
 
+/*
+ * Opacity-only motion — no slide. The panel's resting
+ * transform: translate(-50%, -50%) is its centering offset and stays
+ * applied throughout because these keyframes don't override transform.
+ */
 @keyframes contentEnter {
-  from {
-    opacity: 0;
-    transform: translate(-50%, calc(-50% + 8px));
-  }
-  to {
-    opacity: 1;
-    transform: translate(-50%, -50%);
-  }
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
 @keyframes contentExit {
-  from {
-    opacity: 1;
-    transform: translate(-50%, -50%);
-  }
-  to {
-    opacity: 0;
-    transform: translate(-50%, calc(-50% + 4px));
-  }
+  from { opacity: 1; }
+  to   { opacity: 0; }
 }
 
 .title {
@@ -263,9 +256,9 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 5px;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 7px;
   border-radius: var(--radius-1);
   /* Gradient overlay sits on top of --color-bg so the cap lifts
      off the sheet's elevated surface. Legend uses --color-bg-elevated

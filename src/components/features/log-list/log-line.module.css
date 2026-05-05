@@ -12,19 +12,14 @@
 
 .line {
   display: grid;
-  /*
-   * Three columns: time / instance pill / message + request id.
-   * The action row that used to absolute-position over the right
-   * edge is gone — the line itself is the click target now, with
-   * the anchor icon moved to the left gutter on selected lines.
-   */
+  /* Three columns: time / instance / message + request id. */
   grid-template-columns: auto auto 1fr;
   align-items: baseline;
   gap: var(--space-3);
   padding: var(--space-1) var(--space-4);
   font-family: var(--font-mono);
   font-size: var(--font-size-4);
-  line-height: 1.5;
+  line-height: var(--line-height-base);
 }
 
 /*
@@ -85,6 +80,14 @@
 .message {
   color: var(--color-fg);
   word-break: break-word;
+}
+
+/*
+ * DEBUG message text drops to muted so DEBUG lines read as ambient
+ * noise rather than primary content.
+ */
+.line[data-level="DEBUG"] > .message {
+  color: var(--color-fg-muted);
 }
 
 .levelWARN {
