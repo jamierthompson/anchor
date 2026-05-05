@@ -1,21 +1,14 @@
 /*
- * Theme toggle — icon-only sun/moon buttons that sit on the right
- * edge of the global nav. The pair is rendered as a `role="group"`
- * with an aria-label so screen readers announce them as a single
- * "Theme" control containing two pressable options.
+ * Theme toggle — single icon button on the right edge of the global
+ * nav. The icon swaps to reflect the current mode (Sun in light,
+ * Moon in dark); clicking flips to the opposite. The aria-label is
+ * dynamic so screen readers announce the action that pressing will
+ * perform, not the current state.
  *
  * Visual treatment is deliberately quiet — the toggle is supporting
- * chrome, not a primary action. Inactive icon sits at fg-muted; the
- * active option (announced via aria-pressed) lifts to fg, matching
- * the active-link treatment in the nav itself. Hover lifts to fg
- * for both buttons so the affordance reads on cursor sweep.
+ * chrome, not a primary action. Icon sits at fg-muted; hover lifts
+ * to fg.
  */
-
-.group {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-}
 
 .button {
   display: inline-flex;
@@ -40,10 +33,6 @@
 }
 
 .button:hover {
-  color: var(--color-fg);
-}
-
-.button[aria-pressed="true"] {
   color: var(--color-fg);
 }
 

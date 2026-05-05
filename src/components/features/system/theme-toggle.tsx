@@ -77,27 +77,20 @@ function applyTheme(next: Theme) {
 
 export function ThemeToggle() {
   const theme = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  const isLight = theme === "light";
 
   return (
-    <div className={styles.group} role="group" aria-label="Theme">
-      <button
-        type="button"
-        className={styles.button}
-        aria-label="Switch to light theme"
-        aria-pressed={theme === "light"}
-        onClick={() => applyTheme("light")}
-      >
+    <button
+      type="button"
+      className={styles.button}
+      aria-label={isLight ? "Switch to dark theme" : "Switch to light theme"}
+      onClick={() => applyTheme(isLight ? "dark" : "light")}
+    >
+      {isLight ? (
         <Sun aria-hidden="true" className={styles.icon} />
-      </button>
-      <button
-        type="button"
-        className={styles.button}
-        aria-label="Switch to dark theme"
-        aria-pressed={theme === "dark"}
-        onClick={() => applyTheme("dark")}
-      >
+      ) : (
         <Moon aria-hidden="true" className={styles.icon} />
-      </button>
-    </div>
+      )}
+    </button>
   );
 }
