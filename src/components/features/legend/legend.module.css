@@ -52,7 +52,7 @@
   background: transparent;
   font-family: var(--font-sans);
   cursor: default;
-  transition: background var(--duration-fast) var(--ease-standard);
+  transition: transform var(--duration-fast) var(--ease-standard);
   /*
    * Plays on mount. The parent bumps `pulseKey` on each successful
    * action (e.g. shift+e expansion) which forces React to remount
@@ -83,8 +83,17 @@ button.entry {
   cursor: pointer;
 }
 
+/*
+ * Hover lift — entry row translates 1px up; the keycap inside picks
+ * up the heavier shadow recipe. Reads as "ready to fire": the cap
+ * looks deeper-pressed without changing color or background.
+ */
 button.entry:hover {
-  background: var(--color-bg-elevated);
+  transform: translateY(-1px);
+}
+
+button.entry:hover .cap {
+  box-shadow: var(--shadow-keycap-hover);
 }
 
 button.entry:focus-visible {
@@ -138,6 +147,7 @@ button.entry:focus-visible {
   line-height: 1;
   letter-spacing: 0;
   box-shadow: var(--shadow-keycap);
+  transition: box-shadow var(--duration-fast) var(--ease-standard);
 }
 
 /*

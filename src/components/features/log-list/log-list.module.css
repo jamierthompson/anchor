@@ -129,6 +129,12 @@
   display: block;
   margin: 0;
   list-style: none;
+  /*
+   * Reserve the scrollbar lane on the right so the sticky boundary's
+   * background doesn't paint over the Radix overlay scrollbar. 10px
+   * matches .scrollbar's width above.
+   */
+  padding-right: 10px;
 }
 
 /*
@@ -300,32 +306,17 @@
 }
 
 /*
- * The selected line — the anchor of an open View Context window —
- * carries an accent-colored left border (spec §4). Distinct visually
- * from the focused-line outline (below) — selected and focused are
- * separate states.
- */
-.item[data-selected="true"] {
-  border-left-color: var(--color-accent);
-}
-
-/*
- * The focused line carries a subtle outline (spec §7). This is the
- * keyboard-nav cursor — moves with j/k/ArrowDown/ArrowUp/g/G/[/].
- * Distinct from selected (left-border accent) and dimmed (opacity).
+ * Focused and selected share the same 4px left-border slot. The
+ * selected rule comes second so accent wins when both attributes are
+ * true on the same row.
  *
- * Inset outline (negative offset) so it sits *inside* the line's
- * bounding box rather than overflowing the row's visual edge — the
- * .inner has overflow: hidden for the height-collapse, which would
- * clip a positive-offset outline.
- *
- * Color is the muted foreground — distinct enough to read as a focus
- * ring but quieter than the accent (which belongs to selection). The
- * ring sits over both selected and unselected lines; if a focused line
- * is also selected, you see the left-border accent + the inset outline
- * together.
+ * Focused = the keyboard-nav cursor (j/k/g/G/[/]); selected = the
+ * anchor of an open View Context window.
  */
 .item[data-focused="true"] {
-  outline: 1px solid var(--color-fg-muted);
-  outline-offset: -1px;
+  border-left-color: var(--color-fg-muted);
+}
+
+.item[data-selected="true"] {
+  border-left-color: var(--color-accent);
 }

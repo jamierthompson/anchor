@@ -67,6 +67,18 @@ export function KeycapChrome() {
           <dd className={styles.tokenDescription}>
             5-layer recipe — inset rim highlight, inset concavity,
             translucent edge, hard-bottom shadow, soft drop shadow.
+            Has a light-theme variant with quieter alphas so shadows
+            don&apos;t muddy on white surfaces.
+          </dd>
+        </div>
+        <div className={styles.tokenRow}>
+          <dt>
+            <code className={styles.tokenName}>--shadow-keycap-hover</code>
+          </dt>
+          <dd className={styles.tokenDescription}>
+            Hover variant — heavier drop, deeper inset. Paired with
+            the legend entry&apos;s translateY(-1px) lift to sell a
+            &ldquo;ready to fire&rdquo; press without changing color.
           </dd>
         </div>
         <div className={styles.tokenRow}>
@@ -75,7 +87,8 @@ export function KeycapChrome() {
           </dt>
           <dd className={styles.tokenDescription}>
             3-stop top-to-bottom highlight overlay — sells the cap as
-            facing up under ambient light.
+            facing up under ambient light. Has a light-theme variant
+            that flips to a soft top tint on white.
           </dd>
         </div>
       </dl>
