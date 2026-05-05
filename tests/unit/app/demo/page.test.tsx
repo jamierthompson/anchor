@@ -14,6 +14,10 @@ import { mockLogs } from "@/lib/mock-logs";
 describe("/demo page", () => {
   it("renders the LogList with every mock fixture line", () => {
     const { container } = render(<Demo />);
-    expect(container.querySelectorAll("li")).toHaveLength(mockLogs.length);
+    // Filter to log-line <li>s — date-boundary wrappers carry no
+    // data-line-id and are excluded from the per-line count.
+    expect(container.querySelectorAll("li[data-line-id]")).toHaveLength(
+      mockLogs.length,
+    );
   });
 });

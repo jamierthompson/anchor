@@ -108,6 +108,30 @@
 }
 
 /*
+ * Wrapper for <DateBoundary /> elements. Carries the sticky behavior
+ * itself (rather than the inner div) because sticky pins within the
+ * element's containing block — the inner div's containing block would
+ * be this <li>, which is only as tall as the boundary itself, leaving
+ * no room to pin. With sticky on the <li>, the containing block is
+ * the <ul> (the full scroll content height), which is what the day
+ * label actually wants to travel within.
+ *
+ * z-index keeps the boundary above non-sticky log lines that pass
+ * underneath while it's pinned.
+ *
+ * display: block opts out of `list-item` so a marker bullet doesn't
+ * appear when sticky positioning is engaged.
+ */
+.dateBoundaryItem {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: block;
+  margin: 0;
+  list-style: none;
+}
+
+/*
  * Each row uses the grid-template-rows trick for height interpolation:
  * the <li> is a 1-row grid whose track flips between `1fr` (visible,
  * track resolves to content height) and `0fr` (hidden, track resolves
@@ -207,7 +231,8 @@
 [data-transition-mode="slow"] .item {
   transition:
     border-left-color var(--duration-base) var(--ease-standard),
-    grid-template-rows var(--duration-slow) var(--ease-standard) var(--duration-base);
+    grid-template-rows var(--duration-slow) var(--ease-standard)
+      var(--duration-base);
 }
 [data-transition-mode="slow"] .item > .inner {
   transition: opacity var(--duration-base) var(--ease-standard);

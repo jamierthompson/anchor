@@ -42,7 +42,7 @@ const sampleLines: DerivedLogLine[] = [
 describe("LogList", () => {
   it("renders one item per line passed in", () => {
     const { container } = render(<LogList lines={sampleLines} />);
-    expect(container.querySelectorAll("li")).toHaveLength(sampleLines.length);
+    expect(container.querySelectorAll("li[data-line-id]")).toHaveLength(sampleLines.length);
   });
 
   it("renders the lines' content (regular and deploy)", () => {
@@ -58,7 +58,7 @@ describe("LogList", () => {
 
   it("preserves order when rendering", () => {
     const { container } = render(<LogList lines={sampleLines} />);
-    const items = Array.from(container.querySelectorAll("li"));
+    const items = Array.from(container.querySelectorAll("li[data-line-id]"));
     expect(items[0].textContent).toContain("Server listening on port 3000");
     expect(items[1].textContent).toContain("Cache miss rate elevated");
     expect(items[2].textContent).toContain("Deploy live");
@@ -66,7 +66,7 @@ describe("LogList", () => {
 
   it("renders an empty list when given no lines", () => {
     const { container } = render(<LogList lines={[]} />);
-    expect(container.querySelectorAll("li")).toHaveLength(0);
+    expect(container.querySelectorAll("li[data-line-id]")).toHaveLength(0);
     // The container element itself should still exist.
     expect(container.querySelector("ul")).not.toBeNull();
   });
@@ -80,7 +80,7 @@ describe("LogList", () => {
       derive(line, { isVisible: index !== 1 }),
     );
     const { container } = render(<LogList lines={lines} />);
-    const items = Array.from(container.querySelectorAll("li"));
+    const items = Array.from(container.querySelectorAll("li[data-line-id]"));
     expect(items).toHaveLength(3);
     expect(items[0].getAttribute("data-visible")).toBe("true");
     expect(items[1].getAttribute("data-visible")).toBe("false");
@@ -92,7 +92,7 @@ describe("LogList", () => {
     // `[data-line-id="${id}"]` to read the selected line's bounding
     // rect — the attribute presence is a load-bearing invariant.
     const { container } = render(<LogList lines={sampleLines} />);
-    const items = Array.from(container.querySelectorAll("li"));
+    const items = Array.from(container.querySelectorAll("li[data-line-id]"));
     sampleLines.forEach((line, index) => {
       expect(items[index].getAttribute("data-line-id")).toBe(line.id);
     });
@@ -104,7 +104,7 @@ describe("LogList", () => {
       derive(sampleLines[1]),
     ];
     const { container } = render(<LogList lines={lines} />);
-    const items = Array.from(container.querySelectorAll("li"));
+    const items = Array.from(container.querySelectorAll("li[data-line-id]"));
     expect(items[0].getAttribute("data-dimmed")).toBe("true");
     expect(items[1].getAttribute("data-dimmed")).toBe("false");
   });
@@ -123,7 +123,7 @@ describe("LogList", () => {
         selectedContextLineIds={selectedContextLineIds}
       />,
     );
-    const items = Array.from(container.querySelectorAll("li"));
+    const items = Array.from(container.querySelectorAll("li[data-line-id]"));
     expect(items[0].getAttribute("data-selected")).toBe("true");
     expect(items[1].getAttribute("data-selected")).toBe("true");
     expect(items[2].getAttribute("data-selected")).toBe("false");

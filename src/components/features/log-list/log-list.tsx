@@ -5,8 +5,20 @@ import type { KeyboardEvent as ReactKeyboardEvent, Ref } from "react";
 
 import type { DerivedLogLine } from "@/types/log";
 
+import { DateBoundary } from "./date-boundary";
 import { LogListItem } from "./log-list-item";
 import styles from "./log-list.module.css";
+
+/*
+ * UTC date key for a timestamp ("YYYY-MM-DD", just a string the
+ * date-transition walk compares for equality). UTC so the rendered
+ * boundary aligns with the deterministic UTC times the rest of the
+ * fixture uses.
+ */
+function getUtcDateKey(timestamp: number): string {
+  const d = new Date(timestamp);
+  return `${d.getUTCFullYear()}-${d.getUTCMonth()}-${d.getUTCDate()}`;
+}
 
 /**
  * DOM id prefix for each <li>. The <ul> uses
@@ -144,33 +156,51 @@ export function LogList({
           data-transition-mode={transitionMode}
           onKeyDown={onKeyDown}
         >
-          {lines.map((line) => {
-            // Per-row primitives derived from the (potentially-fresh-
-            // every-render) Set references. Computing them here means
-            // LogListItem receives stable boolean props and the
-            // React.memo wrapping it actually bites on the cases where
-            // it can — e.g., a tail tick that doesn't change THIS row's
-            // data.
-            const isSelected = selectedContextLineIds?.has(line.id) ?? false;
-            const isFocused = line.id === focusedLineId;
-            const isStreamed = streamedLineIds?.has(line.id) ?? false;
-            // §3 gate for the View/Hide context toggle action.
-            const canToggleContext =
-              hasAnyFilter && line.isVisible && !line.isDimmed;
-            return (
-              <LogListItem
-                key={line.id}
-                line={line}
-                domId={lineDomId(line.id)}
-                isStreamed={isStreamed}
-                isSelected={isSelected}
-                isFocused={isFocused}
-                canToggleContext={canToggleContext}
-                onLineFocus={onLineFocus}
-                onToggleContext={onToggleContext}
-              />
-            );
-          })}
+          {(() => {
+            // Walk the lines and interleave a <DateBoundary> before the
+            // first line of each calendar day. The boundary is wrapped
+            // in an <li role="presentation"> so the listbox semantics
+            // (Tab + aria-activedescendant on visible lines) stay
+            // intact while the markup remains valid <ul>/<li>.
+            let lastDateKey: string | null = null;
+            const items: React.ReactNode[] = [];
+            for (const line of lines) {
+              const dateKey = getUtcDateKey(line.timestamp);
+              if (dateKey !== lastDateKey) {
+                items.push(
+                  <li
+                    key={`date_${dateKey}`}
+                    role="presentation"
+                    className={styles.dateBoundaryItem}
+                  >
+                    <DateBoundary timestamp={line.timestamp} />
+                  </li>,
+                );
+                lastDateKey = dateKey;
+              }
+              const isSelected =
+                selectedContextLineIds?.has(line.id) ?? false;
+              const isFocused = line.id === focusedLineId;
+              const isStreamed = streamedLineIds?.has(line.id) ?? false;
+              // §3 gate for the View/Hide context toggle action.
+              const canToggleContext =
+                hasAnyFilter && line.isVisible && !line.isDimmed;
+              items.push(
+                <LogListItem
+                  key={line.id}
+                  line={line}
+                  domId={lineDomId(line.id)}
+                  isStreamed={isStreamed}
+                  isSelected={isSelected}
+                  isFocused={isFocused}
+                  canToggleContext={canToggleContext}
+                  onLineFocus={onLineFocus}
+                  onToggleContext={onToggleContext}
+                />,
+              );
+            }
+            return items;
+          })()}
         </ul>
       </ScrollArea.Viewport>
       <ScrollArea.Scrollbar
