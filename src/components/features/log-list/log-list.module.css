@@ -130,8 +130,9 @@
   margin: 0;
   list-style: none;
   /*
-   * Reserve the scrollbar lane on the right so the sticky boundary's
-   * background doesn't paint over the Radix overlay scrollbar. 10px
+   * Reserve the scrollbar lane on the right. The Radix scrollbar
+   * spans the full viewport height, so a full-width sticky element
+   * — pinned or at rest — overlaps it on the right edge. 10px
    * matches .scrollbar's width above.
    */
   padding-right: 10px;
