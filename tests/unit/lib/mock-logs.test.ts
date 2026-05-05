@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   INSTANCES,
   MOCK_START_MS,
+  PREAMBLE_START_MS,
   REQUEST_IDS,
   liveTailSeed,
   mockLogs,
@@ -24,11 +25,17 @@ describe("mockLogs — volume and timing", () => {
     expect(mockLogs.length).toBeLessThanOrEqual(450);
   });
 
-  it("spans roughly one hour from MOCK_START_MS", () => {
+  it("starts with a prior-day preamble before MOCK_START_MS", () => {
     const first = mockLogs[0];
-    const last = mockLogs[mockLogs.length - 1];
-    expect(first.timestamp).toBeGreaterThanOrEqual(MOCK_START_MS);
-    const spanMinutes = (last.timestamp - first.timestamp) / 60_000;
+    expect(first.timestamp).toBeGreaterThanOrEqual(PREAMBLE_START_MS);
+    expect(first.timestamp).toBeLessThan(MOCK_START_MS);
+  });
+
+  it("the main story arc (lines from MOCK_START_MS onward) spans roughly one hour", () => {
+    const arc = mockLogs.filter((l) => l.timestamp >= MOCK_START_MS);
+    expect(arc.length).toBeGreaterThan(0);
+    const spanMinutes =
+      (arc[arc.length - 1].timestamp - arc[0].timestamp) / 60_000;
     expect(spanMinutes).toBeGreaterThan(55);
     expect(spanMinutes).toBeLessThan(65);
   });

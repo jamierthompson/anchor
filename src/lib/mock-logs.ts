@@ -42,11 +42,22 @@ export type RequestId = keyof typeof REQUEST_IDS;
  * don't leak to module scope. Result is frozen via `as const`-style usage
  * at the export site below.
  */
+/*
+ * Anchor for the previous calendar day's preamble. Set to 23:00 UTC
+ * the day before MOCK_START_MS so a small chunk of "yesterday's tail"
+ * activity sits on the prior date. Gives the sticky date boundary
+ * something to transition between without disturbing the main arc.
+ */
+export const PREAMBLE_START_MS = MOCK_START_MS - 14 * 60 * 60_000;
+
 function buildMockLogs(): readonly LogLine[] {
   let nextIdNum = 0;
   const id = (): string => `log_${String(++nextIdNum).padStart(4, "0")}`;
   const t = (min: number, sec: number): number =>
     MOCK_START_MS + min * 60_000 + sec * 1_000;
+  /* Same shape as t() but anchored to the preamble's prior-day origin. */
+  const pre = (min: number, sec: number): number =>
+    PREAMBLE_START_MS + min * 60_000 + sec * 1_000;
 
   type Builder = (
     min: number,
@@ -66,10 +77,23 @@ function buildMockLogs(): readonly LogLine[] {
       ...(requestId ? { requestId } : {}),
     });
 
+  /* Preamble builder — same signature, prior-day anchor. */
+  const lvlPre = (level: LogLine["level"]): Builder =>
+    (min, sec, instance, message, requestId) => ({
+      id: id(),
+      timestamp: pre(min, sec),
+      instance,
+      level,
+      message,
+      ...(requestId ? { requestId } : {}),
+    });
+
   const info = lvl("INFO");
   const warn = lvl("WARN");
   const err = lvl("ERROR");
   const dbg = lvl("DEBUG");
+  const infoPre = lvlPre("INFO");
+  const dbgPre = lvlPre("DEBUG");
   const deploy = (
     min: number,
     sec: number,
@@ -85,6 +109,24 @@ function buildMockLogs(): readonly LogLine[] {
   });
 
   return [
+    // ── Phase 0 · Yesterday's tail (prior calendar day, ~23:00–23:55) ─
+    // Anchored to PREAMBLE_START_MS (14h before MOCK_START_MS) via the
+    // pre()/infoPre() builders so these timestamps land on the prior
+    // date in UTC. The main story arc begins fresh at MOCK_START_MS.
+    infoPre(0, 4, "a3kx2", "Heartbeat sent"),
+    infoPre(0, 22, "7tbsm", "Healthcheck OK"),
+    infoPre(7, 7, "m9p4r", "Heartbeat sent"),
+    dbgPre(7, 38, "7tbsm", "Connection pool: 4/20 active"),
+    infoPre(14, 12, "a3kx2", "Healthcheck OK"),
+    infoPre(14, 41, "m9p4r", "Background job 'session-cleanup' completed in 44ms"),
+    infoPre(22, 19, "7tbsm", "Heartbeat sent"),
+    infoPre(22, 47, "a3kx2", "Metrics flushed (count=21)"),
+    infoPre(31, 23, "m9p4r", "Healthcheck OK"),
+    infoPre(31, 51, "7tbsm", "Heartbeat sent"),
+    infoPre(40, 28, "a3kx2", "Heartbeat sent"),
+    dbgPre(40, 54, "m9p4r", "GC paused 11ms"),
+    infoPre(50, 31, "7tbsm", "Healthcheck OK"),
+
     // ── Phase 1 · Quiet baseline (minutes 0–8) ────────────────────────
     info(0, 2, "7tbsm", "Server listening on port 3000"),
     info(0, 3, "a3kx2", "Server listening on port 3000"),

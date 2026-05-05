@@ -1,0 +1,25 @@
+.dateBoundary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+
+  background: var(--color-bg);
+  font-family: var(--font-mono);
+}
+
+.rule {
+  flex: 1;
+  height: 1px;
+  background: var(--color-border);
+}
+
+.text {
+  color: var(--color-fg-muted);
+  font-size: var(--font-size-1);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
