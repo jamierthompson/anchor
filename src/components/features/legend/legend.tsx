@@ -19,10 +19,11 @@ import styles from "./legend.module.css";
  * keycap is still active.
  *
  * `onClick` is optional. When present, the entry is rendered as a
- * `<button>` (mouse-clickable to fire the action — currently used by
- * the `?` entry to open the shortcut sheet without a separate FAB).
- * When absent, the entry is rendered as a `<div>` — purely a visual
- * hint for a keyboard shortcut.
+ * `<button>` (mouse-clickable to fire the action — used by the `?`
+ * entry to open the shortcut sheet, and by the `E` / `Shift+E` /
+ * `Esc` entries to fire their respective handlers). When absent,
+ * the entry is rendered as a `<div>` — purely a visual hint for a
+ * keyboard shortcut.
  */
 export type LegendItem = {
   /** Sequence of cap labels (e.g. `["Shift", "E"]`). Omit for label-only entries. */

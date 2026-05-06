@@ -192,9 +192,9 @@ describe("liveTailSeed — streaming continuation of the story arc", () => {
   });
 
   it("includes at least one cluster of close-together lines (a burst)", () => {
-    // Spec §10.2 calls for "bursts of activity, quiet periods" — make
-    // sure the curated cadence actually has at least one cluster of
-    // ≤500ms gaps in a row, not all-uniform timing.
+    // The curated cadence should be "bursts of activity, quiet
+    // periods" — make sure it actually contains at least one cluster
+    // of ≤500ms gaps in a row, not all-uniform timing.
     const hasBurst = liveTailSeed.some(
       (entry, i, arr) =>
         i >= 2 &&

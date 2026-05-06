@@ -442,8 +442,8 @@ export function LogExplorer({
 
   /**
    * Reset the unread count when the user organically scrolls to the
-   * bottom of the list (without clicking the pill). Catches the case
-   * where the user manually drags the scrollbar to bottom — pill
+   * bottom of the list (without clicking the strip). Catches the case
+   * where the user manually drags the scrollbar to bottom — the strip
    * should disappear, count should reset.
    */
   useEffect(() => {

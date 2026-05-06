@@ -26,20 +26,20 @@
  * Dim opacity targets the line's *content* children (time, instance,
  * message) rather than the line root. CSS opacity composes
  * multiplicatively, so dimming the .line root would also dim any
- * descendant — including the hover-revealed .actionRow buttons,
- * which would read as disabled. By keeping the dim on individual
- * content children, the action row sits at full opacity and reads as
- * "interactive on a context-revealed line."
+ * descendant — keeping the dim on individual content children leaves
+ * room for future row-level chrome (selection accents, hover states)
+ * to sit at full opacity even on a dimmed row.
  *
- * Composition with Motion's visibility opacity on the parent <li>:
+ * Composition with the parent <li>'s visibility opacity:
  *
  *   visible + undimmed → 1 × 1   = 1     (children at full opacity)
  *   visible + dimmed   → 1 × 0.4 = 0.4   (children dimmed; row at 1)
  *   hidden  + dimmed   → 0 × 0.4 = 0     (everything fades with li)
  *
- * The dim/undim transition is the spec's "fast" duration (~120ms) —
- * just an opacity tween. The parent <li>'s opacity is owned by Motion
- * and isn't affected by these rules.
+ * The dim/undim transition runs at the "fast" duration (~120ms) —
+ * just an opacity tween. The parent <li>'s opacity is driven by the
+ * .inner-element transition in log-list.module.css and is independent
+ * of these rules.
  */
 .line > time,
 .line > .instance,

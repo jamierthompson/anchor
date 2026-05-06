@@ -126,9 +126,9 @@ describe("LogExplorer — View Context toggle (click-to-expand)", () => {
   });
 
   it("clicking a different matched line opens an additional context — both stay selected", () => {
-    // Multi-context support (§14 task #6 / spec §4). Two simultaneous
-    // contexts means both anchor lines render the selected accent;
-    // earlier selections are no longer replaced by later ones.
+    // Multi-context support: two simultaneous contexts means both
+    // anchor lines render the selected accent; opening a second
+    // context doesn't replace the first.
     render(<LogExplorer lines={fixture} />);
     applyErrorFilter();
 
@@ -163,7 +163,7 @@ describe("LogExplorer — View Context toggle (click-to-expand)", () => {
     expect(document.querySelector('[data-selected="true"]')).toBeNull();
   });
 
-  it("clicking a line is a no-op for context when no filter is active (spec §3 gate)", () => {
+  it("clicking a line is a no-op for context when no filter is active", () => {
     render(<LogExplorer lines={fixture} />);
 
     fireEvent.click(liFor(/row one error/));
@@ -188,9 +188,9 @@ describe("LogExplorer — View Context toggle (click-to-expand)", () => {
   });
 
   it("clicking a line always moves focus, even when context toggle is gated off", () => {
-    // Plain click: focus moves regardless of whether the §3 gate
-    // would let context expansion happen. With no filter active the
-    // gate is closed but focus still tracks the click.
+    // Plain click: focus moves regardless of whether the
+    // toggle-context gate would let context expansion happen. With no
+    // filter active the gate is closed but focus still tracks the click.
     render(<LogExplorer lines={fixture} />);
 
     fireEvent.click(liFor(/row one error/));
@@ -198,10 +198,10 @@ describe("LogExplorer — View Context toggle (click-to-expand)", () => {
     expect(liFor(/row one error/).getAttribute("data-selected")).toBe("false");
   });
 
-  it("auto-suppresses the accent when the filter clears so the selected line no longer matches (spec §5)", () => {
+  it("auto-suppresses the accent when the filter clears so the selected line no longer matches", () => {
     // Filter changes are atomic at the chip level — clearing the active
     // chip wipes the level filter, so the previously-selected ERROR line
-    // no longer satisfies the §3 gate and the accent disappears.
+    // no longer satisfies the toggle-context gate and the accent disappears.
     render(<LogExplorer lines={fixture} />);
     applyErrorFilter();
 
@@ -214,7 +214,7 @@ describe("LogExplorer — View Context toggle (click-to-expand)", () => {
   });
 
   it("hides the accent when all filters are removed, restores it when a matching filter is re-added", () => {
-    // Spec §3 gates the View Context affordance on at least one filter
+    // The View Context affordance is gated on at least one filter
     // being active. With no filter active the accent shouldn't render,
     // but the saved selection stays in state so re-applying any filter
     // that the line matches brings the selection back in place.
@@ -232,7 +232,7 @@ describe("LogExplorer — View Context toggle (click-to-expand)", () => {
   });
 });
 
-describe("LogExplorer — keyboard focus model (spec §7)", () => {
+describe("LogExplorer — keyboard focus model", () => {
   /**
    * Helper: get the <ul> listbox for keyboard event dispatch. Each
    * test focuses this element before sending keypresses so the
@@ -325,7 +325,7 @@ describe("LogExplorer — keyboard focus model (spec §7)", () => {
     expect(liFor(/row three error/).getAttribute("data-focused")).toBe("true");
   });
 
-  it("hops to the nearest visible line when a filter change hides the focused one (spec §7)", () => {
+  it("hops to the nearest visible line when a filter change hides the focused one", () => {
     // Focus l2 (WARN), then apply an ERROR filter that hides l2. The
     // focus persistence rule should jump focus to the nearest visible
     // line — l3 (next-below) wins over l1 (above) because the rule
@@ -433,13 +433,13 @@ describe("LogExplorer — e toggles context on the focused line", () => {
 
     // After the context opens, the previously-hidden lines (l0, l2, l4)
     // are revealed dimmed within the window. j navigates by visibility,
-    // so it walks l1 → l2 → l3. Two presses to reach l3 (also a §3-
-    // matched ERROR line, so e on it is allowed).
+    // so it walks l1 → l2 → l3. Two presses to reach l3 (also a
+    // filter-matched ERROR line, so e on it is allowed).
     await user.keyboard("j");
     await user.keyboard("j");
     await user.keyboard("e");
 
-    // Both contexts active simultaneously per the §4 multi-context rule.
+    // Both contexts active simultaneously — multi-context model.
     expect(liFor(/row one error/).getAttribute("data-selected")).toBe("true");
     expect(liFor(/row three error/).getAttribute("data-selected")).toBe("true");
   });
@@ -456,7 +456,7 @@ describe("LogExplorer — e toggles context on the focused line", () => {
     expect(document.querySelector('[data-selected="true"]')).toBeNull();
   });
 
-  it("is a no-op when no filter is active — spec §3 gate", async () => {
+  it("is a no-op when no filter is active — toggle-context gate is closed", async () => {
     const user = userEvent.setup();
     render(<LogExplorer lines={fixture} />);
     listbox().focus();
@@ -467,7 +467,7 @@ describe("LogExplorer — e toggles context on the focused line", () => {
     expect(liFor(/row zero info/).getAttribute("data-selected")).toBe("false");
   });
 
-  it("is a no-op on a dimmed (context-revealed only) line — spec §3 gate", async () => {
+  it("is a no-op on a dimmed (context-revealed only) line — toggle-context gate refuses it", async () => {
     const user = userEvent.setup();
     render(<LogExplorer lines={fixture} />);
     applyErrorFilter();
@@ -482,8 +482,9 @@ describe("LogExplorer — e toggles context on the focused line", () => {
     fireEvent.click(liFor(/row zero info/));
     await user.keyboard("e");
 
-    // The dimmed line did not become a new context anchor — the §3 gate
-    // refuses it (a dimmed line is "context-only," not filter-matched).
+    // The dimmed line did not become a new context anchor — the
+    // toggle-context gate refuses it (a dimmed line is "context-only,"
+    // not filter-matched).
     expect(liFor(/row zero info/).getAttribute("data-selected")).toBe("false");
     // And the original context on l1 remains untouched.
     expect(liFor(/row one error/).getAttribute("data-selected")).toBe("true");
@@ -593,7 +594,8 @@ describe("LogExplorer — contextual legend (top-right toolbar)", () => {
     render(<LogExplorer lines={fixture} />);
     expect(legendText()).toContain("?");
     expect(legendText()).toMatch(/for all shortcuts/i);
-    // And it's clickable — replaces the old FAB.
+    // And it's clickable — the legend entry is the mouse path to the
+    // shortcut sheet.
     expect(
       screen.getByRole("button", { name: /Open keyboard shortcuts/ }),
     ).toBeInTheDocument();
@@ -691,7 +693,7 @@ describe("LogExplorer — contextual legend (top-right toolbar)", () => {
     expect(document.querySelector('li[data-selected="true"]')).toBeNull();
     // Esc / Shift+E entries are gone; only the focused-line E binding
     // is still applicable (the line stays focused after closing and
-    // still passes the §3 gate as a filter-matched ERROR).
+    // still passes the toggle-context gate as a filter-matched ERROR).
     expect(legendText()).not.toMatch(/close/i);
     expect(legendText()).not.toMatch(/expand context/i);
     expect(legendText()).toMatch(/view context/i);
@@ -784,7 +786,7 @@ describe("LogExplorer — contextual legend (top-right toolbar)", () => {
 });
 
 describe("LogExplorer — global shortcuts (Esc and ?)", () => {
-  it("Esc clears all open contexts (spec §7 precedence)", async () => {
+  it("Esc clears all open contexts", async () => {
     const user = userEvent.setup();
     render(<LogExplorer lines={fixture} />);
     applyErrorFilter();
@@ -869,7 +871,7 @@ describe("LogExplorer — line-row affordances (gutter anchor + clickable rows)"
     ).toBeNull();
   });
 
-  it("rows where the §3 gate passes are marked clickable (cursor + hover hint)", () => {
+  it("rows where the toggle-context gate passes are marked clickable (cursor + hover hint)", () => {
     render(<LogExplorer lines={fixture} />);
     applyErrorFilter();
 
@@ -877,7 +879,7 @@ describe("LogExplorer — line-row affordances (gutter anchor + clickable rows)"
     expect(liFor(/row one error/).getAttribute("data-clickable")).toBe("true");
   });
 
-  it("rows where the §3 gate fails are NOT marked clickable (no cursor / hover hint)", () => {
+  it("rows where the toggle-context gate fails are NOT marked clickable (no cursor / hover hint)", () => {
     // No filter active — no line meets the gate. Click still moves
     // focus, but the affordance shouldn't lie about being expandable.
     render(<LogExplorer lines={fixture} />);
@@ -895,7 +897,7 @@ describe("LogExplorer — line-row affordances (gutter anchor + clickable rows)"
   });
 });
 
-describe("LogExplorer — ? opens the shortcut sheet (spec §9.7)", () => {
+describe("LogExplorer — ? opens the shortcut sheet", () => {
   it("opens the sheet when ? is pressed from anywhere on the page", () => {
     render(<LogExplorer lines={fixture} />);
     expect(screen.queryByText("Keyboard Shortcuts")).not.toBeInTheDocument();
@@ -949,7 +951,7 @@ describe("LogExplorer — ? opens the shortcut sheet (spec §9.7)", () => {
     expect(liFor(/row one error/).getAttribute("data-selected")).toBe("true");
   });
 
-  it("clicking the legend's ? entry opens the sheet (mouse path replaces the old FAB)", async () => {
+  it("clicking the legend's ? entry opens the sheet", async () => {
     const user = userEvent.setup();
     render(<LogExplorer lines={fixture} />);
 
@@ -985,9 +987,8 @@ describe("LogExplorer — ? opens the shortcut sheet (spec §9.7)", () => {
 describe("LogExplorer — deploy-boundary navigation ([ / ])", () => {
   /**
    * Fixture with two deploy boundaries so [ and ] have somewhere to
-   * land — the spec §5 rule is that boundaries are always visible
-   * regardless of filter, so they're the natural anchor for cross-
-   * deploy navigation.
+   * land — boundaries are always visible regardless of filter, so
+   * they're the natural anchor for cross-deploy navigation.
    */
   const boundaryFixture: LogLine[] = [
     { id: "b0", timestamp: T(0), instance: "i1", level: "INFO", message: "before first deploy" },

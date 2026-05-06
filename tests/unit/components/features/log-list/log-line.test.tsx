@@ -110,10 +110,10 @@ describe("LogLine — regular lines", () => {
 
 describe("LogLine — dim styling lives on the inner element", () => {
   it("carries data-dimmed='true' on the inner line element when isDimmed is set", () => {
-    // Dim opacity composes with Motion's visibility opacity on the
-    // parent <li>. The attribute on the inner element is what the CSS
-    // rule keys off — moving it to the outer wrapper would let Motion's
-    // inline opacity override the dimmed value.
+    // Dim opacity composes with the parent <li>'s visibility opacity.
+    // The attribute on the inner element is what the CSS rule keys
+    // off — moving it to the outer wrapper would let the row's
+    // visibility opacity override the dimmed value.
     const { container } = render(<LogLine line={baseLine} isDimmed />);
     const inner = container.querySelector("[data-level]");
     expect(inner?.getAttribute("data-dimmed")).toBe("true");
@@ -134,7 +134,7 @@ describe("LogLine — dim styling lives on the inner element", () => {
     expect(inner?.getAttribute("data-selected")).toBe("true");
   });
 
-  it("deploy boundaries do not carry data-dimmed (always undimmed per spec §5)", () => {
+  it("deploy boundaries do not carry data-dimmed (always undimmed)", () => {
     const { container } = render(
       <LogLine
         line={{

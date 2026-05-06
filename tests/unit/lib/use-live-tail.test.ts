@@ -7,10 +7,10 @@ import type { LogLine } from "@/types/log";
 
 /**
  * Pure-hook coverage for the live-tail streaming engine. The
- * integration with LogExplorer + Motion-driven mount animations is
- * exercised end-to-end in browser; these tests pin the engine's
- * cadence and state contract so regressions show up in the unit
- * suite.
+ * integration with LogExplorer + the CSS @starting-style mount
+ * animation is exercised end-to-end in the browser; these tests
+ * pin the engine's cadence and state contract so regressions show
+ * up in the unit suite.
  *
  * `vi.useFakeTimers()` lets us advance setTimeout's clock
  * deterministically. Without it, each `delayMs` would actually delay
@@ -116,9 +116,9 @@ describe("useLiveTail", () => {
   });
 
   it("freshIds grows monotonically — entries don't get removed after streaming", () => {
-    // Mount-time animation only matters on first mount of each
-    // motion.li, so we don't need to clean up. The test pins this
-    // invariant: once an id is in freshIds, it stays.
+    // Mount-time animation only matters the first time a row is
+    // inserted into the DOM, so we don't need to clean up. The test
+    // pins this invariant: once an id is in freshIds, it stays.
     const { result } = renderHook(() => useLiveTail(initialFixture, seed));
     act(() => {
       vi.runAllTimers();
