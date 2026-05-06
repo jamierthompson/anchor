@@ -31,23 +31,23 @@ type LogLineProps = {
   isVisible?: boolean;
   /**
    * Drives the dim opacity. Lives on the inner element (this component's
-   * root) so it composes cleanly with the visibility opacity that Motion
-   * applies to the parent <li> during expand/collapse — see
+   * root) so it composes cleanly with the visibility opacity applied
+   * to the parent <li> during expand/collapse — see
    * log-list.module.css for the composition rationale.
    */
   isDimmed?: boolean;
   /**
    * Whether this line is currently anchoring an open View Context
    * window. The matching <li> carries `data-selected="true"` to drive
-   * the left-border accent and the gutter anchor icon.
+   * the left-border accent.
    */
   isSelected?: boolean;
   /**
-   * Whether the §3 gate (filter active + filter-matched + not dimmed)
-   * passes for this line. Surfaced on the inner element so the CSS
-   * can drive a "this line is clickable to expand context" hint
-   * (cursor + hover bg) without LogLine needing to know FilterState
-   * shape.
+   * Whether the toggle-context gate (filter active + filter-matched +
+   * not dimmed) passes for this line. Surfaced on the inner element
+   * so the CSS can drive a "this line is clickable to expand context"
+   * hint (cursor + hover bg) without LogLine needing to know
+   * FilterState shape.
    */
   canToggleContext?: boolean;
   /** Currently unused inside LogLine — click is handled at the <li>. */
@@ -84,8 +84,8 @@ export function LogLine({
 }: LogLineProps) {
   if (line.isDeployBoundary) {
     // Deploy boundaries don't participate in View Context — they're
-    // global section markers (spec §5), not anchorable rows. They also
-    // never dim, so they don't carry a data-dimmed attribute.
+    // global section markers, not anchorable rows. They also never
+    // dim, so they don't carry a data-dimmed attribute.
     return (
       <div className={styles.deployBoundary} role="separator">
         <span className={styles.deployRule} aria-hidden="true" />

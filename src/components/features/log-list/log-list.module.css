@@ -1,10 +1,10 @@
 /*
  * Layout for the sequence of log lines.
  *
- * Wrapped in Radix Scroll Area (spec §6.1) so the viewport is a
- * stable, refable element the anchor mechanics can read/write
- * scrollTop on. The custom scrollbar also gives consistent visuals
- * across browsers without relying on platform defaults.
+ * Wrapped in Radix Scroll Area so the viewport is a stable, refable
+ * element the anchor mechanics can read/write scrollTop on. The
+ * custom scrollbar also gives consistent visuals across browsers
+ * without relying on platform defaults.
  *
  * The .list <ul> resets default unordered-list styling — log lines
  * convey sequence and identity, but we don't want bullet markers or
@@ -161,10 +161,11 @@
   margin: 0;
   border-left: 4px solid transparent;
   /*
-   * Border-color transitions on selected-state changes (spec §6
-   * "Selected line's left border fades out"). Lives on the .item
-   * because data-selected sits here; doesn't compete with the
-   * grid-template-rows transition (different property).
+   * Border-color transitions on selected-state changes — the
+   * selected line's left-border accent fades out as the user closes
+   * the context. Lives on the .item because data-selected sits here;
+   * doesn't compete with the grid-template-rows transition (different
+   * property).
    *
    * The hover-bg transition for clickable rows lives here too so
    * pointer-in/out fades smoothly into the surface treatment.
@@ -227,7 +228,7 @@
  *     state — i.e., the collapse timing (opacity fades immediately,
  *     height delays 150ms before collapsing).
  *
- * Spec §6 choreography:
+ * Choreography:
  *   Expand (height first, opacity follows ~75ms in):
  *     grid-template-rows  200ms  ease         0ms
  *     opacity             150ms  ease        75ms
@@ -267,8 +268,7 @@
 }
 
 /*
- * Streamed-line entrance animation (spec §10.2 — "lines append at
- * the bottom on a realistic cadence"). New tail lines mount with
+ * Streamed-line entrance animation. New tail lines mount with
  * data-streamed="true" and animate from { 0fr, opacity 0 } to their
  * normal visible state. @starting-style sets the initial values that
  * apply only at the moment the element is inserted into the
@@ -276,8 +276,8 @@
  *
  * Initial-fixture lines (data-streamed="false") have no
  * @starting-style, so they mount at their final values without
- * animating — avoids 415 simultaneous mount-time animations on
- * page load.
+ * animating — avoids every fixture line animating simultaneously
+ * on page load.
  */
 .item[data-streamed="true"] {
   @starting-style {

@@ -12,14 +12,14 @@ import styles from "./log-list.module.css";
  * opacity are interpolated by CSS (the grid-template-rows trick; see
  * log-list.module.css for the full rationale).
  *
- * ### Why CSS, not Motion
+ * ### Why CSS for the height/opacity tween
  *
- * Motion ran the height/opacity tween in JS, driven by React's render
- * cycle — and any re-render that touched a `motion.li` could perturb
- * an in-flight tween if Motion saw a new `animate` object identity.
- * Closing a context window while live tail was active reliably
- * produced visible stutter because the callback identities (and
- * therefore the row's prop identities) churned mid-animation.
+ * A JS-driven approach (where each row's animate target is computed
+ * from React props each render) is fragile here: any re-render that
+ * shipped a new animation target could perturb an in-flight tween,
+ * and live-tail ticks happen often enough during a context close
+ * that callback identity churn was reliably producing visible
+ * stutter.
  *
  * CSS transitions are owned by the browser engine. Once a transition
  * starts on a property, no React re-render can affect it. Memoization
@@ -50,15 +50,16 @@ type LogListItemProps = {
    * `data-streamed` on the <li>; the CSS uses `@starting-style` to
    * mount streamed rows at { 0fr, opacity 0 } so they animate in.
    * Initial-fixture rows (data-streamed="false") mount at final
-   * values without animating — avoids 415 simultaneous mount-time
-   * animations on page load.
+   * values without animating — avoids all initial-fixture lines
+   * animating simultaneously on page load.
    */
   isStreamed: boolean;
   isSelected: boolean;
   isFocused: boolean;
   /**
-   * §3 gate for the View/Hide context action. Pre-resolved in LogList
-   * so this row doesn't need FilterState shape.
+   * Gate for the View/Hide context action (filter active +
+   * filter-matched + not dimmed). Pre-resolved in LogList so this
+   * row doesn't need FilterState shape.
    */
   canToggleContext: boolean;
   onLineFocus?: (lineId: string) => void;
@@ -78,16 +79,15 @@ function LogListItemImpl({
   // Plain click on the <li> drives the unified line interaction:
   //   - If the line is currently the anchor of an open context, click
   //     closes that context (matches the keyboard `e` toggle).
-  //   - Else if the §3 gate passes (filter active + filter-matched +
-  //     not dimmed), click opens a context.
+  //   - Else if the toggle-context gate passes (filter active +
+  //     filter-matched + not dimmed), click opens a context.
   //   - Otherwise click only moves focus — the line is still
   //     keyboard-navigable but has no context to anchor.
   //
   // In all cases focus moves to the clicked line so subsequent
   // keyboard nav (j/k, e, Esc) starts from where the user just was.
-  // Modifier keys are no longer special-cased — cmd/ctrl click went
-  // away with the move from "modifier-only context toggle" to
-  // "click anywhere expands."
+  // Modifier keys (cmd/ctrl/alt) are ignored so platform shortcuts
+  // pass through unaffected.
   const handleClick = (event: ReactMouseEvent<HTMLLIElement>) => {
     if (event.metaKey || event.ctrlKey || event.altKey) return;
     onLineFocus?.(line.id);

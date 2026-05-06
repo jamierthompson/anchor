@@ -40,7 +40,7 @@ const lineDomId = (lineId: string) => `${LINE_DOM_ID_PREFIX}${lineId}`;
  * and `data-visible="true"` (grid-template-rows: 1fr, opacity 1), so
  * DOM identity stays stable across visibility changes.
  *
- * Choreography per spec §6 lives in log-list.module.css. The asymmetric
+ * Choreography lives in log-list.module.css. The asymmetric
  * expand/collapse timing is encoded by attaching different transitions
  * to the two states. Two modes via `data-transition-mode` on this <ul>:
  *
@@ -88,8 +88,8 @@ export function LogList({
   onKeyDown?: (event: ReactKeyboardEvent<HTMLUListElement>) => void;
   /**
    * Set of line ids that are currently anchoring an open context
-   * window. Used to drive the selection accent (left-border + filled
-   * Anchor button) on each row. A Set is enough now that range
+   * window. Used to drive the selection accent (left-border)
+   * on each row. A Set is enough now that range
    * expansion is keyboard-only — no per-line consumer needs the
    * actual ±N value (the legend reads it from the OpenContext array
    * in LogExplorer instead).
@@ -106,17 +106,18 @@ export function LogList({
    * component mount). Drives `data-streamed` on the <li>; the CSS
    * uses `@starting-style` to mount streamed rows from the collapsed
    * state so they animate in. Initial-fixture rows mount at final
-   * values without animating — avoids 415 simultaneous mount-time
-   * animations on page load.
+   * values without animating — avoids every fixture line animating
+   * simultaneously on page load.
    */
   streamedLineIds?: ReadonlySet<string>;
   /**
    * Whether at least one filter is currently active. Combined with
    * the per-line `isDimmed` flag (already on each derived line) this
-   * is enough to decide whether the kebab's "View context" item
-   * should render — the §3 gate is `hasAnyFilter && !isDimmed`.
-   * Lifted to a prop so LogList doesn't need to know FilterState's
-   * shape; LogExplorer pre-computes it once via `hasAnyFilter`.
+   * is enough to decide whether a row participates in the click-to-
+   * toggle context interaction — the gate is
+   * `hasAnyFilter && isVisible && !isDimmed`. Lifted to a prop so
+   * LogList doesn't need to know FilterState's shape; LogExplorer
+   * pre-computes it once via `hasAnyFilter`.
    */
   hasAnyFilter?: boolean;
   /**
@@ -133,10 +134,7 @@ export function LogList({
 }) {
   return (
     <ScrollArea.Root className={styles.scrollRoot} type="hover">
-      <ScrollArea.Viewport
-        ref={viewportRef}
-        className={styles.scrollViewport}
-      >
+      <ScrollArea.Viewport ref={viewportRef} className={styles.scrollViewport}>
         {/*
           The <ul> is the single Tab stop for keyboard nav. tabIndex={0}
           makes it focusable; role="listbox" + aria-activedescendant
@@ -178,11 +176,10 @@ export function LogList({
                 );
                 lastDateKey = dateKey;
               }
-              const isSelected =
-                selectedContextLineIds?.has(line.id) ?? false;
+              const isSelected = selectedContextLineIds?.has(line.id) ?? false;
               const isFocused = line.id === focusedLineId;
               const isStreamed = streamedLineIds?.has(line.id) ?? false;
-              // §3 gate for the View/Hide context toggle action.
+              // Gate for the View/Hide context toggle action.
               const canToggleContext =
                 hasAnyFilter && line.isVisible && !line.isDimmed;
               items.push(
@@ -203,10 +200,7 @@ export function LogList({
           })()}
         </ul>
       </ScrollArea.Viewport>
-      <ScrollArea.Scrollbar
-        orientation="vertical"
-        className={styles.scrollbar}
-      >
+      <ScrollArea.Scrollbar orientation="vertical" className={styles.scrollbar}>
         <ScrollArea.Thumb className={styles.scrollbarThumb} />
       </ScrollArea.Scrollbar>
       <ScrollArea.Corner className={styles.scrollCorner} />
