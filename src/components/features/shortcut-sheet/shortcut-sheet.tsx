@@ -20,8 +20,7 @@ import styles from "./shortcut-sheet.module.css";
  *
  * **Open / close model**:
  *   - Open via the `?` keyboard shortcut OR by clicking the legend's
- *     `?` entry in the top-right toolbar (see `Legend` in
- *     components/features/legend).
+ *     `?` entry in the top-right toolbar.
  *   - Close via Esc or click-outside — both handled natively by
  *     Radix Dialog. There's no in-modal close affordance: the sheet
  *     itself documents Esc as the dismissal binding, and removing

@@ -13,8 +13,8 @@ import styles from "./chip.module.css";
  * doesn't shift surrounding layout.
  *
  * This is the shared visual primitive used by the theme toggle on
- * /system and (eventually) the scenario chips on /. All extensions
- * (icons, sizing variants) should land here so consumers stay simple.
+ * /system and the scenario chips on /. All extensions (icons, sizing
+ * variants) should land here so consumers stay simple.
  */
 export type ChipProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
   /** Toggled state. Drives both the visual treatment and aria-pressed. */

@@ -54,16 +54,15 @@ export type LegendItem = {
 /**
  * Top-of-page contextual legend for the log explorer.
  *
- * Dual purpose: surfaces the most relevant keyboard shortcut for the
- * current app state (the keycaps document the binding), AND serves
- * as the mouse path for that same action (every entry is a clickable
- * button that fires the same handler the keyboard binding would). A
- * legend that's also the mouse command center.
+ * Dual purpose: surfaces the most relevant keyboard shortcuts for
+ * the current app state (the keycaps document the binding), AND
+ * serves as the mouse path for those same actions (every entry is
+ * a clickable button that fires the same handler the keyboard
+ * binding would). A legend that's also the mouse command center.
  *
- * Single-slot in current usage — LogExplorer passes one item at a
- * time based on app state — but the API takes an array so future
- * surfaces (e.g. a multi-binding cheat strip) drop in without an API
- * change.
+ * Accepts multiple items so the legend can show a small cluster of
+ * relevant bindings concurrently (e.g. Shift+E expand, E hide,
+ * Esc close) when more than one action is meaningful at once.
  *
  * Visual treatment: physical-looking keycaps (matching the shortcut
  * sheet's language) followed by a muted, all-caps label. The keycaps

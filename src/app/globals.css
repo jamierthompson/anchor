@@ -19,14 +19,15 @@
  *
  *   1. By default, the active theme follows the user's OS preference
  *      via `color-scheme: light dark` and the CSS `light-dark()`
- *      function. Most routes (e.g. /) get this behavior automatically.
+ *      function. With no explicit override, every route gets this
+ *      automatically.
  *
- *   2. The /system route opts into manual control by setting
- *      `data-theme="light"` or `data-theme="dark"` on a wrapper
- *      element. That selector switches `color-scheme` to a single
- *      keyword, which forces light-dark() to return the corresponding
- *      arm regardless of OS preference. The toggle UI lives only on
- *      /system; the rest of the app honors the OS preference.
+ *   2. The global theme toggle in the nav writes
+ *      `data-theme="light"` or `data-theme="dark"` to <html>, which
+ *      switches `color-scheme` to a single keyword and forces
+ *      light-dark() to return the corresponding arm app-wide. The
+ *      choice is persisted in localStorage and re-applied before
+ *      hydration to avoid a flash on reload.
  *
  * ─── Color: OKLCH, not hex ───────────────────────────────────────
  *
@@ -77,7 +78,7 @@
 [data-theme] {
   /* Neutrals — chroma 0; OKLCH lets us reason about lightness directly. */
   --color-bg:          light-dark(oklch(1.000 0     0    ), oklch(0.145 0     0    )); /* #ffffff / #0a0a0a */
-  --color-bg-elevated: light-dark(oklch(0.976 0     0    ), oklch(0.187 0     0    )); /* #f7f7f7 / #131313 — filter bar, popovers */
+  --color-bg-elevated: light-dark(oklch(0.976 0     0    ), oklch(0.187 0     0    )); /* #f7f7f7 / #131313 — modals, hover states */
   --color-fg:          light-dark(oklch(0.205 0     0    ), oklch(0.946 0     0    )); /* #171717 / #ededed — body text, 17.93:1 / 16.91:1 AAA */
   --color-fg-muted:    light-dark(oklch(0.465 0     0    ), oklch(0.685 0     0    )); /* #595959 / #9a9a9a — secondary,  7.00:1 / 7.04:1 AAA */
   --color-border:      light-dark(oklch(0.919 0     0    ), oklch(0.285 0     0    )); /* #e4e4e4 / #2a2a2a */
@@ -305,10 +306,10 @@
  *
  * `color-scheme` is the lever. Setting it to `light dark` lets the
  * browser pick the OS-preferred arm of every light-dark() value. The
- * /system route can override that choice by setting `data-theme` on
- * its route wrapper, which pins color-scheme to a single keyword and
- * forces light-dark() to return that arm everywhere inside the
- * wrapper. Outside the wrapper (e.g. on /), the OS preference wins.
+ * global theme toggle overrides that choice by setting `data-theme`
+ * on <html>, which pins color-scheme to a single keyword and forces
+ * light-dark() to return that arm everywhere. With no `data-theme`
+ * set, the OS preference wins.
  *
  * color-scheme also tells the browser which arm to use for native
  * controls (scrollbars, form widgets), so they stay in sync with the
