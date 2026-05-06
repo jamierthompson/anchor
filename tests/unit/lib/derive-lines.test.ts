@@ -6,13 +6,14 @@ import { initialFilterState, type FilterState } from "@/lib/filter-state";
 import type { Level, LogLine } from "@/types/log";
 
 /**
- * Coverage for the unified visibility rule (spec §3).
+ * Coverage for the unified visibility rule.
  *
  * The fixture below is a tiny, hand-crafted set rather than the real mock
  * data so each filter combination has a small, easily-counted expected
- * result. Spec §3 enumerates seven filtered states; each gets a test
- * here, plus the no-filter case, the OR-within-type case, an empty-
- * intersection case, and the deploy-boundary always-visible rule (§5).
+ * result. There are seven filtered states (combinations of the three
+ * facets); each gets a test here, plus the no-filter case, the
+ * OR-within-type case, an empty-intersection case, and the deploy-
+ * boundary always-visible rule.
  *
  * Fixture layout — IDs are deliberately short so the assertions stay
  * readable:
@@ -80,7 +81,7 @@ const dimmedIds = (
     .filter((l) => l.isDimmed)
     .map((l) => l.id);
 
-describe("deriveLines — the seven filtered states (spec §3)", () => {
+describe("deriveLines — the seven filtered states", () => {
   it("with no filters, every line is visible", () => {
     expect(visibleIds(initialFilterState)).toEqual([
       "L1",
@@ -259,7 +260,7 @@ describe("deriveLines — context windows", () => {
     expect(dimmed).toEqual(["L3", "L5"]);
   });
 
-  it("collapses back when the selected line no longer matches the filter (spec §5)", () => {
+  it("collapses back when the selected line no longer matches the filter", () => {
     // Filter WARN — L4 (ERROR) doesn't match. The open context on L4
     // goes dormant: its surrounding lines collapse back to hidden, the
     // selected line itself is hidden by the filter, but the context

@@ -1,37 +1,34 @@
 /**
  * Single source of truth for the keyboard bindings shown in the
- * shortcut sheet (spec §9.7).
+ * shortcuts surface.
  *
- * The handler in `LogExplorer` still does its own case-by-case key
- * detection (see `handleKeyDown` and the document-level effect for
- * `?` / Esc / `/`) — refactoring that to consume this registry is a
- * follow-up task. For now, this file's job is purely to feed the
- * sheet's render. Both surfaces having to be edited together is the
- * cost; the upside is the sheet ships without a risky handler refactor.
+ * The actual key handlers do their own case-by-case key detection;
+ * this file's job is purely to feed the surface's render.
  *
- * **Invariant for editors of this file**: anything that lands here
- * must already be wired in `handleKeyDown` (or the document-level
- * effect). The sheet shouldn't advertise bindings that don't fire.
- * The reverse — bindings that fire but aren't in the sheet — is also
- * a bug; keep this list aligned when adding new bindings.
+ * Anything that lands here must already be wired in a real handler;
+ * the surface shouldn't advertise bindings that don't fire. The
+ * reverse — bindings that fire but aren't listed here — is also a
+ * bug; keep this list aligned when adding new bindings.
+ *
+ * TODO: key handlers do their own detection; consolidating them on
+ * this registry would remove the duplication.
  */
 
 /**
- * One physical key cap to render in the sheet.
+ * One physical key cap to render.
  *
- * `keys` is an array because some bindings are key combinations
- * (`shift+e`) — the sheet renders them as adjacent keycaps with a
- * "+" separator. Single-key bindings have a one-element array.
+ * `keys` is an array because some bindings are key combinations —
+ * the surface renders them as adjacent keycaps joined by "+".
+ * Single-key bindings have a one-element array.
  *
- * `aliases` are EQUIVALENT bindings that produce the same action
- * (`j` and `↓` both move focus next). The sheet renders aliases as
- * a `/` separator to communicate "either of these works" without
- * showing the same description twice. The handler treats the aliases
- * as truly equivalent — neither is preferred.
+ * `aliases` are EQUIVALENT bindings that produce the same action.
+ * They render with a "/" separator to communicate "either of these
+ * works" without showing the same description twice. The handler
+ * treats aliases as truly equivalent — neither is preferred.
  */
 export type KeyCap = {
   /**
-   * Sequential keys for a combination (e.g. ["Shift", "E"]).
+   * Sequential keys for a combination, rendered as adjacent caps.
    */
   keys: readonly string[];
   /**
@@ -59,9 +56,9 @@ export type ShortcutGroup = {
  * (most-likely-used first) and across groups (Navigation first
  * matches user mental model of "how do I move around").
  *
- * Keep aligned with the bindings in:
- *   - LogExplorer.handleKeyDown (listbox-level: j/k/g/G/[/]/e/shift+e)
- *   - LogExplorer's document-level effect (Esc, ?)
+ * Keep aligned with the actual key handlers — every binding listed
+ * here should fire in code, and every binding that fires in code
+ * should be listed here.
  */
 export const KEYBOARD_SHORTCUTS: readonly ShortcutGroup[] = [
   {
@@ -102,7 +99,7 @@ export const KEYBOARD_SHORTCUTS: readonly ShortcutGroup[] = [
       },
       {
         caps: { keys: ["Shift", "E"] },
-        description: "Expand Context (±20 Lines)",
+        description: "Expand Context Window",
       },
     ],
   },

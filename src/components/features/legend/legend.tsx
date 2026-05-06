@@ -3,29 +3,27 @@
 import styles from "./legend.module.css";
 
 /**
- * Single entry in the contextual legend.
+ * Single entry in the contextual hint surface.
  *
- * `keys` is an optional flat sequence of cap labels — `["Shift", "E"]`
- * renders as two adjacent caps with a `+` separator. Aliases (`J / ↓`)
- * are not supported here; the legend's job is to surface the *most
- * relevant* single binding for the current app state, not to document
- * every equivalent. The shortcut sheet covers the full registry.
+ * `keys` is an optional flat sequence of cap labels — a two-element
+ * sequence renders as two adjacent caps with a `+` separator. Aliases
+ * are not supported here; this surface shows the *most relevant*
+ * single binding for the current app state, not every equivalent.
+ * The dedicated shortcuts surface covers the full registry.
  *
- * Omitting `keys` is meaningful — it produces a label-only entry,
- * which we use for "the binding still exists but has nowhere to go
- * from this state" messaging (e.g. shift+e at the file boundary).
- * Hiding the caps for that case is clearer than dimming them; the
- * user's eye lands on the message rather than parsing whether a faded
- * keycap is still active.
+ * Omitting `keys` is meaningful — it produces a label-only entry, used
+ * for "the binding still exists but has nowhere to go from this state"
+ * messaging. Hiding the caps for that case is clearer than dimming
+ * them; the user's eye lands on the message rather than parsing
+ * whether a faded keycap is still active.
  *
  * `onClick` is optional. When present, the entry is rendered as a
- * `<button>` (mouse-clickable to fire the action — currently used by
- * the `?` entry to open the shortcut sheet without a separate FAB).
- * When absent, the entry is rendered as a `<div>` — purely a visual
- * hint for a keyboard shortcut.
+ * `<button>` so mouse activation fires the same action the keyboard
+ * binding would. When absent, the entry is rendered as a `<div>` —
+ * purely a visual hint.
  */
 export type LegendItem = {
-  /** Sequence of cap labels (e.g. `["Shift", "E"]`). Omit for label-only entries. */
+  /** Sequence of cap labels rendered as adjacent keycaps. Omit for label-only entries. */
   keys?: readonly string[];
   /** User-facing description; rendered uppercase + muted. */
   label: string;
@@ -40,34 +38,32 @@ export type LegendItem = {
   ariaLabel?: string;
   /**
    * Bumped by the parent to retrigger this specific entry's mount
-   * animation. The Legend includes pulseKey in the entry's React key,
-   * so a change forces a remount which replays the CSS keyframe.
+   * animation. Included in the entry's React key so a change forces
+   * a remount which replays the CSS keyframe.
    *
-   * Per-item rather than per-Legend so that a multi-item layout
-   * (e.g. [Shift+E, Esc]) can pulse just the one entry whose action
-   * fired — the always-present Esc shouldn't flash every time the
-   * user expands.
+   * Per-item rather than per-surface so that a multi-item layout can
+   * pulse just the one entry whose action fired — entries that didn't
+   * fire shouldn't flash on every press.
    */
   pulseKey?: number;
 };
 
 /**
- * Top-of-page contextual legend for the log explorer.
+ * Top-of-page contextual hint surface for the log explorer.
  *
- * Dual purpose: surfaces the most relevant keyboard shortcut for the
- * current app state (the keycaps document the binding), AND serves
- * as the mouse path for that same action (every entry is a clickable
- * button that fires the same handler the keyboard binding would). A
- * legend that's also the mouse command center.
+ * Dual purpose: surfaces the most relevant keyboard shortcuts for the
+ * current app state (the keycaps document the binding), AND doubles
+ * as the mouse path for those same actions — every entry is a
+ * clickable button that fires the same handler the keyboard binding
+ * would.
  *
- * Single-slot in current usage — LogExplorer passes one item at a
- * time based on app state — but the API takes an array so future
- * surfaces (e.g. a multi-binding cheat strip) drop in without an API
- * change.
+ * Accepts multiple items so a small cluster of relevant bindings can
+ * surface concurrently when more than one action is meaningful at
+ * once.
  *
- * Visual treatment: physical-looking keycaps (matching the shortcut
- * sheet's language) followed by a muted, all-caps label. The keycaps
- * carry meaning; the label is supporting copy.
+ * Visual treatment: physical-looking keycaps followed by a muted,
+ * all-caps label. The keycaps carry meaning; the label is supporting
+ * copy.
  */
 export function Legend({ items }: { items: readonly LegendItem[] }) {
   if (items.length === 0) return null;
@@ -78,7 +74,7 @@ export function Legend({ items }: { items: readonly LegendItem[] }) {
         // Stable per-entry key (label-based) so an entry persists
         // across state changes when its label is unchanged. Adding
         // `pulseKey` to the key forces a remount only for the entry
-        // whose pulseKey just bumped — neighbouring entries stay
+        // whose pulseKey just bumped — neighboring entries stay
         // mounted and don't replay the mount animation.
         <LegendEntry
           key={`${item.label}-${item.pulseKey ?? 0}`}

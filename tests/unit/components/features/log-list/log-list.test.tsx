@@ -74,8 +74,8 @@ describe("LogList", () => {
   it("keeps every line in the DOM regardless of visibility — hiding is animated, not unmounted", () => {
     // The fixed-array commitment: filtering must not unmount lines, so a
     // hidden line still renders as an <li>; only `data-visible="false"`
-    // changes and Motion animates height/opacity to 0. Stable identity
-    // is what makes the animation possible.
+    // changes and the CSS transition animates height/opacity to 0.
+    // Stable identity is what makes the animation possible.
     const lines: DerivedLogLine[] = sampleLines.map((line, index) =>
       derive(line, { isVisible: index !== 1 }),
     );

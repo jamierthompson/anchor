@@ -1,10 +1,10 @@
 /*
  * Layout for the sequence of log lines.
  *
- * Wrapped in Radix Scroll Area (spec §6.1) so the viewport is a
- * stable, refable element the anchor mechanics can read/write
- * scrollTop on. The custom scrollbar also gives consistent visuals
- * across browsers without relying on platform defaults.
+ * Wrapped in a custom scroll area so the viewport is a stable, refable
+ * element the anchor mechanics can read/write scrollTop on. The
+ * custom scrollbar also gives consistent visuals across browsers
+ * without relying on platform defaults.
  *
  * The .list <ul> resets default unordered-list styling — log lines
  * convey sequence and identity, but we don't want bullet markers or
@@ -27,22 +27,20 @@
 }
 
 .scrollViewport {
-  /* Radix sets data-radix-scroll-area-viewport on this; we just size it. */
+  /* Sizing only; the scroll-area primitive sets its own data attribute here. */
   width: 100%;
   height: 100%;
 }
 
 /*
- * Hide the viewport until LogExplorer's mount-time useLayoutEffect
- * sets `data-scroll-ready` after pinning scrollTop to the bottom.
+ * Hide the viewport until the parent's mount-time layout effect sets
+ * `data-scroll-ready` after pinning scrollTop to the bottom.
  *
- * Without this, Next.js' SSR'd HTML paints at scrollTop=0 (top of
+ * Without this, server-rendered HTML paints at scrollTop=0 (top of
  * the log list) for a frame or two before JS hydrates and the layout
  * effect runs — the user sees a flash of the wrong scroll position
- * (typically the early lines + a deploy boundary near the bottom of
- * viewport) before snapping to the live-tail bottom. Hiding the
- * viewport in CSS ensures nothing paints until the scroll position
- * is correct.
+ * before snapping to the live-tail bottom. Hiding the viewport in
+ * CSS ensures nothing paints until the scroll position is correct.
  */
 .scrollViewport:not([data-scroll-ready]) {
   visibility: hidden;
@@ -95,13 +93,13 @@
 
 /*
  * The <ul> is the single Tab stop for the keyboard navigation model
- * (aria-activedescendant pattern — see LogExplorer's `focusedLineId`
- * comment). When the user Tabs into the list we'd normally see the
- * browser's default focus ring on the <ul> itself; suppress that, since
- * the per-line outline below is what conveys "where you are." Keep
- * focus-visible navigable for accessibility tooling — outline: none on
- * a tabIndex container is generally fine when a child element carries
- * the visible focus indicator.
+ * (aria-activedescendant pattern). When the user Tabs into the list
+ * we'd normally see the browser's default focus ring on the <ul>
+ * itself; suppress that, since the per-line outline below is what
+ * conveys "where you are." Keep focus-visible navigable for
+ * accessibility tooling — outline: none on a tabIndex container is
+ * generally fine when a child element carries the visible focus
+ * indicator.
  */
 .list:focus {
   outline: none;
@@ -130,10 +128,10 @@
   margin: 0;
   list-style: none;
   /*
-   * Reserve the scrollbar lane on the right. The Radix scrollbar
+   * Reserve the scrollbar lane on the right. The custom scrollbar
    * spans the full viewport height, so a full-width sticky element
-   * — pinned or at rest — overlaps it on the right edge. 10px
-   * matches .scrollbar's width above.
+   * — pinned or at rest — would otherwise overlap it. The reserved
+   * width matches the scrollbar's width above.
    */
   padding-right: 10px;
 }
@@ -146,10 +144,9 @@
  * so it clips cleanly when the track collapses.
  *
  * Why this trick over `height: 0 ↔ auto`:
- *   - `height: auto` can't be transitioned in CSS without the modern
- *     `interpolate-size: allow-keywords` (Chrome 129+/Safari 17.4+,
- *     no Firefox yet). The grid-fr interpolation has wider support
- *     (Chrome 109+, Safari 17.4+, Firefox 130+).
+ *   - `height: auto` can't be transitioned in CSS without
+ *     `interpolate-size: allow-keywords`, which has narrower browser
+ *     support than the grid-fr-track interpolation used here.
  *   - The browser engine owns the interpolation entirely — no JS
  *     measurement step, no main-thread tween, no animation engine
  *     state machine that React re-renders can perturb. Fixes the
@@ -161,10 +158,11 @@
   margin: 0;
   border-left: 4px solid transparent;
   /*
-   * Border-color transitions on selected-state changes (spec §6
-   * "Selected line's left border fades out"). Lives on the .item
-   * because data-selected sits here; doesn't compete with the
-   * grid-template-rows transition (different property).
+   * Border-color transitions on selected-state changes — the
+   * selected line's left-border accent fades out as the user closes
+   * the context. Lives on the .item because data-selected sits here;
+   * doesn't compete with the grid-template-rows transition (different
+   * property).
    *
    * The hover-bg transition for clickable rows lives here too so
    * pointer-in/out fades smoothly into the surface treatment.
@@ -220,20 +218,16 @@
  *
  *   - "Visible direction" (becoming visible): the rule on
  *     [data-visible="true"] describes the transitions that fire when
- *     the row REACHES this state — i.e., the expand timing (height
- *     starts immediately, opacity fades in 75ms later).
+ *     the row REACHES this state — height starts immediately, opacity
+ *     fades in shortly after.
  *   - "Hidden direction" (becoming hidden): the base .item rule
  *     describes the transitions that fire when the row REACHES this
- *     state — i.e., the collapse timing (opacity fades immediately,
- *     height delays 150ms before collapsing).
+ *     state — opacity fades immediately, height delays before
+ *     collapsing.
  *
- * Spec §6 choreography:
- *   Expand (height first, opacity follows ~75ms in):
- *     grid-template-rows  200ms  ease         0ms
- *     opacity             150ms  ease        75ms
- *   Collapse (opacity first, height follows ~150ms in):
- *     opacity             150ms  ease         0ms
- *     grid-template-rows  200ms  ease       150ms
+ * Durations live in tokens (--duration-base, --duration-slow); the
+ * one literal here is the small offset that delays the opacity fade
+ * after height has started committing on the expand path.
  */
 [data-transition-mode="slow"] .item {
   transition:
@@ -267,17 +261,15 @@
 }
 
 /*
- * Streamed-line entrance animation (spec §10.2 — "lines append at
- * the bottom on a realistic cadence"). New tail lines mount with
- * data-streamed="true" and animate from { 0fr, opacity 0 } to their
- * normal visible state. @starting-style sets the initial values that
- * apply only at the moment the element is inserted into the
- * document — the next style recalc transitions to the target.
+ * Streamed-line entrance animation. New tail lines mount with
+ * data-streamed="true" and animate from the collapsed state to their
+ * normal visible state. The starting-state rule applies only at the
+ * moment the element is inserted into the document — the next style
+ * recalc transitions to the target.
  *
- * Initial-fixture lines (data-streamed="false") have no
- * @starting-style, so they mount at their final values without
- * animating — avoids 415 simultaneous mount-time animations on
- * page load.
+ * Initial-fixture lines (data-streamed="false") have no starting-
+ * state rule, so they mount at their final values without animating
+ * — avoids every fixture line animating simultaneously on page load.
  */
 .item[data-streamed="true"] {
   @starting-style {
@@ -292,9 +284,9 @@
 
 /*
  * Honor OS-level prefers-reduced-motion. CSS does this for free —
- * no MotionConfig, no JS bridge — by zeroing the relevant durations.
- * The final state still resolves correctly because the property
- * values themselves don't change, only their transition timing.
+ * no JS bridge — by zeroing the relevant durations. The final state
+ * still resolves correctly because the property values themselves
+ * don't change, only their transition timing.
  */
 @media (--reduced-motion) {
   .item,
@@ -308,11 +300,11 @@
 
 /*
  * Focused and selected share the same 4px left-border slot. The
- * selected rule comes second so accent wins when both attributes are
- * true on the same row.
+ * selected rule comes second so the accent wins when both attributes
+ * are true on the same row.
  *
- * Focused = the keyboard-nav cursor (j/k/g/G/[/]); selected = the
- * anchor of an open View Context window.
+ * Focused = the keyboard-nav cursor; selected = the anchor of an
+ * open View Context window.
  */
 .item[data-focused="true"] {
   border-left-color: var(--color-fg-muted);

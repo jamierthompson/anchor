@@ -17,10 +17,16 @@ import styles from "./color-swatches.module.css";
  *      no JS needed for the actual color rendering.
  *   2. The OKLCH value and contrast ratio shown next to each sample
  *      are *strings* and need to swap when the theme changes. This
- *      component subscribes to both the /system wrapper's data-theme
- *      attribute (via MutationObserver) and prefers-color-scheme
- *      (via matchMedia) so the text re-renders in lockstep with the
- *      visual on every theme change.
+ *      component subscribes to a wrapper element's `data-theme`
+ *      attribute (via MutationObserver) and `prefers-color-scheme`
+ *      (via matchMedia) so the text re-renders in lockstep with
+ *      the visual on every theme change.
+ *
+ * NOTE: the wrapper element this component looks for (id =
+ * `WRAPPER_ID`) isn't currently present in the rendered tree. The
+ * MutationObserver branch silently no-ops; readings fall back to
+ * `prefers-color-scheme` only. Theme changes from the global toggle
+ * (which writes `data-theme` to <html>) aren't observed here.
  */
 
 type Theme = "light" | "dark";
@@ -50,7 +56,7 @@ const NEUTRALS: Swatch[] = [
   },
   {
     token: "--color-bg-elevated",
-    description: "Elevated surfaces — filter bar, popovers, cards",
+    description: "Elevated surfaces — modals, hover states, cards",
     light: { oklch: "oklch(0.976 0 0)" },
     dark: { oklch: "oklch(0.187 0 0)" },
   },
@@ -100,10 +106,11 @@ const ROLES: Swatch[] = [
 const WRAPPER_ID = "system-root";
 
 /*
- * Active-theme resolution. If the /system wrapper has an explicit
- * data-theme set (from the toggle), that wins. Otherwise we fall
- * back to the OS preference via prefers-color-scheme — matching the
- * CSS that drives the actual visual rendering.
+ * Active-theme resolution. If the wrapper element has an explicit
+ * data-theme set, that wins. Otherwise we fall back to the OS
+ * preference via prefers-color-scheme — matching the CSS that drives
+ * the actual visual rendering. (See the file docblock — the wrapper
+ * isn't currently rendered, so the explicit branch never fires today.)
  */
 function getActiveTheme(): Theme {
   const wrapper = document.getElementById(WRAPPER_ID);
@@ -116,13 +123,12 @@ function getActiveTheme(): Theme {
 
 /*
  * Subscribe to both inputs that can change the active theme:
- *   - data-theme on the /system wrapper (changed by ThemeToggle)
+ *   - data-theme on the wrapper element (when present)
  *   - prefers-color-scheme media query (changed by the OS)
  *
- * We don't need to coordinate with ThemeToggle's internal listeners
- * — observing the wrapper attribute directly via MutationObserver
- * means this component reacts to any source that mutates the
- * attribute, including future ones.
+ * Observing the wrapper attribute directly via MutationObserver means
+ * this component reacts to any source that mutates that attribute
+ * without needing to coordinate with the writer.
  */
 function subscribe(callback: () => void) {
   const media = window.matchMedia("(prefers-color-scheme: light)");

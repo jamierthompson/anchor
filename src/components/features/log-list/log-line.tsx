@@ -5,20 +5,14 @@ import styles from "./log-line.module.css";
 /**
  * Static renderer for a single log line.
  *
- * Two render shapes:
- *   - Deploy-boundary lines render as a centered horizontal rule with
- *     the deploy text inline. They have no time / instance / message
- *     columns and stay visible regardless of filter.
- *   - Regular lines render as a three-column grid: time, instance pill,
- *     message. WARN and ERROR levels are prefixed with a colored level
- *     word; INFO and DEBUG use the default text color. Request IDs
- *     append as a small badge at the end of the message column.
+ * Two render shapes: deploy-boundary lines as a separator-style row
+ * that stays visible regardless of filter, and regular lines as
+ * structured time / instance / message content with optional level
+ * and request-id metadata.
  *
- * Per-line elements (instance pill, level badge, request id badge) are
- * non-interactive — filtering is applied via the scenario-chips bar
- * above the list. The line itself is a single click-target — the parent
- * <li> handles the click (focus + optional context toggle); see
- * LogListItem.
+ * The line itself is a single click target — the parent <li> handles
+ * the click (focus + optional context toggle). Nothing inside this
+ * component is interactive.
  */
 
 type LogLineProps = {
@@ -30,27 +24,26 @@ type LogLineProps = {
    */
   isVisible?: boolean;
   /**
-   * Drives the dim opacity. Lives on the inner element (this component's
-   * root) so it composes cleanly with the visibility opacity that Motion
-   * applies to the parent <li> during expand/collapse — see
-   * log-list.module.css for the composition rationale.
+   * Drives the dim opacity. Lives on the inner element so it composes
+   * multiplicatively with the visibility opacity applied to the parent
+   * <li> during expand/collapse.
    */
   isDimmed?: boolean;
   /**
    * Whether this line is currently anchoring an open View Context
    * window. The matching <li> carries `data-selected="true"` to drive
-   * the left-border accent and the gutter anchor icon.
+   * the left-border accent.
    */
   isSelected?: boolean;
   /**
-   * Whether the §3 gate (filter active + filter-matched + not dimmed)
-   * passes for this line. Surfaced on the inner element so the CSS
-   * can drive a "this line is clickable to expand context" hint
-   * (cursor + hover bg) without LogLine needing to know FilterState
-   * shape.
+   * Whether the toggle-context gate (filter active + filter-matched +
+   * not dimmed) passes for this line. Surfaced on the inner element
+   * so the CSS can drive an affordance without this component needing
+   * to know the filter state's shape.
    */
   canToggleContext?: boolean;
-  /** Currently unused inside LogLine — click is handled at the <li>. */
+  // TODO: prop is unused — click handling moved to the parent <li>;
+  // remove this and update call sites to stop passing it.
   onToggleContext?: (lineId: string) => void;
 };
 
@@ -68,8 +61,7 @@ const LEVEL_PREFIX_CLASS: Record<"WARN" | "ERROR", string> = {
 
 function formatTime(timestamp: number): string {
   // UTC formatting keeps the rendered output deterministic across test
-  // environments and locales. Real-product time-zone handling is a later
-  // concern (see the time-format toggle in the spec).
+  // environments and locales.
   const d = new Date(timestamp);
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(
@@ -84,8 +76,8 @@ export function LogLine({
 }: LogLineProps) {
   if (line.isDeployBoundary) {
     // Deploy boundaries don't participate in View Context — they're
-    // global section markers (spec §5), not anchorable rows. They also
-    // never dim, so they don't carry a data-dimmed attribute.
+    // global section markers, not anchorable rows. They also never
+    // dim, so they don't carry the dimmed attribute.
     return (
       <div className={styles.deployBoundary} role="separator">
         <span className={styles.deployRule} aria-hidden="true" />

@@ -14,32 +14,22 @@ import styles from "./shortcut-sheet.module.css";
  * Modal overlay listing every keyboard binding.
  *
  * Renders as physical-looking key caps grouped by function rather
- * than a generic table. Styling lives in the sibling .module.css and
+ * than a generic table. Styling lives in the sibling stylesheet and
  * uses stacked shadows + a top-light gradient on each cap to read as
  * dimensional without being kitsch.
  *
- * **Open / close model**:
- *   - Open via the `?` keyboard shortcut OR by clicking the legend's
- *     `?` entry in the top-right toolbar (see `Legend` in
- *     components/features/legend).
- *   - Close via Esc or click-outside — both handled natively by
- *     Radix Dialog. There's no in-modal close affordance: the sheet
- *     itself documents Esc as the dismissal binding, and removing
- *     the X reduces visual clutter inside an already help-dense
- *     surface.
+ * Open is controlled by the parent — the keyboard binding needs to
+ * flip state from outside the dialog tree. Dismissal (Esc / click-
+ * outside) is owned by the dialog primitive, which preventDefaults
+ * so document-level Esc handling sees the event as already consumed
+ * and doesn't double-fire as "clear contexts." There's no in-modal
+ * close affordance: this surface documents Esc as the dismissal
+ * binding, and removing the X reduces clutter inside an already
+ * help-dense surface.
  *
- * Open state is OWNED by LogExplorer (controlled). The keyboard
- * shortcut needs to flip state from outside the dialog tree, so a
- * Radix-internal uncontrolled `Trigger` won't cut it.
- *
- * Esc precedence cascade — sheet open is step #1. Radix
- * Dialog calls preventDefault when handling Esc internally, which
- * makes our document-level Esc handler's `event.defaultPrevented`
- * bail out, so contexts don't get cleared as a side effect.
- *
- * The `?` keyboard binding does NOT toggle (close-when-already-open).
- * Open-only matches the user's mental model for help affordances and
- * keeps Esc as the one consistent close.
+ * The activation binding is open-only (not a toggle). Matches the
+ * mental model for help affordances and keeps Esc as the one
+ * consistent close.
  */
 export function ShortcutSheet({
   open,
@@ -83,10 +73,10 @@ export function ShortcutSheet({
 }
 
 /**
- * Renders one shortcut's keycap sequence + any aliases. A single
- * binding (`E`) renders as one cap; a combo (`Shift + E`) renders
- * as two caps with a "+" separator; aliases render as a "/"
- * separator between two cap sequences (`J / ↓`).
+ * Renders one shortcut's keycap sequence plus any aliases. A single-
+ * key binding renders as one cap; a combo renders as adjacent caps
+ * with a "+" separator; aliases render with a "/" separator between
+ * cap sequences.
  */
 function KeyCapDisplay({ caps }: { caps: KeyCapType }) {
   const sequences: readonly (readonly string[])[] = [
