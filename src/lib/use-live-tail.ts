@@ -11,8 +11,8 @@ import type { LogLine } from "@/types/log";
  * `delayMs`. Returns the live array (initial + emitted-so-far) plus
  * the count of newly-streamed-since-mount lines.
  *
- * Spec §10.2 — "Lines append at the bottom on a realistic cadence
- * (variable intervals — bursts of activity, quiet periods)."
+ * Lines append at the bottom on a hand-tuned cadence — bursts of
+ * activity separated by quiet periods, modelling realistic traffic.
  *
  * ### Why a hook (vs inline in LogExplorer)
  *

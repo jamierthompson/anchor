@@ -1,17 +1,16 @@
 /**
  * Single source of truth for the keyboard bindings shown in the
- * shortcut sheet (spec §9.7).
+ * shortcut sheet.
  *
- * The handler in `LogExplorer` still does its own case-by-case key
- * detection (see `handleKeyDown` and the document-level effect for
- * `?` / Esc) — refactoring that to consume this registry is a
- * follow-up task. For now, this file's job is purely to feed the
- * sheet's render.
+ * The actual key handlers live elsewhere and do their own case-by-
+ * case key detection — refactoring those to consume this registry is
+ * a follow-up. For now, this file's job is purely to feed the sheet's
+ * render.
  *
- * Anything that lands here must already be wired in `handleKeyDown`
- * (or the document-level effect). The sheet shouldn't advertise bindings that don't fire.
- * The reverse — bindings that fire but aren't in the sheet — is also
- * a bug; keep this list aligned when adding new bindings.
+ * Anything that lands here must already be wired in a real handler;
+ * the sheet shouldn't advertise bindings that don't fire. The reverse —
+ * bindings that fire but aren't in the sheet — is also a bug; keep
+ * this list aligned when adding new bindings.
  */
 
 /**
@@ -57,9 +56,9 @@ export type ShortcutGroup = {
  * (most-likely-used first) and across groups (Navigation first
  * matches user mental model of "how do I move around").
  *
- * Keep aligned with the bindings in:
- *   - LogExplorer.handleKeyDown (listbox-level: j/k/g/G/[/]/e/shift+e)
- *   - LogExplorer's document-level effect (Esc, ?)
+ * Keep aligned with the actual key handlers — every binding listed
+ * here should fire in code, and every binding that fires in code
+ * should be listed here.
  */
 export const KEYBOARD_SHORTCUTS: readonly ShortcutGroup[] = [
   {

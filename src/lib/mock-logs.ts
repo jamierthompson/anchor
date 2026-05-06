@@ -619,14 +619,13 @@ export type LiveTailSeedEntry = LogLine & {
 };
 
 /**
- * Live-tail simulation seed (spec §10.2 + §9.8). Continues the story
- * arc from where `mockLogs` ends — minutes 60+ pick up the "stable
- * tail" theme: mostly INFO, occasional WARN, healthy traffic with
- * request lifecycles. Timestamps continue from MOCK_START_MS so the
- * story feels coherent if a user inspects line times mid-stream.
+ * Live-tail simulation seed. Continues the story arc from where
+ * `mockLogs` ends — minutes 60+ pick up the "stable tail" theme:
+ * mostly INFO, occasional WARN, healthy traffic with request
+ * lifecycles. Timestamps continue from MOCK_START_MS so the story
+ * feels coherent if a user inspects line times mid-stream.
  *
- * The wall-clock cadence (`delayMs`) is intentionally variable to
- * match the spec's "bursts of activity, quiet periods" guidance:
+ * The wall-clock cadence (`delayMs`) is intentionally variable —
  * tight clusters (~200-400ms) inside imagined request lifecycles,
  * long pauses (~1500-2500ms) between them. Hand-curated, not random,
  * so the streaming feels narratively shaped rather than chaotic.

@@ -27,9 +27,9 @@ import { useCallback, useLayoutEffect, useRef } from "react";
  *
  * It also doubles as a react-compiler escape hatch: the analyzer
  * conservatively flags `useCallback` closures that transitively read
- * refs (e.g. `handleClearFilter` → `dispatchFilter` →
- * `slowModeTimeoutRef.current`). Wrapping in `useStableCallback`
- * hides that call graph behind a stable opaque wrapper.
+ * refs through several layers of indirection. Wrapping in
+ * `useStableCallback` hides that call graph behind a stable opaque
+ * wrapper.
  *
  * ### Tradeoff
  *

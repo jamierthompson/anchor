@@ -12,7 +12,7 @@ export type OpenContext = {
   readonly range: number;
 };
 
-/** Default ±N when activating View Context (spec §4). */
+/** Default ±N when activating View Context. */
 export const DEFAULT_CONTEXT_RANGE = 20;
 
 /**
