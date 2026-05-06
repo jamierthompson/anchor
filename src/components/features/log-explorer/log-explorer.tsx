@@ -40,20 +40,17 @@ import styles from "./log-explorer.module.css";
  * How long the per-frame compensation loop runs after a state change.
  *
  * Longest single-line transition is the collapse path: 150ms opacity
- * + 150ms delay + 200ms height = 350ms. Motion clears its inline
- * `style` props a frame or two after the animation completes, and
- * that settle pass shifts surrounding heights by a sub-pixel amount.
- * 600ms gives ~250ms of grace past the longest transition — covers
- * the settle without leaking uncompensated drift across repeated
- * toggles.
+ * + 150ms delay + 200ms height = 500ms. 600ms gives ~100ms of grace
+ * past the longest transition so we don't leak uncompensated drift
+ * across repeated toggles, and absorbs any sub-pixel settle from the
+ * browser's layout pass after the transition completes.
  */
 const COMPENSATION_DURATION_MS = 600;
 
 /**
  * Tolerance for "the user is at the bottom of the list."
  *
- * Live-tail UIs (Slack, Console.app, kubectl logs --follow) treat
- * "at the bottom" as a sticky state — once you're there, new content
+ * Live-tail UIs treat "at the bottom" as a sticky state — once you're there, new content
  * auto-scrolls into view. Once you scroll up to investigate, the
  * stream freezes for you.
  *
@@ -92,11 +89,10 @@ export function LogExplorer({
   lines: readonly LogLine[];
 }) {
   // Live-tail simulation streams seed entries on a hand-curated
-  // cadence (spec §10.2). `lines` is the combined initial fixture +
-  // streamed-so-far entries; `freshIds` is the set of streamed line
-  // ids, which LogList uses to gate per-line mount-time animation
-  // (animate from height: 0 only for streamed lines, not the
-  // initial fixture).
+  // cadence. `lines` is the combined initial fixture + streamed-so-far
+  // entries; `freshIds` is the set of streamed line ids, which LogList
+  // uses to gate per-line mount-time animation (animate from height: 0
+  // only for streamed lines, not the initial fixture).
   const { lines, freshIds: streamedLineIds } = useLiveTail(
     initialLines,
     liveTailSeed,
@@ -139,7 +135,7 @@ export function LogExplorer({
   //
   // Compared to roving tabindex, this trades native :focus-visible for
   // a manual outline rule, but saves us from juggling .focus() calls
-  // and Tab interception. The <ul> stays a single Tab stop and j/k/g/G
+  // and Tab interception. The <ul> stays a single Tab stop and other keys
   // drive movement within it — the listbox role's idiomatic pattern.
   const [focusedLineId, setFocusedLineId] = useState<string | null>(null);
 
@@ -162,11 +158,10 @@ export function LogExplorer({
   );
   const slowModeTimeoutRef = useRef<number | null>(null);
 
-  // Open state for the shortcut sheet (spec §9.7). Lifted to
-  // LogExplorer so the document-level `?` keyboard handler — which
-  // can't sit inside the Dialog tree — can flip it. Spec §7 says
-  // the sheet doesn't toggle on `?` (open-only); Esc / click-outside
-  // do the closing via Radix Dialog's native behavior.
+  // Open state for the shortcut sheet. Lifted to LogExplorer so the
+  // document-level `?` keyboard handler — which can't sit inside the
+  // Dialog tree — can flip it. The sheet is open-only on `?`; Esc /
+  // click-outside do the closing via Radix Dialog's native behaviour.
   const [sheetOpen, setSheetOpen] = useState(false);
 
   // Counter that increments on every *successful* shift+e press.
@@ -180,7 +175,8 @@ export function LogExplorer({
   // Ref to the Radix Scroll Area viewport. The anchor mechanics below
   // read getBoundingClientRect on a target `<li>` and write scrollTop
   // on this viewport — manual compensation rather than relying on
-  // overflow-anchor, per spec §6.
+  // browser overflow-anchor, which doesn't fire frequently enough
+  // during animated height changes.
   const viewportRef = useRef<HTMLDivElement>(null);
   const rafRef = useRef<number | null>(null);
 
@@ -281,12 +277,12 @@ export function LogExplorer({
 
   /**
    * Per-frame loop that pins scrollTop to the bottom of the list.
-   * Used after a dispatch when the user was at-bottom. As Motion
-   * animates hiding lines toward height: 0 the document `scrollHeight`
-   * shrinks smoothly; setting `scrollTop` to the new max each frame
-   * keeps the user glued to the bottom for the duration. Reads as a
-   * smooth scroll-toward-bottom rather than a snap, because the
-   * scrollHeight change itself is gradual.
+   * Used after a dispatch when the user was at-bottom. As CSS animates
+   * hiding lines toward height: 0 the document `scrollHeight` shrinks
+   * smoothly; setting `scrollTop` to the new max each frame keeps the
+   * user glued to the bottom for the duration. Reads as a smooth
+   * scroll-toward-bottom rather than a snap, because the scrollHeight
+   * change itself is gradual.
    */
   const startStickToBottom = useCallback(() => {
     if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
@@ -301,8 +297,8 @@ export function LogExplorer({
      *
      * Once aborted, subsequent tail-line arrivals see isAtBottom()
      * = false (user is past the 50px tolerance) and route through
-     * unreadCount → the pill — the stick doesn't re-engage until
-     * the user scrolls back to bottom.
+     * unreadCount → the unread strip — the stick doesn't re-engage
+     * until the user scrolls back to bottom.
      *
      * Matches standard live-tail UI behavior.
      */
@@ -338,14 +334,14 @@ export function LogExplorer({
 
   /**
    * Per-frame compensation loop. After a state change, layout is going
-   * to shift over the next ~300ms as Motion animates surrounding line
+   * to shift over the next ~300ms as CSS animates surrounding line
    * heights. Each frame, we re-measure the anchor element's top and
    * adjust scrollTop by the delta — keeping the anchor visually fixed
    * relative to the viewport throughout the animation.
    *
-   * The simple "useLayoutEffect after commit" approach the spec
-   * sketches anchors only the end state; this loop is what makes the
-   * anchor stay fixed *during* the expand/collapse.
+   * A "useLayoutEffect after commit" approach would only anchor the
+   * end state; this loop is what makes the anchor stay fixed *during*
+   * the expand/collapse.
    */
   const startCompensation = useCallback((anchor: AnchorSnapshot) => {
     if (rafRef.current !== null) {
@@ -392,29 +388,29 @@ export function LogExplorer({
   }, []);
 
   /**
-   * Unread count for the "↓ N New" pill. Increments
-   * when a streamed line arrives AND the user is scrolled away from
-   * the bottom. Resets to 0 when:
-   *   - The user clicks the pill (smooth-scrolls to bottom + reset).
+   * Unread count for the inline strip below the list.
+   * Increments when a streamed line arrives AND the user is scrolled
+   * away from the bottom. Resets to 0 when:
+   *   - The user clicks the strip (smooth-scrolls to bottom + reset).
    *   - The user organically scrolls to the bottom of the list (the
    *     scroll-listener effect below detects this).
-   * Filter-hidden streamed lines aren't counted — the pill only
+   * Filter-hidden streamed lines aren't counted — the strip only
    * surfaces lines the user could currently see if they scrolled.
    */
   const [unreadCount, setUnreadCount] = useState(0);
 
   /**
-   * Live-tail line-arrival handler (spec §9.8 / §10.2). Two branches
-   * on every append, gated by whether the user is at the bottom:
+   * Live-tail line-arrival handler. Two branches on every append,
+   * gated by whether the user is at the bottom:
    *
-   *   - At-bottom → kick off `startStickToBottom`. As Motion grows
-   *     the new line's height from 0 → auto, the document grows
+   *   - At-bottom → kick off `startStickToBottom`. As CSS grows the
+   *     new line's height from 0 → auto, the document grows
    *     underneath, and the rAF loop tracks `scrollHeight -
    *     clientHeight` each frame so the user stays glued to the
    *     most-recent line.
-   *   - Scrolled-up → increment `unreadCount` so the pill surfaces.
-   *     The newly-appended line is invisible-below-the-fold; the
-   *     pill is the user's "I'm missing things" signal.
+   *   - Scrolled-up → increment `unreadCount` so the unread strip
+   *     surfaces. The newly-appended line is invisible-below-the-
+   *     fold; the strip is the user's "I'm missing things" signal.
    *
    * useLayoutEffect (not useEffect) so the scroll adjustment commits
    * synchronously before paint — avoids a one-frame flash where the
@@ -483,12 +479,12 @@ export function LogExplorer({
   }, [isAtBottom]);
 
   /**
-   * Pill click handler — smooth-scroll to bottom + reset count.
+   * Unread-strip click handler — smooth-scroll to bottom + reset count.
    * Uses native `scrollTo({ behavior: "smooth" })` rather than the
    * rAF compensation loop because this is a USER-initiated jump
    * (vs. animation tracking). Modern browsers handle smooth scroll
    * via the platform's scroll engine, which composites correctly
-   * with whatever Motion animations are in flight.
+   * with whatever line transitions are in flight.
    */
   const handleScrollToBottom = useCallback(() => {
     const v = viewportRef.current;
@@ -524,9 +520,9 @@ export function LogExplorer({
    * Two scroll behaviors after the dispatch, branched on whether the
    * user is at the bottom of the list (live-tail convention):
    *
-   *   - At-bottom: stick to the bottom. As Motion shrinks hiding
-   *     lines, `startStickToBottom` follows the new max scrollTop
-   *     each frame. The user's view smoothly trails the bottom of
+   *   - At-bottom: stick to the bottom. As CSS shrinks hiding lines,
+   *     `startStickToBottom` follows the new max scrollTop each
+   *     frame. The user's view smoothly trails the bottom of
    *     content. Matches Slack/Console.app/`logs --follow` behavior.
    *
    *   - Scrolled-up: pin a visible line via anchor compensation. The
@@ -650,10 +646,10 @@ export function LogExplorer({
    *
    * The toggled line is the explicit anchor target — the user clicked
    * it, so it should stay fixed on screen while surrounding lines
-   * expand or collapse around it. This is exactly spec §4's anchor-
-   * priority rule ("most recently selected is the scroll anchor"):
-   * each toggle resets `anchorLineId` to the line just acted on, so a
-   * subsequent filter dispatch falls through to the right reference.
+   * expand or collapse around it. The most recently selected context
+   * line is always the scroll anchor: each toggle resets
+   * `anchorLineId` to the line just acted on, so a subsequent filter
+   * dispatch falls through to the right reference.
    */
   const handleToggleContext = useStableCallback((lineId: string) => {
     if (!hasAnyFilter(filterState)) return;
@@ -671,7 +667,7 @@ export function LogExplorer({
 
     // Switch into slow mode for the duration of the slow animation.
     // The longest path is collapse: 150ms opacity + 150ms delay +
-    // 200ms height = 500ms total, with a small Motion settle
+    // 200ms height = 500ms total, with a small layout settle
     // buffer.
     setTransitionMode("slow");
     if (slowModeTimeoutRef.current !== null)
@@ -703,9 +699,9 @@ export function LogExplorer({
    * Grow an open context's range by one fixed step (CONTEXT_RANGE_STEP).
    *
    * Single input path: shift+e keyboard shortcut, retargeted at the
-   * most-recently-opened context (see `handleKeyDown`). The previous
-   * mouse buttons (Expand / Less) and cycle behaviour are gone — see
-   * the line-actions docblock for the rationale.
+   * most-recently-opened context. The keyboard binding is the only
+   * growth path; the click target on a row toggles the context, it
+   * doesn't expand it.
    *
    * Strict semantics: no-op if the line has no open context, and no-op
    * at the file boundary (when the window already covers all lines on
@@ -765,8 +761,8 @@ export function LogExplorer({
   const handleExpandContext = useStableCallback(expandContextRange);
 
   /**
-   * Focus persistence rule (spec §7): the *saved* focus (`focusedLineId`)
-   * is what the user explicitly set; the *effective* focus is what
+   * Focus persistence rule: the *saved* focus (`focusedLineId`) is
+   * what the user explicitly set; the *effective* focus is what
    * actually renders. When the saved line is hidden by a filter change
    * or context collapse, the effective focus hops to the nearest
    * visible line by array-index distance — preferring the next visible
@@ -827,7 +823,7 @@ export function LogExplorer({
    * KeyboardEvents only when the list is focused (Tab into it, or any
    * descendant has focus and the event bubbles up).
    *
-   * Bindings (spec §7):
+   * Bindings:
    *
    *   j / ArrowDown — focus next visible line
    *   k / ArrowUp   — focus previous visible line
@@ -840,8 +836,8 @@ export function LogExplorer({
    * the discoverable default; j/k is the Vim/Linear/Slack power-user
    * convention. g/G follows the Vim/less convention (lowercase = top,
    * shift = bottom). [ and ] jump between deploy boundaries — global
-   * section markers in the log feed (spec §5) that are always visible
-   * regardless of filter.
+   * section markers in the log feed that are always visible regardless
+   * of filter.
    *
    * Visible lines are the navigable set for j/k/g/G; deploy
    * boundaries are their own set for [/]. A hidden line is
@@ -892,7 +888,7 @@ export function LogExplorer({
       }
 
       // Context toggle on the focused line. Reuses the same handler
-      // that powers the click path — same §3 gate (requires a filter
+      // that powers the click path — same gate (requires a filter
       // active, not allowed on dimmed lines), same append/remove
       // semantics, same scroll compensation. The keyboard binding
       // is just a different input path into the same pipeline.
@@ -1030,7 +1026,7 @@ export function LogExplorer({
    * where focus currently is on the page (GitHub / Slack / Linear
    * convention):
    *
-   *   Esc  — clear all open contexts (spec §7 precedence #3)
+   *   Esc  — clear all open contexts (or active filter)
    *   ?    — open the shortcut sheet
    *
    * The listbox-level handler covers in-list bindings (j/k/g/G/[/]/e/
@@ -1156,9 +1152,9 @@ export function LogExplorer({
       effectiveFocusedLineId !== null &&
       openContexts.some((c) => c.selectedLineId === effectiveFocusedLineId);
 
-    // Recompute the §3 gate on the focused line. Mirrors the inline
-    // computation in LogList — kept local here so we don't have to
-    // pass `canToggleContext` per-line back up through props.
+    // Recompute the toggle-context gate on the focused line. Mirrors
+    // the per-row computation in LogList — kept local here so we don't
+    // have to pass `canToggleContext` per-line back up through props.
     const focusedLine = effectiveFocusedLineId
       ? derivedLines.find((l) => l.id === effectiveFocusedLineId)
       : null;
@@ -1253,8 +1249,8 @@ export function LogExplorer({
   ]);
 
   return (
-    // prefers-reduced-motion is honored entirely in CSS now — see the
-    // @media block in log-list.module.css. No JS bridge needed.
+    // prefers-reduced-motion is honored entirely in CSS — no JS
+    // bridge needed.
     //
     // Vertical layout: legend strip → scenario chips → log list. The
     // legend sits at the very top of the explorer column — top-of-
