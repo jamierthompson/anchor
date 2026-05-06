@@ -73,7 +73,6 @@ const EMPTY_SELECTED_SET: ReadonlySet<string> = new Set();
 
 type AnchorSnapshot = { id: string; top: number };
 
-
 /**
  * Client wrapper that owns interactive state for the log view.
  *
@@ -83,9 +82,9 @@ type AnchorSnapshot = { id: string; top: number };
  * side of the boundary.
  *
  * Filter state changes are folded into the rendered list via
- * deriveLines, memoized so the recompute only fires when either the
- * input array or the filter state changes. Open context windows will
- * become a third dependency in task #3.
+ * deriveLines, memoized so the recompute only fires when the input
+ * array, the filter state, or the set of open context windows
+ * changes.
  */
 export function LogExplorer({
   lines: initialLines,
@@ -108,10 +107,10 @@ export function LogExplorer({
     initialFilterState,
   );
 
-  // Open View Context windows. Multiple may be active simultaneously
-  // (spec §4 — "no cap initially"). Array order doubles as recency:
+  // Open View Context windows. Multiple may be active simultaneously.
+  // Array order doubles as recency:
   // the most recently toggled context is appended at the end. This
-  // matters for the spec §4 anchor-priority rule — the most recently
+  // matters for the anchor-priority rule — the most recently
   // selected context line is the scroll anchor — which is enforced
   // implicitly by `handleToggleContext` calling `setAnchorLineId` with
   // the toggled line on every dispatch.
@@ -125,8 +124,7 @@ export function LogExplorer({
   const [openContexts, setOpenContexts] = useState<readonly OpenContext[]>([]);
 
   // Keyboard-navigable focus, distinct from `openContexts` (the selection
-  // accent). Spec §7: a focused line gets a "subtle outline" — visually
-  // separate from the left-border accent that marks a context anchor.
+  // accent).
   //
   // We use the **aria-activedescendant** pattern, not roving tabindex:
   //   - The <ul> is the only Tab stop. tabIndex on individual <li>s
@@ -138,22 +136,21 @@ export function LogExplorer({
   //   - Screen readers honor aria-activedescendant: they announce the
   //     "active descendant" as if it were focused, even though DOM focus
   //     stays on the <ul>.
-  //   - Tab continues normally through buttons inside lines (instance
-  //     pills, level badges) — no manual Tab-handling needed to keep the
-  //     list as a single focus container.
   //
   // Compared to roving tabindex, this trades native :focus-visible for
   // a manual outline rule, but saves us from juggling .focus() calls
-  // and Tab interception. For a list with focusable children, it's the
-  // simpler correct choice.
+  // and Tab interception. The <ul> stays a single Tab stop and j/k/g/G
+  // drive movement within it — the listbox role's idiomatic pattern.
   const [focusedLineId, setFocusedLineId] = useState<string | null>(null);
 
   // Single spatial anchor for the per-frame scroll compensation.
   // Resolved per dispatch with this priority:
-  //   1. The line the user clicked from (pill click, context toggle).
+  //   1. The line the user just acted on (context toggle / expand).
   //   2. The previously-set anchor if it's still in viewport — keeps
   //      the spatial story coherent across follow-up dispatches.
   //   3. The line nearest the viewport's vertical center (fallback).
+  // Filter dispatches from ScenarioChips have no spatial origin in
+  // the list, so they always fall through to step 2 or 3.
   const [anchorLineId, setAnchorLineId] = useState<string | null>(null);
 
   // Animation mode for line height transitions in LogList. "slow"
@@ -253,7 +250,8 @@ export function LogExplorer({
 
   /**
    * Resolve the anchor for a dispatch under the priority rules:
-   *   1. Caller-supplied source line (pill click, context toggle).
+   *   1. Caller-supplied source line (used by the context-toggle
+   *      paths to pin the line the user just acted on).
    *   2. Existing anchor if still in viewport.
    *   3. Middle-of-viewport fallback.
    * Returns the chosen id (or null if the viewport is empty).
@@ -306,8 +304,7 @@ export function LogExplorer({
      * unreadCount → the pill — the stick doesn't re-engage until
      * the user scrolls back to bottom.
      *
-     * Matches standard live-tail UI behavior (Slack, Console.app,
-     * `kubectl logs --follow`).
+     * Matches standard live-tail UI behavior.
      */
     let lastWrittenScrollTop: number | null = null;
 
@@ -395,7 +392,7 @@ export function LogExplorer({
   }, []);
 
   /**
-   * Unread count for the "↓ N New" pill (spec §9.8). Increments
+   * Unread count for the "↓ N New" pill. Increments
    * when a streamed line arrives AND the user is scrolled away from
    * the bottom. Resets to 0 when:
    *   - The user clicks the pill (smooth-scrolls to bottom + reset).
@@ -533,19 +530,21 @@ export function LogExplorer({
    *     content. Matches Slack/Console.app/`logs --follow` behavior.
    *
    *   - Scrolled-up: pin a visible line via anchor compensation. The
-   *     anchor is resolved by priority — `sourceLineId` (pill click)
-   *     wins, else the previous anchor if still in viewport, else
-   *     middle-of-viewport. Their reading position stays put.
+   *     anchor falls through to the previous anchor (if still in
+   *     viewport) or middle-of-viewport — current chip-driven
+   *     dispatches don't supply a `sourceLineId`. Their reading
+   *     position stays put.
    *
-   * Open context state is *not* mutated here — per spec §5, when a
+   * Open context state is *not* mutated here, when a
    * filter change excludes the selected line we preserve the
    * `selectedLineId` so that loosening the filter later brings the
    * context back in place. The visibility half of that rule is
    * already handled by `deriveLines` (windowed reveals collapse to
    * hidden when the selected line stops matching). The visual
-   * selected-accent is suppressed via `effectiveSelectedLineId`
-   * below — the saved state is real, the blue edge just doesn't
-   * render until the gate is satisfied again.
+   * selected-accent is suppressed via
+   * `effectiveSelectedContextLineIds` below — the saved state is
+   * real, the accent just doesn't render until the gate is satisfied
+   * again.
    */
   const dispatchFilter = useCallback(
     (action: FilterAction, sourceLineId?: string) => {
@@ -656,51 +655,49 @@ export function LogExplorer({
    * each toggle resets `anchorLineId` to the line just acted on, so a
    * subsequent filter dispatch falls through to the right reference.
    */
-  const handleToggleContext = useStableCallback(
-    (lineId: string) => {
-      if (!hasAnyFilter(filterState)) return;
-      const target = derivedLines.find((l) => l.id === lineId);
-      if (!target || target.isDimmed) return;
+  const handleToggleContext = useStableCallback((lineId: string) => {
+    if (!hasAnyFilter(filterState)) return;
+    const target = derivedLines.find((l) => l.id === lineId);
+    if (!target || target.isDimmed) return;
 
-      const anchor = captureAnchor(lineId);
+    const anchor = captureAnchor(lineId);
 
-      // The toggled line is the spatial anchor — scroll compensation
-      // pins it while context lines fluidly expand/collapse. Holds
-      // whether we're opening or closing on this line: the user just
-      // clicked it, so it's the natural visual reference for the
-      // surrounding animation.
-      if (lineId !== anchorLineId) setAnchorLineId(lineId);
+    // The toggled line is the spatial anchor — scroll compensation
+    // pins it while context lines fluidly expand/collapse. Holds
+    // whether we're opening or closing on this line: the user just
+    // clicked it, so it's the natural visual reference for the
+    // surrounding animation.
+    if (lineId !== anchorLineId) setAnchorLineId(lineId);
 
-      // Switch into slow mode for the duration of the slow animation.
-      // The longest path is collapse: 150ms opacity + 150ms delay +
-      // 200ms height = 500ms total, with a small Motion settle
-      // buffer.
-      setTransitionMode("slow");
-      if (slowModeTimeoutRef.current !== null)
-        clearTimeout(slowModeTimeoutRef.current);
-      slowModeTimeoutRef.current = window.setTimeout(() => {
-        setTransitionMode("instant");
-        slowModeTimeoutRef.current = null;
-      }, 600);
+    // Switch into slow mode for the duration of the slow animation.
+    // The longest path is collapse: 150ms opacity + 150ms delay +
+    // 200ms height = 500ms total, with a small Motion settle
+    // buffer.
+    setTransitionMode("slow");
+    if (slowModeTimeoutRef.current !== null)
+      clearTimeout(slowModeTimeoutRef.current);
+    slowModeTimeoutRef.current = window.setTimeout(() => {
+      setTransitionMode("instant");
+      slowModeTimeoutRef.current = null;
+    }, 600);
 
-      setOpenContexts((current) => {
-        const existingIndex = current.findIndex(
-          (c) => c.selectedLineId === lineId,
-        );
-        if (existingIndex !== -1) {
-          // Close: drop the matching entry, preserve the order of the rest.
-          return current.filter((_, i) => i !== existingIndex);
-        }
-        // Open: append so the newest is at the end (most-recent invariant).
-        return [
-          ...current,
-          { selectedLineId: lineId, range: DEFAULT_CONTEXT_RANGE },
-        ];
-      });
+    setOpenContexts((current) => {
+      const existingIndex = current.findIndex(
+        (c) => c.selectedLineId === lineId,
+      );
+      if (existingIndex !== -1) {
+        // Close: drop the matching entry, preserve the order of the rest.
+        return current.filter((_, i) => i !== existingIndex);
+      }
+      // Open: append so the newest is at the end (most-recent invariant).
+      return [
+        ...current,
+        { selectedLineId: lineId, range: DEFAULT_CONTEXT_RANGE },
+      ];
+    });
 
-      if (anchor) startCompensation(anchor);
-    },
-  );
+    if (anchor) startCompensation(anchor);
+  });
 
   /**
    * Grow an open context's range by one fixed step (CONTEXT_RANGE_STEP).

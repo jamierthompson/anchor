@@ -1,7 +1,7 @@
 /**
  * The unified visibility / dimming rule.
  *
- * Per spec §3, for each line:
+ * For each line:
  *
  *   matchesFilter      = passes all active filters (AND across facets, OR within)
  *   inAnyContextWindow = sits within ±N of any line currently selected for context
@@ -10,16 +10,14 @@
  *   isDimmed  = isVisible && !matchesFilter
  *
  * Deploy boundaries are global section markers — they bypass the rule
- * entirely and are always visible, never dimmed (spec §5).
+ * entirely and are always visible, never dimmed.
  *
- * Selected-line-filtered-out auto-collapse (spec §5): if the line that
- * an open context is anchored on no longer matches the active filter,
- * the context goes dormant for the visibility computation — its
- * windowed lines collapse back to hidden rather than staying visible-
- * dimmed. The open-context state itself is preserved by the caller, so
- * loosening the filter brings the context back. Scroll-position
- * preservation across that transition is handled separately by the
- * anchor-compensation mechanics in LogExplorer.
+ * Selected-line-filtered-out auto-collapse: if the line an open
+ * context is anchored on no longer matches the active filter, the
+ * context goes dormant for the visibility computation — its windowed
+ * lines collapse back to hidden rather than staying visible-dimmed.
+ * The open-context state itself is preserved by the caller, so
+ * loosening the filter brings the context back.
  *
  * Pure function on purpose: the visibility rule is the most testable
  * piece of the prototype, and keeping it free of React/state means
