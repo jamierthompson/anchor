@@ -14,23 +14,23 @@ import type { LogLine } from "@/types/log";
  * Lines append at the bottom on a hand-tuned cadence — bursts of
  * activity separated by quiet periods, modelling realistic traffic.
  *
- * ### Why a hook (vs inline in LogExplorer)
+ * ### Why a hook (vs inline in the parent)
  *
- * LogExplorer owns a lot already (filter state, focus model, anchor
- * mechanics, scroll compensation, shortcut sheet). Pulling the
- * streaming engine into its own hook keeps each concern focused
- * and makes the streaming logic independently testable.
+ * The parent already owns a lot (filter state, focus model, anchor
+ * mechanics, scroll compensation, modal state). Pulling the streaming
+ * engine into its own hook keeps each concern focused and makes the
+ * streaming logic independently testable.
  *
  * ### State shape
  *
- * `lines`     — the combined array (initial + streamed). What
- *               LogExplorer feeds to the derive pipeline.
+ * `lines`     — the combined array (initial + streamed). Fed to the
+ *               derive pipeline.
  * `freshIds`  — set of ids that streamed in *after* mount. The list
- *               component reads this to decide which lines should
- *               animate-in (vs. render at target values for the
- *               initial fixture). Once a line is in `freshIds` it
- *               stays — no need to clean up; the CSS @starting-style
- *               only applies the first time the row is inserted.
+ *               consumer reads this to decide which lines animate-in
+ *               (vs. render at target values for the initial
+ *               fixture). Once a line is in `freshIds` it stays —
+ *               the entrance rule only applies the first time the
+ *               row is inserted, so there's no cleanup to do.
  *
  * ### Cadence model
  *
@@ -53,22 +53,22 @@ export function useLiveTail(
 ): {
   lines: readonly LogLine[];
   /**
-   * Ids of lines that arrived via streaming (i.e. not in the
-   * initial fixture). Drives mount-time animation in LogList — lines
-   * in this set get `initial={{ height: 0, opacity: 0 }}` so they
-   * animate in; lines not in the set get `initial={false}` to skip
-   * the initial-page-load mass-animation.
+   * Ids of lines that arrived via streaming (i.e. not in the initial
+   * fixture). Drives mount-time animation in the list: lines in this
+   * set animate from the collapsed state on insert; lines not in the
+   * set mount at final values so the initial fixture doesn't all
+   * animate at once.
    */
   freshIds: ReadonlySet<string>;
 } {
   const [lines, setLines] = useState<readonly LogLine[]>(initial);
-  // freshIds tracks streamed line ids so LogList knows which mounts
-  // should animate-in (vs. the initial fixture, which mounts at
-  // target values without animation). State (not ref) so React 19's
-  // refs-during-render rule stays happy and the Set reference
-  // updates on each emission. The Set grows monotonically — once a
-  // line is in here, it stays. The render cost is negligible
-  // because LogList re-renders on every lines update anyway.
+  // freshIds tracks streamed line ids so the list consumer knows
+  // which mounts should animate-in (vs. the initial fixture, which
+  // mounts at target values without animation). State (not ref) so
+  // React 19's refs-during-render rule stays happy and the Set
+  // reference updates on each emission. The Set grows monotonically
+  // — once a line is in here, it stays. Render cost is negligible
+  // because consumers re-render on every lines update anyway.
   const [freshIds, setFreshIds] = useState<ReadonlySet<string>>(
     () => new Set(),
   );

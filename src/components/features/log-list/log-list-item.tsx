@@ -8,38 +8,17 @@ import { LogLine } from "./log-line";
 import styles from "./log-list.module.css";
 
 /**
- * Single row of the log list. Plain <li> + .inner wrapper — height /
- * opacity are interpolated by CSS (the grid-template-rows trick; see
- * log-list.module.css for the full rationale).
+ * Single row of the log list. Plain <li> + .inner wrapper — height
+ * and opacity are interpolated by CSS using the grid-track-fr trick
+ * so React re-renders can't perturb an in-flight transition.
  *
- * ### Why CSS for the height/opacity tween
+ * The memo is defense-in-depth against wasted reconciliation work on
+ * tail ticks; CSS already owns the visual tween, so memoization is
+ * a perf nicety, not a correctness requirement.
  *
- * A JS-driven approach (where each row's animate target is computed
- * from React props each render) is fragile here: any re-render that
- * shipped a new animation target could perturb an in-flight tween,
- * and live-tail ticks happen often enough during a context close
- * that callback identity churn was reliably producing visible
- * stutter.
- *
- * CSS transitions are owned by the browser engine. Once a transition
- * starts on a property, no React re-render can affect it. Memoization
- * becomes a perf nicety, not a correctness requirement; the close
- * choreography runs end-to-end without interruption regardless of
- * what happens in React land.
- *
- * The memo here stays as defense-in-depth — it cuts wasted
- * reconciliation work on tail ticks where this row's data is
- * unchanged — but it's no longer load-bearing for visual smoothness.
- *
- * ### Memo equality
- *
- * `deriveLines` rebuilds every `DerivedLogLine` on each call, so the
- * default shallow `prevProps.line === nextProps.line` would always
- * fail. The underlying `LogLine` is fully `readonly` (src/types/log.ts),
- * so the only fields that can differ between two `DerivedLogLine`s
- * sharing an `id` are the derived flags `isVisible` / `isDimmed`.
- * Comparing those three is a sound proxy for "this row's data didn't
- * change."
+ * Equality compares id + isVisible + isDimmed because the source
+ * line type is fully readonly — any meaningful change must surface
+ * as a derived-flag change on a line sharing the same id.
  */
 
 type LogListItemProps = {
@@ -47,19 +26,19 @@ type LogListItemProps = {
   domId: string;
   /**
    * True only for lines that streamed in via live tail. Drives
-   * `data-streamed` on the <li>; the CSS uses `@starting-style` to
-   * mount streamed rows at { 0fr, opacity 0 } so they animate in.
-   * Initial-fixture rows (data-streamed="false") mount at final
-   * values without animating — avoids all initial-fixture lines
-   * animating simultaneously on page load.
+   * `data-streamed` on the <li>; the CSS keys an entrance animation
+   * off this attribute so streamed rows mount from the collapsed
+   * state. Initial-fixture rows mount at final values without
+   * animating — avoids all initial-fixture lines animating
+   * simultaneously on page load.
    */
   isStreamed: boolean;
   isSelected: boolean;
   isFocused: boolean;
   /**
    * Gate for the View/Hide context action (filter active +
-   * filter-matched + not dimmed). Pre-resolved in LogList so this
-   * row doesn't need FilterState shape.
+   * filter-matched + not dimmed). Pre-resolved by the parent so this
+   * row doesn't need to know the filter state's shape.
    */
   canToggleContext: boolean;
   onLineFocus?: (lineId: string) => void;
@@ -78,16 +57,16 @@ function LogListItemImpl({
 }: LogListItemProps) {
   // Plain click on the <li> drives the unified line interaction:
   //   - If the line is currently the anchor of an open context, click
-  //     closes that context (matches the keyboard `e` toggle).
+  //     closes that context (matches the keyboard toggle binding).
   //   - Else if the toggle-context gate passes (filter active +
   //     filter-matched + not dimmed), click opens a context.
   //   - Otherwise click only moves focus — the line is still
   //     keyboard-navigable but has no context to anchor.
   //
   // In all cases focus moves to the clicked line so subsequent
-  // keyboard nav (j/k, e, Esc) starts from where the user just was.
-  // Modifier keys (cmd/ctrl/alt) are ignored so platform shortcuts
-  // pass through unaffected.
+  // keyboard navigation starts from where the user just was. Modifier
+  // keys (cmd/ctrl/alt) are ignored so platform shortcuts pass
+  // through unaffected.
   const handleClick = (event: ReactMouseEvent<HTMLLIElement>) => {
     if (event.metaKey || event.ctrlKey || event.altKey) return;
     onLineFocus?.(line.id);
@@ -133,9 +112,9 @@ function LogListItemImpl({
 }
 
 /**
- * Custom equality for the memo. See file-level docblock for why id +
- * isVisible + isDimmed is sufficient to capture "this row's data is
- * unchanged" given the immutability of the underlying LogLine source.
+ * Custom equality for the memo. See file-level docblock for why a
+ * narrow comparison is sufficient given the immutability of the
+ * underlying line source.
  */
 function arePropsEqual(prev: LogListItemProps, next: LogListItemProps) {
   return (

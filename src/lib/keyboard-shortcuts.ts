@@ -1,34 +1,34 @@
 /**
  * Single source of truth for the keyboard bindings shown in the
- * shortcut sheet.
+ * shortcuts surface.
  *
- * The actual key handlers live elsewhere and do their own case-by-
- * case key detection — refactoring those to consume this registry is
- * a follow-up. For now, this file's job is purely to feed the sheet's
- * render.
+ * The actual key handlers do their own case-by-case key detection;
+ * this file's job is purely to feed the surface's render.
  *
  * Anything that lands here must already be wired in a real handler;
- * the sheet shouldn't advertise bindings that don't fire. The reverse —
- * bindings that fire but aren't in the sheet — is also a bug; keep
- * this list aligned when adding new bindings.
+ * the surface shouldn't advertise bindings that don't fire. The
+ * reverse — bindings that fire but aren't listed here — is also a
+ * bug; keep this list aligned when adding new bindings.
+ *
+ * TODO: key handlers do their own detection; consolidating them on
+ * this registry would remove the duplication.
  */
 
 /**
- * One physical key cap to render in the sheet.
+ * One physical key cap to render.
  *
- * `keys` is an array because some bindings are key combinations
- * (`shift+e`) — the sheet renders them as adjacent keycaps with a
- * "+" separator. Single-key bindings have a one-element array.
+ * `keys` is an array because some bindings are key combinations —
+ * the surface renders them as adjacent keycaps joined by "+".
+ * Single-key bindings have a one-element array.
  *
- * `aliases` are EQUIVALENT bindings that produce the same action
- * (`j` and `↓` both move focus next). The sheet renders aliases as
- * a `/` separator to communicate "either of these works" without
- * showing the same description twice. The handler treats the aliases
- * as truly equivalent — neither is preferred.
+ * `aliases` are EQUIVALENT bindings that produce the same action.
+ * They render with a "/" separator to communicate "either of these
+ * works" without showing the same description twice. The handler
+ * treats aliases as truly equivalent — neither is preferred.
  */
 export type KeyCap = {
   /**
-   * Sequential keys for a combination (e.g. ["Shift", "E"]).
+   * Sequential keys for a combination, rendered as adjacent caps.
    */
   keys: readonly string[];
   /**
@@ -99,7 +99,7 @@ export const KEYBOARD_SHORTCUTS: readonly ShortcutGroup[] = [
       },
       {
         caps: { keys: ["Shift", "E"] },
-        description: "Expand Context (±20 Lines)",
+        description: "Expand Context Window",
       },
     ],
   },

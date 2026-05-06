@@ -27,19 +27,13 @@
  * message) rather than the line root. CSS opacity composes
  * multiplicatively, so dimming the .line root would also dim any
  * descendant — keeping the dim on individual content children leaves
- * room for future row-level chrome (selection accents, hover states)
- * to sit at full opacity even on a dimmed row.
+ * room for row-level chrome (selection accents, hover states) to sit
+ * at full opacity even on a dimmed row.
  *
- * Composition with the parent <li>'s visibility opacity:
- *
- *   visible + undimmed → 1 × 1   = 1     (children at full opacity)
- *   visible + dimmed   → 1 × 0.4 = 0.4   (children dimmed; row at 1)
- *   hidden  + dimmed   → 0 × 0.4 = 0     (everything fades with li)
- *
- * The dim/undim transition runs at the "fast" duration (~120ms) —
- * just an opacity tween. The parent <li>'s opacity is driven by the
- * .inner-element transition in log-list.module.css and is independent
- * of these rules.
+ * Composition with the parent <li>'s visibility opacity multiplies:
+ * a hidden row fades children to 0 even when dimmed. The dim/undim
+ * tween uses the fast duration token; the parent's visibility tween
+ * is a separate property and runs independently.
  */
 .line > time,
 .line > .instance,

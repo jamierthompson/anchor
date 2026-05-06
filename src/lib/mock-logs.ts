@@ -20,12 +20,11 @@ export const MOCK_START_MS = new Date("2026-04-27T13:00:00Z").getTime();
 export const INSTANCES = ["7tbsm", "a3kx2", "m9p4r"] as const;
 export type InstanceId = (typeof INSTANCES)[number];
 
-/** All request IDs that appear in mockLogs, mapped to their owning instance. */
-/*
- * Bare hex-style ids, no `req_` prefix. The displayed `req=…` label is
- * a typesetting concern owned by log-line.module.css's `.requestId`
- * pseudo-element, so the data layer stores only the value itself —
- * what's stored is what's shown after the prefix.
+/**
+ * All request IDs that appear in mockLogs, mapped to their owning
+ * instance. Bare hex-style ids, no `req_` prefix — the displayed
+ * `req=…` label is a typesetting concern owned by the row CSS, so
+ * the data layer stores only the value itself.
  */
 export const REQUEST_IDS = {
   a3f9c2: "7tbsm",
@@ -356,7 +355,7 @@ function buildMockLogs(): readonly LogLine[] {
     info(31, 46, "a3kx2", "PATCH /api/orders/51 200 in 75ms", "c4n7p9"),
     warn(31, 54, "7tbsm", "Slow query: SELECT events WHERE org_id = $1 took 1683ms"),
 
-    // ── Phase 6 · Error cluster (minutes 32–36) — DEMO TARGET ─────────
+    // ── Phase 6 · Error cluster (minutes 32–36) ───────────────────────
     err(32, 2, "7tbsm", "db connection refused: dial tcp 10.0.0.4:5432: i/o timeout", "b81k4m"),
     info(32, 8, "a3kx2", "GET /api/orders 200 in 52ms", "c4n7p9"),
     warn(32, 12, "7tbsm", "Retry attempt 3/3 for db query (op=fetch_user_events)"),
@@ -636,8 +635,8 @@ export type LiveTailSeedEntry = LogLine & {
  * beats infinite simulation.
  */
 function buildLiveTailSeed(): readonly LiveTailSeedEntry[] {
-  // Continue the id sequence past where buildMockLogs stopped. The
-  // mockLogs export is already 415 entries; seed ids start at 416.
+  // Continue the id sequence past where the static fixture left off
+  // so streamed lines don't collide with fixture ids.
   const startNum = mockLogs.length;
   let nextIdNum = startNum;
   const id = (): string => `log_${String(++nextIdNum).padStart(4, "0")}`;

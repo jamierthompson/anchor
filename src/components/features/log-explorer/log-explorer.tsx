@@ -39,11 +39,10 @@ import styles from "./log-explorer.module.css";
 /**
  * How long the per-frame compensation loop runs after a state change.
  *
- * Longest single-line transition is the collapse path: 150ms opacity
- * + 150ms delay + 200ms height = 500ms. 600ms gives ~100ms of grace
- * past the longest transition so we don't leak uncompensated drift
- * across repeated toggles, and absorbs any sub-pixel settle from the
- * browser's layout pass after the transition completes.
+ * Long enough to cover the longest line transition plus a small grace
+ * window so we don't leak uncompensated drift across repeated toggles,
+ * and absorb any sub-pixel settle from the browser's layout pass once
+ * the transition finishes.
  */
 const COMPENSATION_DURATION_MS = 600;
 
@@ -158,25 +157,25 @@ export function LogExplorer({
   );
   const slowModeTimeoutRef = useRef<number | null>(null);
 
-  // Open state for the shortcut sheet. Lifted to LogExplorer so the
-  // document-level `?` keyboard handler — which can't sit inside the
-  // Dialog tree — can flip it. The sheet is open-only on `?`; Esc /
-  // click-outside do the closing via Radix Dialog's native behaviour.
+  // Open state for the shortcut surface. Lifted here so the document-
+  // level `?` handler — which lives outside the dialog tree — can flip
+  // it. The `?` binding is open-only; dismissal is owned by the dialog
+  // primitive (Esc / click-outside).
   const [sheetOpen, setSheetOpen] = useState(false);
 
-  // Counter that increments on every *successful* shift+e press.
-  // Used as a remount key on the legend's entry so a CSS keyframe
-  // animation re-fires each press — the user gets a visible flash
-  // even when the legend's text doesn't change. Without this, two
-  // back-to-back expansions look identical in the chrome and the
-  // user can't tell whether their key registered.
+  // Counter that increments on every *successful* expansion press.
+  // Used as a remount key on the matching keyboard-hint entry so a CSS
+  // keyframe animation re-fires each press — gives the user a visible
+  // flash even when the entry's label is unchanged. Without this, two
+  // back-to-back expansions look identical in the surrounding chrome
+  // and the user can't tell whether their key registered.
   const [legendPulseKey, setLegendPulseKey] = useState(0);
 
-  // Ref to the Radix Scroll Area viewport. The anchor mechanics below
-  // read getBoundingClientRect on a target `<li>` and write scrollTop
-  // on this viewport — manual compensation rather than relying on
-  // browser overflow-anchor, which doesn't fire frequently enough
-  // during animated height changes.
+  // Ref to the scroll viewport. The anchor mechanics below read
+  // getBoundingClientRect on a target `<li>` and write scrollTop on
+  // this viewport — manual compensation rather than relying on browser
+  // overflow-anchor, which doesn't fire frequently enough during
+  // animated height changes.
   const viewportRef = useRef<HTMLDivElement>(null);
   const rafRef = useRef<number | null>(null);
 
@@ -296,11 +295,12 @@ export function LogExplorer({
      * so we stop fighting their input.
      *
      * Once aborted, subsequent tail-line arrivals see isAtBottom()
-     * = false (user is past the 50px tolerance) and route through
-     * unreadCount → the unread strip — the stick doesn't re-engage
-     * until the user scrolls back to bottom.
+     * = false (user is past the at-bottom tolerance) and route through
+     * unreadCount → the unread-jump affordance — the stick doesn't
+     * re-engage until the user scrolls back to bottom.
      *
-     * Matches standard live-tail UI behavior.
+     * Matches the live-tail convention used by terminal log followers
+     * and chat clients.
      */
     let lastWrittenScrollTop: number | null = null;
 
@@ -388,13 +388,14 @@ export function LogExplorer({
   }, []);
 
   /**
-   * Unread count for the inline strip below the list.
+   * Count surfaced by the unread-jump affordance.
    * Increments when a streamed line arrives AND the user is scrolled
    * away from the bottom. Resets to 0 when:
-   *   - The user clicks the strip (smooth-scrolls to bottom + reset).
+   *   - The user activates the unread-jump affordance (smooth-scrolls
+   *     to bottom + reset).
    *   - The user organically scrolls to the bottom of the list (the
    *     scroll-listener effect below detects this).
-   * Filter-hidden streamed lines aren't counted — the strip only
+   * Filter-hidden streamed lines aren't counted — the affordance only
    * surfaces lines the user could currently see if they scrolled.
    */
   const [unreadCount, setUnreadCount] = useState(0);
@@ -408,9 +409,9 @@ export function LogExplorer({
    *     underneath, and the rAF loop tracks `scrollHeight -
    *     clientHeight` each frame so the user stays glued to the
    *     most-recent line.
-   *   - Scrolled-up → increment `unreadCount` so the unread strip
-   *     surfaces. The newly-appended line is invisible-below-the-
-   *     fold; the strip is the user's "I'm missing things" signal.
+   *   - Scrolled-up → increment `unreadCount` so the unread-jump
+   *     affordance surfaces. The newly-appended line is below the
+   *     fold; the count is the user's "I'm missing things" signal.
    *
    * useLayoutEffect (not useEffect) so the scroll adjustment commits
    * synchronously before paint — avoids a one-frame flash where the
@@ -421,17 +422,15 @@ export function LogExplorer({
     const delta = lines.length - prevLinesLengthRef.current;
     prevLinesLengthRef.current = lines.length;
     if (delta <= 0) return;
-    // Skip live-tail follow logic while a context-toggle slow
-    // animation is in flight. `startCompensation` and
-    // `startStickToBottom` share `rafRef` (only one rAF loop at a
-    // time); without this guard, a tail tick that arrives mid-
-    // toggle would call `startStickToBottom`, cancel the in-flight
-    // compensation rAF, and the anchor line would visibly drift.
-    // The user's deliberate context interaction wins for ~600ms;
-    // live-tail follow resumes on the next tick after slow mode
-    // clears. The newly-appended line still renders and animates
-    // in via @starting-style — only the scroll-side-effect is
-    // deferred.
+    // Skip live-tail follow while a context-toggle animation is in
+    // flight. The two scroll-compensation loops share a single rAF
+    // slot (only one loop at a time); without this guard, a tail tick
+    // mid-toggle would cancel the in-flight compensation and visibly
+    // drift the anchor. The user's deliberate context interaction wins
+    // for the duration of the compensation budget; live-tail follow
+    // resumes on the next tick after slow mode clears. The newly-
+    // appended line still mounts and animates in via the per-row
+    // entrance rule — only the scroll side-effect is deferred.
     if (transitionMode === "slow") return;
     if (isAtBottom()) {
       startStickToBottom();
@@ -442,9 +441,9 @@ export function LogExplorer({
 
   /**
    * Reset the unread count when the user organically scrolls to the
-   * bottom of the list (without clicking the strip). Catches the case
-   * where the user manually drags the scrollbar to bottom — the strip
-   * should disappear, count should reset.
+   * bottom of the list (without activating the unread-jump affordance).
+   * Catches the case where the user manually drags the scrollbar to
+   * bottom — the affordance should disappear, count should reset.
    */
   useEffect(() => {
     const v = viewportRef.current;
@@ -457,11 +456,10 @@ export function LogExplorer({
   }, [unreadCount, isAtBottom]);
 
   /**
-   * Mirror at-bottom state to <html data-demo-at-bottom> so the Shell
-   * can read it without a React context bridge. Same one-way DOM-
-   * signal pattern as the theme toggle. The Shell's /demo branch
-   * uses this to snap its footer-reveal scroller back to parked when
-   * the user scrolls up away from the tail.
+   * Mirror at-bottom state to <html data-demo-at-bottom> so external
+   * chrome can react without a React context bridge. The /demo route's
+   * footer-reveal scroller reads this to snap back to parked when the
+   * user scrolls up away from the tail.
    */
   useEffect(() => {
     const v = viewportRef.current;
@@ -479,12 +477,12 @@ export function LogExplorer({
   }, [isAtBottom]);
 
   /**
-   * Unread-strip click handler — smooth-scroll to bottom + reset count.
-   * Uses native `scrollTo({ behavior: "smooth" })` rather than the
-   * rAF compensation loop because this is a USER-initiated jump
-   * (vs. animation tracking). Modern browsers handle smooth scroll
-   * via the platform's scroll engine, which composites correctly
-   * with whatever line transitions are in flight.
+   * Activation handler for the unread-jump affordance — smooth-scroll
+   * to bottom + reset count. Uses native `scrollTo({ behavior:
+   * "smooth" })` rather than the rAF compensation loop because this
+   * is a USER-initiated jump (vs. animation tracking). The platform
+   * scroll engine composites correctly with whatever line transitions
+   * are in flight.
    */
   const handleScrollToBottom = useCallback(() => {
     const v = viewportRef.current;
@@ -523,7 +521,8 @@ export function LogExplorer({
    *   - At-bottom: stick to the bottom. As CSS shrinks hiding lines,
    *     `startStickToBottom` follows the new max scrollTop each
    *     frame. The user's view smoothly trails the bottom of
-   *     content. Matches Slack/Console.app/`logs --follow` behavior.
+   *     content. Matches the live-tail convention of terminal log
+   *     followers and chat clients.
    *
    *   - Scrolled-up: pin a visible line via anchor compensation. The
    *     anchor falls through to the previous anchor (if still in
@@ -590,14 +589,13 @@ export function LogExplorer({
   );
 
   /**
-   * Stable handler for the "Esc Clear filter" path used by both the
-   * legend's mouse click and the document-level Esc key. Wrapping
-   * dispatchFilter in a useStableCallback gives a stable outer
-   * reference that always delegates to the latest dispatchFilter
-   * closure — and as a bonus, hides the ref reads inside
-   * dispatchFilter from react-compiler's "passing a ref to a
-   * function may read its value during render" check, which would
-   * otherwise flag a useCallback-wrapped variant.
+   * Stable handler for the clear-filter path, shared by the keyboard-
+   * hint mouse click and the document-level Esc key. Wrapping
+   * dispatchFilter in useStableCallback gives a stable outer reference
+   * that always delegates to the latest dispatchFilter closure — and
+   * as a bonus avoids a static-analysis warning about reading refs
+   * during render that would otherwise fire on a useCallback-wrapped
+   * variant.
    */
   const handleClearFilter = useStableCallback(() =>
     dispatchFilter({ type: "clear" }),
@@ -612,9 +610,9 @@ export function LogExplorer({
    * part of the gate fails for an entry, the saved state stays put
    * behind the scenes but its accent disappears.
    *
-   * Range data is no longer per-line: the legend (the only consumer of
-   * the most-recent range) reads it directly from `openContexts`, so a
-   * Set of ids is sufficient here.
+   * Range data is no longer per-line: the only consumer of the most-
+   * recent range reads it directly from `openContexts`, so a Set of
+   * ids is sufficient here.
    */
   const effectiveSelectedContextLineIds = useMemo<ReadonlySet<string>>(() => {
     if (openContexts.length === 0) return EMPTY_SELECTED_SET;
@@ -665,17 +663,15 @@ export function LogExplorer({
     // surrounding animation.
     if (lineId !== anchorLineId) setAnchorLineId(lineId);
 
-    // Switch into slow mode for the duration of the slow animation.
-    // The longest path is collapse: 150ms opacity + 150ms delay +
-    // 200ms height = 500ms total, with a small layout settle
-    // buffer.
+    // Slow mode persists through the longest line transition plus a
+    // layout-settle buffer; auto-clears once the budget elapses.
     setTransitionMode("slow");
     if (slowModeTimeoutRef.current !== null)
       clearTimeout(slowModeTimeoutRef.current);
     slowModeTimeoutRef.current = window.setTimeout(() => {
       setTransitionMode("instant");
       slowModeTimeoutRef.current = null;
-    }, 600);
+    }, COMPENSATION_DURATION_MS);
 
     setOpenContexts((current) => {
       const existingIndex = current.findIndex(
@@ -705,8 +701,9 @@ export function LogExplorer({
    *
    * Strict semantics: no-op if the line has no open context, and no-op
    * at the file boundary (when the window already covers all lines on
-   * both sides of the anchor). The boundary signal is also surfaced to
-   * the legend so the user knows expansion has nowhere to go.
+   * both sides of the anchor). The boundary signal is also surfaced
+   * to the surrounding chrome so the user knows expansion has nowhere
+   * to go.
    *
    * Switches to "slow" transition mode for the duration of the resize
    * so the newly-revealed lines at the window's edges animate in,
@@ -729,10 +726,10 @@ export function LogExplorer({
       if (isAtFileBoundary(anchorIndex, currentRange, lines.length)) return;
       const nextRange = currentRange + CONTEXT_RANGE_STEP;
 
-      // Successful expansion → bump the pulse key so the legend
-      // entry remounts and replays its mount animation. Gives the
-      // user a visible flash on each press, including consecutive
-      // presses where the legend's text is identical.
+      // Successful expansion → bump the pulse key so the matching
+      // keyboard-hint entry remounts and replays its mount animation.
+      // Gives the user a visible flash on each press, including
+      // consecutive presses where the entry's label is identical.
       setLegendPulseKey((k) => k + 1);
 
       const anchor = captureAnchor(lineId);
@@ -745,7 +742,7 @@ export function LogExplorer({
       slowModeTimeoutRef.current = window.setTimeout(() => {
         setTransitionMode("instant");
         slowModeTimeoutRef.current = null;
-      }, 600);
+      }, COMPENSATION_DURATION_MS);
 
       setOpenContexts((current) =>
         current.map((c, i) =>
@@ -819,28 +816,19 @@ export function LogExplorer({
   }, [effectiveFocusedLineId]);
 
   /**
-   * Keyboard handler attached to the LogList's <ul>. Receives
+   * Keyboard handler attached to the listbox <ul>. Receives
    * KeyboardEvents only when the list is focused (Tab into it, or any
    * descendant has focus and the event bubbles up).
    *
-   * Bindings:
+   * Owns visible-line navigation (next/prev/first/last) and deploy-
+   * boundary navigation (prev/next). Arrow keys are first-class
+   * equivalents of the Vim-style letter pair for discoverability;
+   * the lowercase-top / shift-bottom convention follows the Vim/less
+   * pattern. The bindings registered here must match the user-facing
+   * shortcut registry — that registry is the source of truth.
    *
-   *   j / ArrowDown — focus next visible line
-   *   k / ArrowUp   — focus previous visible line
-   *   g             — focus first visible line
-   *   G (shift+g)   — focus last visible line
-   *   [             — focus previous deploy boundary
-   *   ]             — focus next deploy boundary
-   *
-   * Arrow keys and j/k are first-class equivalents — arrow keys are
-   * the discoverable default; j/k is the Vim/Linear/Slack power-user
-   * convention. g/G follows the Vim/less convention (lowercase = top,
-   * shift = bottom). [ and ] jump between deploy boundaries — global
-   * section markers in the log feed that are always visible regardless
-   * of filter.
-   *
-   * Visible lines are the navigable set for j/k/g/G; deploy
-   * boundaries are their own set for [/]. A hidden line is
+   * Visible lines are the navigable set for line nav; deploy
+   * boundaries are their own set for boundary nav. A hidden line is
    * functionally not there for navigation.
    */
   const handleKeyDown = useCallback(
@@ -852,11 +840,10 @@ export function LogExplorer({
 
       const { key, shiftKey } = event;
 
-      // Two shifted keys are accepted: shift+g (last visible line) and
-      // shift+e (expand context). Everything else with a shift modifier
-      // bails — keeps the no-shift default close to universal and
-      // leaves shift+letter free for future bindings without a case-
-      // by-case audit.
+      // Only a small set of shifted keys are claimed by this handler;
+      // everything else with a shift modifier bails. Keeps the no-shift
+      // default close to universal and leaves shift+letter free for
+      // future bindings without a case-by-case audit.
       if (shiftKey && key !== "G" && key !== "g" && key !== "E" && key !== "e")
         return;
 
@@ -867,7 +854,7 @@ export function LogExplorer({
       // shift+g on US keyboards, but some testing tools and non-US
       // layouts fire `key: "g"` with shiftKey true. Handling both
       // makes the binding robust without changing the user-facing
-      // contract. Same dual check applies to shift+e below.
+      // contract.
       const isLast = shiftKey && (key === "G" || key === "g");
       const isPrevBoundary = !shiftKey && key === "[";
       const isNextBoundary = !shiftKey && key === "]";
@@ -936,7 +923,7 @@ export function LogExplorer({
 
       // Boundary navigation has its own filter (deploy boundaries
       // only) and direction logic — separate it out from the
-      // visible-lines path used by j/k/g/G.
+      // visible-line navigation path.
       if (isPrevBoundary || isNextBoundary) {
         const boundaries = derivedLines.filter((l) => l.isDeployBoundary);
         if (boundaries.length === 0) return;
@@ -990,7 +977,7 @@ export function LogExplorer({
 
       // Use the *effective* id as the navigation reference: if the
       // saved focus is hidden right now, the user sees the hopped-to
-      // visible line and expects j/k to advance from there.
+      // visible line and expects line nav to advance from there.
       const currentIndex = effectiveFocusedLineId
         ? visible.findIndex((l) => l.id === effectiveFocusedLineId)
         : -1;
@@ -1022,39 +1009,35 @@ export function LogExplorer({
   );
 
   /**
-   * Document-level shortcuts. Two bindings need to work regardless of
-   * where focus currently is on the page (GitHub / Slack / Linear
-   * convention):
+   * Document-level shortcuts that must work regardless of where focus
+   * currently is on the page:
    *
    *   Esc  — clear all open contexts (or active filter)
-   *   ?    — open the shortcut sheet
+   *   ?    — open the shortcut surface
    *
-   * The listbox-level handler covers in-list bindings (j/k/g/G/[/]/e/
-   * shift+e). Splitting them this way keeps each handler responsible
-   * for one focus context — no "is the listbox focused?" branching
-   * inside individual bindings.
+   * The listbox-level handler covers in-list bindings; splitting them
+   * this way keeps each handler responsible for one focus context —
+   * no "is the listbox focused?" branching inside individual bindings.
    *
-   * Both bail when `event.defaultPrevented` is set so Radix Dialog
-   * handling its own Escape (the shortcut sheet itself) doesn't double-
-   * fire as "clear contexts." Closeable surfaces consume their own
-   * dismiss before a global-clear runs — this is what makes the Esc
-   * precedence cascade compose for free.
+   * Both bail when `event.defaultPrevented` is set so a dialog
+   * primitive consuming its own Escape doesn't double-fire as "clear
+   * contexts." Closeable surfaces consume their own dismiss before a
+   * global-clear runs — this is what lets the Esc cascade compose for
+   * free.
    *
    * `?` is shift+/ on US keyboards. Both `event.key === "?"` and the
    * shift+/ pair land here; we accept either form for robustness
-   * across keyboard layouts and testing tools (same dual-form check
-   * we use for shift+g and shift+e in the listbox handler).
+   * across keyboard layouts and testing tools.
    *
-   * Esc precedence:
-   *   1. shortcut sheet open → close it     (handled by Radix Dialog)
-   *   2. any context open    → close all    (this handler)
-   *   3. any filter active   → clear filter (this handler)
-   *   4. else: no-op
+   * Esc cascades through:
+   *   shortcut surface open → close it     (owned by the dialog)
+   *   any context open      → close all    (this handler)
+   *   any filter active     → clear filter (this handler)
+   *   else                  → no-op
    *
    * The filter-clear step gives Esc something to do whenever the
-   * user has actively narrowed the view — matches the legend's
-   * "Esc Clear filter" entry. The cascade composes cleanly with
-   * the modal Esc via `defaultPrevented`.
+   * user has actively narrowed the view, matching the surrounding
+   * keyboard hint that advertises it.
    */
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -1075,10 +1058,9 @@ export function LogExplorer({
         return;
       }
 
-      // ? opens the shortcut sheet. Open-only — closing happens via
-      // Esc / click-outside / the modal's close button (all handled
-      // by Radix Dialog). Bail if the sheet is already open so we
-      // don't redundantly setState.
+      // ? opens the shortcut surface. Open-only — dismissal is owned
+      // by the dialog primitive (Esc / click-outside). Bail if it's
+      // already open so we don't redundantly setState.
       const isQuestionMark =
         event.key === "?" || (event.key === "/" && event.shiftKey);
       if (isQuestionMark) {
@@ -1102,59 +1084,31 @@ export function LogExplorer({
   }, [openContexts.length, sheetOpen, filterState, handleClearFilter]);
 
   /**
-   * Contextual legend at the top of the explorer. Surfaces the
-   * actions the user can take right now — and doubles as the mouse
-   * path for each one. Every entry is clickable; the keycaps document
-   * the keyboard equivalent.
-   *
-   * Items are pushed in left → right order, building up as state makes
-   * each action applicable:
-   *
-   *   1. `E VIEW CONTEXT` / `E HIDE CONTEXT` — when a line is focused
-   *      AND `e` would fire on it. "Hide" when the focused line is the
-   *      anchor of an open context (so e closes it); "View" otherwise
-   *      (gate passes → e opens a new context). Click triggers the
-   *      same toggle as `e` on the focused line.
-   *   2. `SHIFT+E EXPAND CONTEXT` — when the most-recently-opened
-   *      context still has room to grow. Click expands by one
-   *      CONTEXT_RANGE_STEP, same as the keyboard binding.
-   *   3. `ESC CLOSE` — when at least one context is open. Click
-   *      clears all open contexts. Stable rightmost slot once any
-   *      context is open.
-   *   4. `? FOR ALL SHORTCUTS` — fallback when none of the above
-   *      apply. Click opens the shortcut sheet.
-   *
-   * The fallback `?` only shows when nothing else does — once any
-   * stateful action is available, the legend reads as "here's what
-   * to do next" rather than "here's where to find the help."
+   * Build the contextual hint items rendered above the list. Items
+   * appear in left-to-right priority order, gated on whether the
+   * corresponding action is currently meaningful. Each item is
+   * clickable; the keycaps document the keyboard equivalent. A help
+   * fallback shows only when no stateful action is available, so the
+   * surface reads as "here's what to do next" once anything is.
    *
    * Reads the most-recent context's *saved* state from `openContexts`
-   * (not `effectiveSelectedContextLineIds`, which gates on filter
-   * match): a saved context whose accent is suppressed by a filter
-   * change is still the one shift+e would target if pressed, so the
-   * legend should reflect that. Same logic for the focused line's
-   * "anchor of an open context" check — uses openContexts directly.
-   *
-   * Esc's React key is stable (label-based) across with-room ↔
-   * boundary transitions so removing Shift+E doesn't remount Esc.
-   * The Shift+E entry's `pulseKey` is bumped on every successful
-   * expansion so that specific entry replays its mount animation —
-   * visible "your keypress registered" feedback even when the text
-   * doesn't change.
+   * (not the filter-gated set): a saved context whose accent is
+   * suppressed by a filter change is still the one expansion would
+   * target if pressed, so the right hint should still surface.
    */
   const legendItems = useMemo<readonly LegendItem[]>(() => {
     const items: LegendItem[] = [];
 
     // Whether the focused line is the anchor of a saved open context.
-    // Cheaper than scanning `effectiveSelectedContextLineIds` and
-    // captures the same intent — "would `e` close vs. open?"
+    // Captures the same intent as the filter-gated set — "would the
+    // toggle action close, or open?"
     const focusedIsAnchor =
       effectiveFocusedLineId !== null &&
       openContexts.some((c) => c.selectedLineId === effectiveFocusedLineId);
 
-    // Recompute the toggle-context gate on the focused line. Mirrors
-    // the per-row computation in LogList — kept local here so we don't
-    // have to pass `canToggleContext` per-line back up through props.
+    // Recompute the toggle-context gate on the focused line. Local
+    // copy of the per-row gate so we don't have to thread it back up
+    // through props.
     const focusedLine = effectiveFocusedLineId
       ? derivedLines.find((l) => l.id === effectiveFocusedLineId)
       : null;
@@ -1163,8 +1117,8 @@ export function LogExplorer({
       !!focusedLine?.isVisible &&
       !focusedLine.isDimmed;
 
-    // 1. Shift+E (Expand context) — leftmost when applicable, so the
-    //    "growth" action is the first thing the user reads.
+    // Expansion entry — leftmost when applicable, so the growth action
+    // is the first thing the user reads.
     const mostRecent = openContexts[openContexts.length - 1];
     if (mostRecent) {
       const anchorIndex = lines.findIndex(
@@ -1185,10 +1139,9 @@ export function LogExplorer({
       }
     }
 
-    // 2. E (View / Hide context on the focused line) — middle slot.
-    //    "Hide" when the focused line is the anchor of an open
-    //    context (e closes it); "View" otherwise (gate passes →
-    //    e opens a new context).
+    // Toggle-on-focused entry — middle slot. Label flips between
+    // open and close depending on whether the focused line is already
+    // a context anchor.
     if (effectiveFocusedLineId && (focusedCanToggle || focusedIsAnchor)) {
       items.push({
         keys: ["E"],
@@ -1200,14 +1153,9 @@ export function LogExplorer({
       });
     }
 
-    // 3. Esc — rightmost. Cascade priority drives the label and
-    //    behaviour:
-    //      contexts open → "Close" (clears all open contexts)
-    //      else filter active → "Clear filter" (resets to empty)
-    //      else → not shown; nothing for Esc to do
-    //
-    //    Same precedence as the document-level Esc handler so the
-    //    legend's mouse path and the keyboard binding stay in sync.
+    // Dismiss entry — rightmost. Cascade priority drives the label
+    // and behavior; same precedence as the document-level Esc handler
+    // so the mouse path and the keyboard binding stay in sync.
     if (openContexts.length > 0) {
       items.push({
         keys: ["Esc"],
@@ -1225,7 +1173,7 @@ export function LogExplorer({
     }
 
     // Fallback to the help entry only when nothing actionable has
-    // been pushed — the legend should always say *something*.
+    // been pushed — the surface should always say *something*.
     if (items.length === 0) {
       items.push({
         keys: ["?"],
@@ -1251,11 +1199,6 @@ export function LogExplorer({
   return (
     // prefers-reduced-motion is honored entirely in CSS — no JS
     // bridge needed.
-    //
-    // Vertical layout: legend strip → scenario chips → log list. The
-    // legend sits at the very top of the explorer column — top-of-
-    // page chrome that documents and acts on the app's keyboard
-    // shortcuts.
     <div className={styles.explorer}>
       <Legend items={legendItems} />
       <ScenarioChips state={filterState} dispatch={dispatchFilter} />

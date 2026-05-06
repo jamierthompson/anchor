@@ -16,24 +16,22 @@ export type OpenContext = {
 export const DEFAULT_CONTEXT_RANGE = 20;
 
 /**
- * Fixed step size for the shift+e expansion shortcut. Each press adds
- * this many lines to either side of the most-recently-opened context's
- * range, until the window covers everything between the anchor and
- * both file edges (see `isAtFileBoundary`).
+ * Fixed step added to either side of the most-recently-opened context
+ * per expansion press, until the window covers everything between the
+ * anchor and both file edges (see `isAtFileBoundary`).
  *
- * Why fixed steps instead of a [20, 50, 100] cycle: cycling has no
- * visible state — the user can't see which step they're on, and
- * there's no signal when wrapping back to ±20. A predictable "+20
- * each press until you can't go further" model avoids both problems
- * and matches the natural reading flow of "I need a bit more, hit
- * the key again."
+ * Why fixed steps over a cycling progression: cycling has no visible
+ * state — the user can't see which step they're on, and there's no
+ * signal when wrapping. Predictable additive growth matches the
+ * natural reading flow of "a bit more, hit the key again."
  */
 export const CONTEXT_RANGE_STEP = 20;
 
 /**
  * Whether the context window already covers the loaded data on both
- * sides of the anchor. Once true, shift+e is a no-op and the legend
- * swaps to "Esc Close."
+ * sides of the anchor. Once true, the expansion binding becomes a
+ * no-op and the surrounding chrome reflects that no growth path
+ * remains.
  *
  * The bound is the *longer* side — `Math.max(anchorIndex, totalLines
  * - 1 - anchorIndex)`. Range grows symmetrically; once it meets that
