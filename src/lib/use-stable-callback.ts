@@ -14,7 +14,7 @@ import { useCallback, useLayoutEffect, useRef } from "react";
  * ### Motivating case
  *
  * `LogExplorer` exposes per-row callbacks (`handleToggleContext`,
- * `handleFilterToggle`, etc.) to the memoized `LogListItem`. Their
+ * `handleExpandContext`) to the memoized `LogListItem`. Their
  * `useCallback` deps include state that changes mid-interaction —
  * `derivedLines` is a new array every render, `transitionMode` flips
  * during a context toggle, `openContexts` updates on every toggle. So
@@ -24,6 +24,12 @@ import { useCallback, useLayoutEffect, useRef } from "react";
  * Wrapping with `useStableCallback` gives a stable outer reference
  * that always delegates to the latest closure. The memo bites; the
  * row's body still sees up-to-date state when the callback runs.
+ *
+ * It also doubles as a react-compiler escape hatch: the analyzer
+ * conservatively flags `useCallback` closures that transitively read
+ * refs (e.g. `handleClearFilter` → `dispatchFilter` →
+ * `slowModeTimeoutRef.current`). Wrapping in `useStableCallback`
+ * hides that call graph behind a stable opaque wrapper.
  *
  * ### Tradeoff
  *

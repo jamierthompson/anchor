@@ -4,14 +4,12 @@
  *
  * The handler in `LogExplorer` still does its own case-by-case key
  * detection (see `handleKeyDown` and the document-level effect for
- * `?` / Esc / `/`) — refactoring that to consume this registry is a
+ * `?` / Esc) — refactoring that to consume this registry is a
  * follow-up task. For now, this file's job is purely to feed the
- * sheet's render. Both surfaces having to be edited together is the
- * cost; the upside is the sheet ships without a risky handler refactor.
+ * sheet's render.
  *
- * **Invariant for editors of this file**: anything that lands here
- * must already be wired in `handleKeyDown` (or the document-level
- * effect). The sheet shouldn't advertise bindings that don't fire.
+ * Anything that lands here must already be wired in `handleKeyDown`
+ * (or the document-level effect). The sheet shouldn't advertise bindings that don't fire.
  * The reverse — bindings that fire but aren't in the sheet — is also
  * a bug; keep this list aligned when adding new bindings.
  */

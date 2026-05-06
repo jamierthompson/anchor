@@ -17,9 +17,9 @@
  * the context goes dormant for the visibility computation — its
  * windowed lines collapse back to hidden rather than staying visible-
  * dimmed. The open-context state itself is preserved by the caller, so
- * loosening the filter brings the context back. The scrollTop-
- * preservation half of that edge case lands with the anchor mechanics
- * in task #5.
+ * loosening the filter brings the context back. Scroll-position
+ * preservation across that transition is handled separately by the
+ * anchor-compensation mechanics in LogExplorer.
  *
  * Pure function on purpose: the visibility rule is the most testable
  * piece of the prototype, and keeping it free of React/state means
